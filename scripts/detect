@@ -1,0 +1,355 @@
+#!/usr/bin/env bash
+# 프로젝트를 훑어 .harness/project.json 초안을 만든다. 하네스를 설치할 때 쓰는 도구다.
+# 스펙: docs/project-config.md
+set -euo pipefail
+
+usage() {
+  cat <<'EOF'
+사용법: scripts/detect [--write [--force]] [프로젝트 경로]
+
+  프로젝트 경로를 생략하면 현재 디렉터리가 속한 git 저장소의 루트를 본다.
+  초안 JSON은 stdout으로, 판단 근거와 경고는 stderr로 출력한다.
+  --write   <프로젝트>/.harness/project.json에 저장한다
+  --force   --write일 때 기존 파일을 덮어쓴다
+
+환경 변수:
+  HARNESS_OFFLINE=1       xcodebuild·simctl을 부르지 않고 파일만 본다 (테스트용)
+  HARNESS_SIMULATOR=이름   시뮬레이터 이름을 직접 지정한다
+EOF
+}
+
+write=0
+force=0
+root=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --write) write=1 ;;
+    --force) force=1 ;;
+    -h|--help) usage; exit 0 ;;
+    -*) echo "detect: 알 수 없는 옵션: $1" >&2; usage >&2; exit 2 ;;
+    *) root="$1" ;;
+  esac
+  shift
+done
+
+if ! command -v jq >/dev/null 2>&1; then
+  echo "detect: jq가 필요합니다 (macOS에는 /usr/bin/jq로 기본 포함)" >&2
+  exit 1
+fi
+
+if [ -z "$root" ]; then
+  root="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+fi
+if [ ! -d "$root" ]; then
+  echo "detect: 디렉터리가 없습니다: $root" >&2
+  exit 1
+fi
+root="$(cd "$root" && pwd)"
+offline="${HARNESS_OFFLINE:-0}"
+
+note() { echo "detect: $*" >&2; }
+warn() { echo "detect: 경고: $*" >&2; }
+
+# 디렉터리($1)에서 glob($2)에 맞는 첫 항목 이름. 없으면 빈 문자열.
+first_match() {
+  (cd "$1" && for f in $2; do if [ -e "$f" ]; then echo "$f"; break; fi; done) || true
+}
+
+# 루트 Makefile에 타깃($1)이 있으면 성공
+make_has() {
+  [ -f "$root/Makefile" ] && grep -qE "^$1[[:space:]]*:" "$root/Makefile"
+}
+
+# 파일($1)에서 정규식($2)에 맞는 첫 부분의 따옴표 안 값. 없으면 빈 문자열.
+first_quoted() {
+  { grep -m1 -oE "$2" "$1" 2>/dev/null || true; } | sed -E 's/^[^"]*"([^"]*)".*/\1/' | head -n 1 || true
+}
+
+# --- 생성기 -------------------------------------------------------------------
+
+generator=""
+if [ -f "$root/Tuist.swift" ] || [ -f "$root/Tuist/Config.swift" ] \
+  || { [ -d "$root/Tuist" ] && { [ -f "$root/Workspace.swift" ] || [ -f "$root/Project.swift" ]; }; }; then
+  generator="tuist"
+elif [ -f "$root/project.yml" ] && grep -qE '^targets:' "$root/project.yml"; then
+  generator="xcodegen"
+elif [ -n "$(first_match "$root" '*.xcworkspace')" ] || [ -n "$(first_match "$root" '*.xcodeproj')" ]; then
+  generator="xcodeproj"
+elif [ -f "$root/Package.swift" ]; then
+  generator="spm"
+else
+  echo "detect: iOS 프로젝트를 찾지 못했습니다 (Tuist·XcodeGen·xcodeproj·Package.swift 없음): $root" >&2
+  exit 1
+fi
+note "생성기: $generator"
+
+# --- 명령 ---------------------------------------------------------------------
+# 프로젝트가 Makefile로 감싼 명령이 있으면 그것을 쓴다. 환경 변수 같은 프로젝트 고유 설정이 들어 있을 수 있다.
+
+install_cmd=""
+generate_cmd=""
+case "$generator" in
+  tuist)
+    if make_has generate; then generate_cmd="make generate"; else generate_cmd="tuist generate"; fi
+    if make_has install; then
+      install_cmd="make install"
+    elif [ -f "$root/Tuist/Package.swift" ]; then
+      install_cmd="tuist install"
+    fi
+    ;;
+  xcodegen)
+    if make_has generate; then generate_cmd="make generate"; else generate_cmd="xcodegen generate"; fi
+    ;;
+esac
+if [ -n "$generate_cmd" ]; then note "generate: $generate_cmd"; fi
+if [ -n "$install_cmd" ]; then note "install: $install_cmd"; fi
+
+# --- 빌드 대상 (workspace / project) -----------------------------------------
+
+workspace=""
+project=""
+case "$generator" in
+  tuist)
+    ws_name=""
+    if [ -f "$root/Workspace.swift" ]; then
+      ws_name="$(first_quoted "$root/Workspace.swift" '(^|[^A-Za-z])name:[[:space:]]*"[^"]+"')"
+    fi
+    if [ -z "$ws_name" ] && [ -f "$root/Project.swift" ]; then
+      ws_name="$(first_quoted "$root/Project.swift" '(^|[^A-Za-z])name:[[:space:]]*"[^"]+"')"
+    fi
+    if [ -n "$ws_name" ]; then
+      workspace="$ws_name.xcworkspace"
+    else
+      workspace="$(first_match "$root" '*.xcworkspace')"
+    fi
+    ;;
+  xcodegen)
+    xg_name="$({ grep -m1 -E '^name:' "$root/project.yml" || true; } | sed -E 's/^name:[[:space:]]*"?([^"]*)"?[[:space:]]*$/\1/')"
+    if [ -n "$xg_name" ]; then project="$xg_name.xcodeproj"; fi
+    ;;
+  xcodeproj)
+    workspace="$(first_match "$root" '*.xcworkspace')"
+    if [ -z "$workspace" ]; then project="$(first_match "$root" '*.xcodeproj')"; fi
+    ;;
+  spm)
+    warn "SPM 패키지는 아직 build·test 스크립트가 지원하지 않습니다"
+    ;;
+esac
+
+container=""
+container_flag=""
+if [ -n "$workspace" ]; then
+  container="$workspace"; container_flag="-workspace"
+elif [ -n "$project" ]; then
+  container="$project"; container_flag="-project"
+fi
+if [ -n "$container" ]; then note "빌드 대상: $container"; fi
+if [ -z "$container" ] && [ "$generator" != "spm" ]; then
+  warn "빌드 대상(workspace/project)을 정하지 못했습니다. 직접 채우세요"
+fi
+
+generated=0
+if [ -n "$container" ] && [ -e "$root/$container" ]; then generated=1; fi
+if [ "$generated" = 0 ] && [ -n "$generate_cmd" ]; then
+  warn "$container 가 아직 생성되지 않았습니다. '$generate_cmd' 실행 뒤 다시 detect하면 스킴과 번들 ID를 확인합니다"
+fi
+
+# --- 스킴 목록 (생성된 프로젝트가 있고 온라인일 때) ------------------------------
+
+schemes_json="[]"
+schemes_known=0
+if [ "$offline" != 1 ] && [ "$generated" = 1 ]; then
+  if list_json="$(cd "$root" && xcodebuild -list -json "$container_flag" "$container" 2>/dev/null)"; then
+    schemes_json="$(printf '%s' "$list_json" | jq -c '(.workspace.schemes // .project.schemes // [])')"
+    schemes_known=1
+    note "스킴 $(printf '%s' "$schemes_json" | jq length)개 확인 (xcodebuild -list)"
+  else
+    warn "xcodebuild -list 실패 — 스킴을 확인하지 못했습니다"
+  fi
+fi
+
+has_scheme() {
+  printf '%s' "$schemes_json" | jq -e --arg s "$1" 'index($s) != null' >/dev/null
+}
+
+# --- 앱 ---------------------------------------------------------------------
+
+app_path=""
+app_project_name=""
+app_pbxproj=""
+case "$generator" in
+  tuist)
+    app_manifests="$(cd "$root" && { grep -rlE 'product:[[:space:]]*\.app([^A-Za-z]|$)' --include='Project.swift' . 2>/dev/null || true; } \
+      | { grep -vE '/(Derived|\.build|Tuist)/' || true; } | sed 's|^\./||' | sort)"
+    if [ -z "$app_manifests" ]; then
+      warn "앱 manifest(product: .app)를 찾지 못했습니다. app 값을 직접 채우세요"
+    else
+      app_manifest="$(printf '%s\n' "$app_manifests" | head -n 1)"
+      if [ "$(printf '%s\n' "$app_manifests" | wc -l | tr -d ' ')" -gt 1 ]; then
+        warn "앱 manifest가 여러 개입니다. 첫 번째($app_manifest)를 골랐습니다: $(printf '%s ' $app_manifests)"
+      fi
+      app_path="$(dirname "$app_manifest")"
+      app_xcodeproj="$(first_match "$root/$app_path" '*.xcodeproj')"
+      if [ -n "$app_xcodeproj" ]; then
+        app_project_name="${app_xcodeproj%.xcodeproj}"
+        app_pbxproj="$root/$app_path/$app_xcodeproj/project.pbxproj"
+      else
+        app_project_name="$(basename "$root/$app_path")"
+      fi
+    fi
+    ;;
+  xcodegen | xcodeproj)
+    if [ -n "$project" ]; then
+      app_xcodeproj="$project"
+    else
+      app_xcodeproj="$(first_match "$root" '*.xcodeproj')"
+    fi
+    if [ -n "$app_xcodeproj" ]; then
+      app_project_name="${app_xcodeproj%.xcodeproj}"
+      app_pbxproj="$root/$app_xcodeproj/project.pbxproj"
+    fi
+    ;;
+esac
+
+# pbxproj에서 앱 타깃·단위 테스트 타깃·번들 ID를 읽는다. pbxproj는 plutil로 JSON 변환한다.
+app_target=""
+bundle_id=""
+unit_tests_json="[]"
+if [ -n "$app_pbxproj" ] && [ -f "$app_pbxproj" ]; then
+  targets_json="$(plutil -convert json -o - "$app_pbxproj" 2>/dev/null | jq -c '
+    .objects as $o
+    | [ $o[] | select(.isa == "PBXNativeTarget")
+        | { name, type: .productType,
+            bundleId: ([ $o[.buildConfigurationList].buildConfigurations[]? | $o[.]
+                         | select(.name == "Debug") | .buildSettings.PRODUCT_BUNDLE_IDENTIFIER ] | first) } ]' 2>/dev/null || true)"
+  if [ -n "$targets_json" ]; then
+    app_target="$(printf '%s' "$targets_json" | jq -r --arg pref "$app_project_name" '
+      [ .[] | select(.type == "com.apple.product-type.application") ]
+      | ((map(select(.name == $pref)) + .) | first | .name) // empty')"
+    unit_tests_json="$(printf '%s' "$targets_json" | jq -c '[ .[] | select(.type == "com.apple.product-type.bundle.unit-test") | .name ]')"
+    bundle_id="$(printf '%s' "$targets_json" | jq -r --arg t "$app_target" '.[] | select(.name == $t) | .bundleId // empty')"
+  else
+    warn "pbxproj를 읽지 못했습니다: $app_pbxproj"
+  fi
+fi
+
+# 앱 스킴: 앱 타깃 이름 → 프로젝트 이름 순으로, 스킴 목록에 있는 것을 고른다.
+app_scheme=""
+for candidate in "$app_target" "$app_project_name"; do
+  if [ -z "$candidate" ]; then continue; fi
+  if [ "$schemes_known" = 0 ] || has_scheme "$candidate"; then
+    app_scheme="$candidate"
+    break
+  fi
+done
+if [ -z "$app_scheme" ]; then
+  warn "앱 스킴을 정하지 못했습니다. app.scheme을 직접 채우세요"
+elif [ "$schemes_known" = 0 ]; then
+  warn "스킴 목록을 확인하지 못해 앱 스킴을 추정했습니다: $app_scheme"
+else
+  note "앱 스킴: $app_scheme"
+fi
+
+# 번들 ID가 $(VAR)처럼 빌드 설정 변수면 xcodebuild로 실제 값을 확인한다.
+case "$bundle_id" in
+  *'$('*) bundle_id_unresolved="$bundle_id"; bundle_id="" ;;
+  *) bundle_id_unresolved="" ;;
+esac
+if [ -z "$bundle_id" ] && [ -n "$app_scheme" ] && [ "$offline" != 1 ] && [ "$generated" = 1 ]; then
+  bundle_id="$(cd "$root" && xcodebuild -showBuildSettings -json "$container_flag" "$container" -scheme "$app_scheme" 2>/dev/null \
+    | jq -r '[ .[] | select(.buildSettings.WRAPPER_EXTENSION == "app") ][0].buildSettings.PRODUCT_BUNDLE_IDENTIFIER // empty' 2>/dev/null || true)"
+  if [ -n "$bundle_id" ]; then note "번들 ID: $bundle_id (xcodebuild -showBuildSettings)"; fi
+elif [ -n "$bundle_id" ]; then
+  note "번들 ID: $bundle_id (pbxproj)"
+fi
+if [ -z "$bundle_id" ]; then
+  warn "번들 ID를 확인하지 못했습니다${bundle_id_unresolved:+ ($bundle_id_unresolved)}. app.bundleId를 직접 채우세요"
+fi
+
+note "앱 단위 테스트 타깃: $(printf '%s' "$unit_tests_json" | jq -r 'if length == 0 then "없음" else join(", ") end')"
+
+# --- 모듈 (Tuist) -----------------------------------------------------------
+# Project.swift가 있는 디렉터리를 모듈 하나로 본다. 앱 디렉터리와 루트는 제외한다.
+
+modules_json="null"
+if [ "$generator" = "tuist" ]; then
+  module_dirs="$(cd "$root" && find . -name Project.swift -not -path '*/Derived/*' -not -path '*/.build/*' -not -path './Tuist/*' 2>/dev/null \
+    | sed -e 's|^\./||' -e 's|/Project.swift$||' | { grep -vxE "Project.swift|${app_path:-.}" || true; } | sort || true)"
+  if [ -n "$module_dirs" ]; then
+    modules_json='{"manifest":"Project.swift","scheme":"{dir}","testsDir":"Tests"}'
+    total=0
+    with_tests=0
+    mismatched=""
+    while IFS= read -r dir; do
+      total=$((total + 1))
+      if [ -d "$root/$dir/Tests" ]; then with_tests=$((with_tests + 1)); fi
+      name="$(basename "$dir")"
+      if [ "$schemes_known" = 1 ] && ! has_scheme "$name"; then mismatched="$mismatched $dir"; fi
+    done <<EOF
+$module_dirs
+EOF
+    note "모듈 ${total}개 (테스트 있는 모듈 ${with_tests}개, 기준: Project.swift)"
+    if [ -n "$mismatched" ]; then
+      warn "디렉터리 이름과 같은 스킴이 없는 모듈:$mismatched — modules.scheme 규칙을 확인하세요"
+    elif [ "$schemes_known" = 1 ]; then
+      note "모듈 스킴 규칙 {dir}: ${total}개 모두 일치"
+    fi
+  fi
+fi
+
+# --- 시뮬레이터 -------------------------------------------------------------
+# 가장 최신 iOS 런타임의 iPhone 중 번호가 가장 큰 Pro 모델, 없으면 첫 iPhone을 고른다.
+
+simulator="${HARNESS_SIMULATOR:-}"
+if [ -z "$simulator" ] && [ "$offline" != 1 ]; then
+  simulator="$(xcrun simctl list devices available -j 2>/dev/null | jq -r '
+    [ .devices | to_entries[]
+      | select(.key | test("SimRuntime\\.iOS-[0-9]+-[0-9]+"))
+      | { ver: (.key | capture("iOS-(?<a>[0-9]+)-(?<b>[0-9]+)") | [(.a | tonumber), (.b | tonumber)]),
+          phones: [ .value[] | select(.name | startswith("iPhone")) | .name ] }
+      | select(.phones | length > 0) ]
+    | sort_by(.ver) | last | .phones // []
+    | ((map(select(test("^iPhone [0-9]+ Pro$"))) | sort_by(capture("(?<n>[0-9]+)").n | tonumber) | last) // .[0] // empty)
+  ' 2>/dev/null || true)"
+fi
+if [ -n "$simulator" ]; then
+  note "시뮬레이터: $simulator"
+else
+  warn "시뮬레이터를 정하지 못했습니다. destination.simulator를 직접 채우세요"
+fi
+
+# --- 출력 -------------------------------------------------------------------
+
+draft="$(jq -n \
+  --arg generator "$generator" \
+  --arg install "$install_cmd" --arg generate "$generate_cmd" \
+  --arg workspace "$workspace" --arg project "$project" \
+  --arg scheme "$app_scheme" --arg path "$app_path" --arg bundle "$bundle_id" \
+  --argjson unitTests "$unit_tests_json" \
+  --arg simulator "$simulator" \
+  --argjson modules "$modules_json" '
+  def orNull: if . == "" then null else . end;
+  {
+    schemaVersion: 1,
+    generator: $generator,
+    commands: { install: ($install | orNull), generate: ($generate | orNull) },
+    workspace: ($workspace | orNull),
+    project: ($project | orNull),
+    app: { scheme: ($scheme | orNull), path: ($path | orNull), bundleId: ($bundle | orNull), unitTestTargets: $unitTests },
+    destination: { simulator: ($simulator | orNull), os: "latest" },
+    modules: $modules
+  }')"
+
+if [ "$write" = 1 ]; then
+  out="$root/.harness/project.json"
+  if [ -e "$out" ] && [ "$force" != 1 ]; then
+    echo "detect: $out 이 이미 있습니다. 덮어쓰려면 --force를 붙이세요" >&2
+    exit 1
+  fi
+  mkdir -p "$root/.harness"
+  printf '%s\n' "$draft" > "$out"
+  note "저장했습니다: $out"
+else
+  printf '%s\n' "$draft"
+  note "초안입니다. 값을 확인한 뒤 --write로 저장하세요"
+fi

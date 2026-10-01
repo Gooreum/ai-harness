@@ -5,11 +5,16 @@
 
 ## 구조
 
-- `template/`: 각 iOS 프로젝트에 설치되는 파일의 원본(에이전트 지침, 규칙)
+- `template/`: 각 iOS 프로젝트에 설치되는 파일의 원본(에이전트 지침, 규칙, 스크립트)
   - 대상 프로젝트의 루트를 기준으로 쓴다.
   - 이 저장소를 개발하기 위한 내용은 넣지 않는다.
   - 내부 구조는 단위 5·6에서 바뀐다.
+  - 프로젝트 안에서 매일 쓰는 스크립트(build·test·verify 등)는 단위 3부터 `template/scripts/harness/`에 둔다. 설치되면 `scripts/harness/`가 된다.
+- `scripts/`: 하네스를 설치·관리하는 도구. 대상 프로젝트 경로를 인자로 받는다.
+  - 예: `scripts/detect <프로젝트 경로>`
+- `tests/`: 스크립트 회귀 테스트. `bash tests/run.sh`로 전부 실행한다.
 - `docs/roadmap.md`: 작업 단위와 순서, 진행 상황
+- `docs/project-config.md`: 프로젝트 설정 파일(`.harness/project.json`) 스펙
 - `docs/principles.md`: 하네스 계층, 설계 원칙, 실수를 어느 층에서 고칠지 정한 기준표, 용어
 - `docs/references.md`: 레퍼런스 조사 요약, 플랫폼 제약, 로컬 환경, 출처
 - `docs/decisions/`: 설계 결정 기록(ADR)
