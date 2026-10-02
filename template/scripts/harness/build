@@ -1,0 +1,87 @@
+#!/usr/bin/env bash
+# 앱(또는 지정한 스킴)을 시뮬레이터용으로 빌드하고 결과를 요약한다.
+set -euo pipefail
+
+here="$(cd "$(dirname "$0")" && pwd)"
+. "$here/lib.sh"
+
+usage() {
+  cat <<'EOF'
+사용법: scripts/harness/build [--scheme 스킴] [--generate]
+
+  .harness/project.json의 앱 스킴을 시뮬레이터용으로 빌드한다.
+  성공하면 한 줄, 실패하면 첫 에러부터 위치와 메시지를 출력한다.
+
+  --scheme 스킴   앱 대신 이 스킴을 빌드한다
+  --generate      변경이 없어도 프로젝트를 다시 생성한다 (Tuist·XcodeGen)
+
+산출물 (.harness/out/): build.log(원본 로그), build.xcresult(결과 번들)
+EOF
+}
+
+scheme=""
+force_generate=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --scheme) [ $# -ge 2 ] || harness_die "--scheme에 스킴 이름이 필요합니다"; scheme="$2"; shift ;;
+    --generate) force_generate=force ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "build: 알 수 없는 인자: $1" >&2; usage >&2; exit 2 ;;
+  esac
+  shift
+done
+
+harness_init
+harness_container_args
+harness_destination
+scheme="${scheme:-$(cfg .app.scheme)}"
+[ -n "$scheme" ] || harness_die "설정에 app.scheme이 없습니다"
+max_errors="${HARNESS_MAX_ERRORS:-5}"
+
+start=$SECONDS
+harness_ensure_generated "$force_generate" || exit 1
+
+log="$out_dir/build.log"
+result="$out_dir/build.xcresult"
+rm -rf "$result"
+
+set +e
+xcodebuild build "${container_args[@]}" \
+  -scheme "$scheme" \
+  -destination "$destination" \
+  -derivedDataPath "$derived_data" \
+  -resultBundlePath "$result" \
+  -quiet > "$log" 2>&1
+code=$?
+set -e
+elapsed=$((SECONDS - start))
+
+json=""
+if [ -d "$result" ]; then
+  json="$(xcrun xcresulttool get build-results --path "$result" --compact 2>/dev/null || true)"
+fi
+errors=0
+warnings=0
+if [ -n "$json" ]; then
+  errors="$(printf '%s' "$json" | jq '.errorCount // (.errors | length)')"
+  warnings="$(printf '%s' "$json" | jq '.warningCount // (.warnings | length)')"
+fi
+note=""
+if [ "$generated_now" = 1 ]; then note=" (generate 포함)"; fi
+
+if [ "$code" -eq 0 ]; then
+  echo "✓ build $scheme · $destination_label · ${elapsed}s$note · 경고 $warnings"
+  exit 0
+fi
+
+echo "✗ build $scheme 실패 · 에러 $errors · 경고 $warnings · ${elapsed}s$note"
+if [ "$errors" -gt 0 ]; then
+  printf '%s' "$json" | format_issues "$root" errors "$max_errors"
+  if [ "$errors" -gt "$max_errors" ]; then echo "  … 에러 $((errors - max_errors))개 더 있음"; fi
+else
+  # 결과 번들에 에러가 없으면(인자 오류, 스크립트 단계 실패 등) 로그에서 에러 줄을 찾는다.
+  { grep -E 'error:|ERROR' "$log" || tail -n 20 "$log"; } | head -n 20 | sed 's/^/  /' || true
+fi
+echo "  로그: ${log#$root/}"
+if [ -d "$result" ]; then echo "  결과: ${result#$root/}"; fi
+exit "$code"

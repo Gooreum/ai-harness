@@ -47,7 +47,7 @@
     - `.harness/project.json` 스펙 작성
     - `scripts/detect` 작성 (하네스 설치 도구라 저장소 `scripts/`에 둔다)
   - 완료 기준: MotoTrace, coinness-ios, xcodeproj 앱 하나에서 초안이 실제 구성과 일치한다.
-- [ ] **3. 빌드 실행·판정 `scripts/harness/build`** (Execution + Validation)
+- [x] **3. 빌드 실행·판정 `scripts/harness/build`** (Execution + Validation)
   - 하는 일
     - generate → `xcodebuild -quiet` → `xcresulttool` 요약 순서로 실행
     - 출력: 성공하면 1줄, 실패하면 첫 에러의 `파일:줄`과 원본 로그 경로
