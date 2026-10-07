@@ -9,7 +9,7 @@
   - 대상 프로젝트의 루트를 기준으로 쓴다.
   - 이 저장소를 개발하기 위한 내용은 넣지 않는다.
   - 내부 구조는 단위 5·6에서 바뀐다.
-  - `template/scripts/harness/`: 프로젝트 안에서 매일 쓰는 스크립트(build 등)와 공용 함수 `lib.sh`. 설치되면 `scripts/harness/`가 된다.
+  - `template/scripts/harness/`: 프로젝트 안에서 매일 쓰는 스크립트(build·test·verify)와 공용 함수 `lib.sh`. 설치되면 `scripts/harness/`가 된다.
   - `template/.harness/.gitignore`: 프로젝트의 `.harness/`에서 설정 파일만 커밋하게 한다.
 - `scripts/`: 하네스를 설치·관리하는 도구. 대상 프로젝트 경로를 인자로 받는다.
   - 예: `scripts/detect <프로젝트 경로>`

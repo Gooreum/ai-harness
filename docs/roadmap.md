@@ -52,7 +52,7 @@
     - generate → `xcodebuild -quiet` → `xcresulttool` 요약 순서로 실행
     - 출력: 성공하면 1줄, 실패하면 첫 에러의 `파일:줄`과 원본 로그 경로
   - 완료 기준: 정상 빌드와 일부러 넣은 컴파일 에러 양쪽의 출력을 확인한다.
-- [ ] **4. 테스트 실행·판정과 verify** (Execution + Validation)
+- [x] **4. 테스트 실행·판정과 verify** (Execution + Validation)
   - 하는 일
     - `scripts/harness/test` 작성: 실패만 요약
     - `scripts/harness/verify` 작성: 빌드와 변경 모듈 테스트를 명령 하나로 실행

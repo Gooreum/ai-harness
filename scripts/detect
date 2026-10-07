@@ -282,8 +282,14 @@ if [ "$generator" = "tuist" ]; then
     mismatched=""
     while IFS= read -r dir; do
       total=$((total + 1))
-      if [ -d "$root/$dir/Tests" ]; then with_tests=$((with_tests + 1)); fi
       name="$(basename "$dir")"
+      # 생성된 스킴 파일이 있으면 테스트 대상이 있는지 보고, 없으면 Tests 폴더로 판단한다.
+      scheme_file="$(first_match "$root/$dir" "*.xcodeproj/xcshareddata/xcschemes/$name.xcscheme")"
+      if [ -n "$scheme_file" ]; then
+        if grep -q '<TestableReference' "$root/$dir/$scheme_file"; then with_tests=$((with_tests + 1)); fi
+      elif [ -d "$root/$dir/Tests" ]; then
+        with_tests=$((with_tests + 1))
+      fi
       if [ "$schemes_known" = 1 ] && ! has_scheme "$name"; then mismatched="$mismatched $dir"; fi
     done <<EOF
 $module_dirs
