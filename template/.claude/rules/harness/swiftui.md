@@ -1,3 +1,8 @@
+---
+paths:
+  - "**/*.swift"
+---
+
 # SwiftUI
 
 ## 상태

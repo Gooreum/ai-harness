@@ -57,10 +57,11 @@
     - `scripts/harness/test` 작성: 실패만 요약
     - `scripts/harness/verify` 작성: 빌드와 변경 모듈 테스트를 명령 하나로 실행
   - 완료 기준: 모듈 하나를 고치면 그 모듈의 테스트가 돌고, 실패가 요약돼 보인다.
-- [ ] **5. 규칙 재구성** (Context)
+- [x] **5. 규칙 재구성** (Context)
   - 하는 일
     - 규칙을 `template/.claude/rules/harness/*.md`로 옮기고 `paths:` 추가
-    - `build.md`의 절차는 verify로 대체
+    - `build.md`의 절차는 verify로 대체 (`project-settings.md`로 이름 변경)
+    - `git.md`는 경로로 걸 수 없어 꼭 지킬 줄만 AGENTS.md로 옮김 (ADR 0002)
   - 완료 기준: `.swift` 파일을 읽을 때 해당 규칙이 로드된다.
 - [ ] **6. AGENTS.md 템플릿과 CLAUDE.md** (Context)
   - 하는 일
@@ -90,7 +91,7 @@
 
 - [ ] 10. UI 확인: 시뮬레이터 실행·접근성 트리·스크린샷 도구, `ios-ui-check` 스킬, 프로젝트 시나리오 스킬 템플릿
 - [ ] 11. 빌드·Tuist 절차 스킬과 아키텍처 센서: `ios-build-fix`, `tuist-change`, `tuist inspect` 래퍼
-- [ ] 12. 워크플로 스킬: 실행 계획, PR 본문에 검증 결과 넣기, 워크트리
+- [ ] 12. 워크플로 스킬: 실행 계획, git 관례(커밋 구성, 브랜치, PR 본문에 검증 결과 넣기), 워크트리 (ADR 0002에서 넘긴 항목 포함)
 - [ ] 13. (조건부) 검증 강제: 에이전트가 검증을 건너뛰는 일이 관찰될 때만 추가한다. 가장 단순한 형태부터 시도한다.
 - [ ] 14. 플러그인 배포와 init/sync/doctor
 - [ ] 15. 두 번째 프로젝트 적용: coinness-ios, 이어서 xcodeproj 앱
