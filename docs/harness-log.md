@@ -18,6 +18,18 @@
 
 ## 기록
 
+### 2026-10-12 — 에이전트가 `git -C <경로>` 형식을 쓰면 ask 규칙을 피해 간다
+- 프로젝트·작업: MotoTrace 시험장, 단위 7 권한 규칙 확인 (터미널 `claude -p` 세션)
+- 무슨 일이 있었나
+  - 대조 실험으로 `git update-index --refresh`를 시켰더니, 에이전트가 스스로 `git -C <워크트리 경로> update-index --refresh`로 실행했다.
+  - 권한 규칙은 명령 문장의 앞부분으로 매칭한다. 그래서 같은 방식으로 `git -C <경로> reset --hard`라고 쓰면 `Bash(git reset --hard *)` 규칙에 걸리지 않는다.
+- 원인: Enforcement — Bash 권한 규칙이 `git -C` 형식을 덮지 못했다.
+- 조치
+  - ask 규칙마다 `git -C * …` 형식을 추가했다.
+  - `git -C <경로> reset --hard HEAD`가 확인 요청으로 막히는 것을 확인했다.
+  - `sh -c`나 `/usr/bin/git`처럼 다르게 쓴 명령은 여전히 덮지 못한다. 실수를 막는 장치라는 한계를 ADR 0004에 적었다.
+- 상태: 반영됨 (단위 7)
+
 ### 2026-10-02 — Tests 폴더가 있다고 테스트 타깃이 있는 것은 아니다
 - 프로젝트·작업: MotoTrace 시험장, 단위 4 `verify --all` 확인
 - 무슨 일이 있었나

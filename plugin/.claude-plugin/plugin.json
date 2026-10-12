@@ -1,0 +1,9 @@
+{
+  "name": "ios-harness",
+  "version": "0.1.0",
+  "description": "iOS 프로젝트용 하네스. 자동 생성 파일과 project.pbxproj를 직접 고치지 못하게 막는다.",
+  "author": {
+    "name": "woong"
+  },
+  "repository": "https://github.com/Sunwoong-ii/ios-ai-harness"
+}

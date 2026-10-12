@@ -12,6 +12,8 @@
   - `template/.claude/rules/harness/`: 상황별 규칙. `paths:`로 해당 파일을 읽을 때만 로드된다. 프로젝트 고유 규칙 자리는 `rules/project/`
   - `template/scripts/harness/`: 프로젝트 안에서 매일 쓰는 스크립트(build·test·verify)와 공용 함수 `lib.sh`. 설치되면 `scripts/harness/`가 된다.
   - `template/.harness/.gitignore`: 프로젝트의 `.harness/`에서 설정 파일만 커밋하게 한다.
+  - `template/.claude/settings.json`: 권한 규칙(시크릿 읽기 deny, pbxproj 편집 deny, 파괴적 git 작업 ask)
+- `plugin/`: Claude Code 플러그인 `ios-harness`. 훅(생성 파일·pbxproj 편집 차단)을 담는다. 루트의 `.claude-plugin/marketplace.json`이 이 저장소를 마켓플레이스로 만든다
 - `scripts/`: 하네스를 설치·관리하는 도구. 대상 프로젝트 경로를 인자로 받는다.
   - 예: `scripts/detect <프로젝트 경로>`
 - `tests/`: 스크립트 회귀 테스트. `bash tests/run.sh`로 전부 실행한다.
@@ -19,6 +21,7 @@
 - `docs/project-config.md`: 프로젝트 설정 파일(`.harness/project.json`) 스펙
 - `docs/scripts.md`: 프로젝트 스크립트의 동작 방식(출력 형식, 산출물 위치, 프로젝트 생성 판단)
 - `docs/template.md`: template 파일이 프로젝트의 어디에 설치되고 어떻게 갱신되는지
+- `docs/plugin.md`: 플러그인 구성, 훅이 막는 것, 프로젝트에서 켜는 방법
 - `docs/principles.md`: 하네스 계층, 설계 원칙, 실수를 어느 층에서 고칠지 정한 기준표, 용어
 - `docs/references.md`: 레퍼런스 조사 요약, 플랫폼 제약, 로컬 환경, 출처
 - `docs/decisions/`: 설계 결정 기록(ADR)
