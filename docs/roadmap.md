@@ -63,9 +63,10 @@
     - `build.md`의 절차는 verify로 대체 (`project-settings.md`로 이름 변경)
     - `git.md`는 경로로 걸 수 없어 꼭 지킬 줄만 AGENTS.md로 옮김 (ADR 0002)
   - 완료 기준: `.swift` 파일을 읽을 때 해당 규칙이 로드된다.
-- [ ] **6. AGENTS.md 템플릿과 CLAUDE.md** (Context)
+- [x] **6. AGENTS.md 템플릿과 CLAUDE.md** (Context)
   - 하는 일
-    - AGENTS.md 템플릿 작성(100줄 이하): 목차, 설정 파일에서 생성하는 명령 블록, 꼭 지킬 규칙, Codex용 규칙 인덱스
+    - AGENTS.md 템플릿 작성(100줄 이하): 프로젝트 영역, 명령 블록, 꼭 지킬 규칙, Codex용 규칙 인덱스
+    - 명령 블록은 생성하지 않고 고정 문장으로 둔다. 스크립트가 설정 파일을 직접 읽기 때문이다 (ADR 0003)
     - CLAUDE.md는 `@AGENTS.md`를 import
     - 프로젝트 고유 규칙 자리 `.claude/rules/project/` 마련
   - 완료 기준: 새 세션에서 빌드·테스트 방법을 물으면 정확한 명령으로 답한다.
