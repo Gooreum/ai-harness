@@ -1,0 +1,208 @@
+#!/usr/bin/env bash
+# 바뀐 파일을 보고 앱을 빌드한 뒤, 바뀐 모듈(과 앱)의 단위 테스트를 실행한다.
+set -euo pipefail
+
+here="$(cd "$(dirname "$0")" && pwd)"
+. "$here/lib.sh"
+
+usage() {
+  cat <<'EOF'
+사용법: scripts/harness/verify [--base 브랜치] [--all] [--plan] [--generate]
+
+  바뀐 파일을 모듈별로 묶어 앱을 빌드하고, 바뀐 모듈의 테스트를 실행한다.
+  단계마다 한 줄씩 결과를 출력하고, 마지막 줄에 전체 결과를 출력한다.
+
+  기본           커밋하지 않은 변경(HEAD 대비 수정 + 새 파일)을 본다
+  --base 브랜치   그 브랜치에서 갈라진 뒤의 모든 변경을 본다 (PR 전 확인용)
+  --all          변경과 상관없이 앱과 테스트가 있는 모든 모듈을 테스트한다
+  --plan         실행하지 않고 무엇을 빌드·테스트할지만 출력한다
+  --generate     프로젝트를 다시 생성한 뒤 시작한다 (Tuist·XcodeGen)
+EOF
+}
+
+base=""
+all=0
+plan=0
+generate_flag=""
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --base) [ $# -ge 2 ] || harness_die "--base에 브랜치가 필요합니다"; base="$2"; shift ;;
+    --all) all=1 ;;
+    --plan) plan=1 ;;
+    --generate) generate_flag="--generate" ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "verify: 알 수 없는 인자: $1" >&2; usage >&2; exit 2 ;;
+  esac
+  shift
+done
+
+harness_init
+export HARNESS_ROOT="$root"
+start=$SECONDS
+
+app_scheme="$(cfg .app.scheme)"
+app_path="$(cfg .app.path)"
+app_tests="$(jq -r '.app.unitTestTargets // [] | join(", ")' "$config")"
+manifest="$(cfg .modules.manifest)"
+scheme_rule="$(cfg .modules.scheme)"
+tests_dir="$(cfg .modules.testsDir)"
+
+# --- 바뀐 파일 -----------------------------------------------------------------
+
+if ! git -C "$root" rev-parse --git-dir >/dev/null 2>&1; then
+  echo "· verify · git 저장소가 아니라 변경을 알 수 없어 전체를 테스트합니다"
+  all=1
+fi
+
+changed=""
+if [ "$all" = 0 ]; then
+  if [ -n "$base" ]; then
+    merge_base="$(git -C "$root" merge-base "$base" HEAD 2>/dev/null)" \
+      || harness_die "--base $base: 기준 커밋을 찾지 못했습니다"
+  fi
+  changed="$(cd "$root" && {
+      if [ -n "$base" ]; then git diff --name-only "$merge_base"; else git diff --name-only HEAD; fi
+      git ls-files -o --exclude-standard
+    } | { grep -v '^\.harness/' || true; } | LC_ALL=C sort -u)"
+  if [ -z "$changed" ]; then
+    echo "✓ verify · 바뀐 파일 없음"
+    exit 0
+  fi
+fi
+
+# --- 테스트할 대상 -------------------------------------------------------------
+
+# 경로($1)가 속한 모듈 디렉터리(manifest가 있는 가장 가까운 상위 디렉터리). 없으면 빈 문자열.
+module_of() {
+  local d
+  d="$(dirname "$1")"
+  while [ "$d" != "." ] && [ "$d" != "/" ]; do
+    if [ -f "$root/$d/$manifest" ]; then
+      echo "$d"
+      return 0
+    fi
+    d="$(dirname "$d")"
+  done
+}
+
+# 앱 디렉터리와 루트를 뺀 모든 모듈 디렉터리
+all_module_dirs() {
+  (cd "$root" && find . -name "$manifest" -not -path '*/Derived/*' -not -path '*/.build/*' \
+      -not -path './Tuist/*' -not -path './.harness/*' 2>/dev/null \
+    | sed -e 's|^\./||' -e "s|/$manifest\$||" | { grep -vxE "$manifest|${app_path:-.}" || true; } | LC_ALL=C sort || true)
+}
+
+test_app=0
+modules=""
+if [ "$all" = 1 ]; then
+  test_app=1
+  if [ -n "$manifest" ]; then modules="$(all_module_dirs)"; fi
+elif [ -z "$manifest" ]; then
+  # 모듈 구조가 없으면 모든 변경을 앱의 변경으로 본다.
+  test_app=1
+else
+  while IFS= read -r file; do
+    case "$file" in
+      Tuist/* | Workspace.swift | Tuist.swift | "$manifest")
+        # 생성 설정이 바뀌면 어느 모듈이 영향을 받는지 알 수 없어 전체를 테스트한다.
+        test_app=1
+        modules="$(all_module_dirs)"
+        break
+        ;;
+    esac
+    dir="$(module_of "$file")"
+    if [ -n "$dir" ] && [ "$dir" = "$app_path" ]; then
+      test_app=1
+    elif [ -n "$dir" ]; then
+      modules="$modules$dir"$'\n'
+    elif [ "$app_path" = "." ]; then
+      test_app=1
+    fi
+  done <<EOF
+$changed
+EOF
+  modules="$(printf '%s' "$modules" | { grep -v '^$' || true; } | LC_ALL=C sort -u)"
+fi
+
+# 실행 계획: "표시이름<TAB>스킴" 줄. 스킴이 비어 있으면 앱 단위 테스트(test 기본 동작)다.
+steps=""
+untested=""
+if [ "$test_app" = 1 ] && [ -n "$app_tests" ]; then
+  steps="앱"$'\t'$'\n'
+fi
+if [ -n "$modules" ]; then
+  while IFS= read -r dir; do
+    name="$(basename "$dir")"
+    scheme="${scheme_rule//\{dir\}/$name}"
+    if module_has_tests "$dir" "$scheme" "$tests_dir"; then
+      steps="$steps$name"$'\t'"$scheme"$'\n'
+    else
+      untested="$untested $name"
+    fi
+  done <<EOF
+$modules
+EOF
+fi
+
+if [ "$plan" = 1 ]; then
+  if [ "$all" = 1 ]; then
+    echo "· verify 계획 · 전체"
+  else
+    echo "· verify 계획 · 바뀐 파일 $(printf '%s\n' "$changed" | wc -l | tr -d ' ')개"
+  fi
+  echo "  build $app_scheme"
+  while IFS=$'\t' read -r label scheme; do
+    if [ -z "$label" ]; then continue; fi
+    if [ -z "$scheme" ]; then
+      echo "  test 앱 ($app_scheme: $app_tests)"
+    else
+      echo "  test $label ($scheme)"
+    fi
+  done <<EOF
+$steps
+EOF
+  if [ -n "$untested" ]; then echo "  건너뜀 (테스트 없음):$untested"; fi
+  exit 0
+fi
+
+# --- 실행 ---------------------------------------------------------------------
+
+set +e
+"$here/build" $generate_flag
+code=$?
+set -e
+if [ "$code" -ne 0 ]; then
+  echo "✗ verify · 빌드 실패 · $((SECONDS - start))s"
+  exit "$code"
+fi
+
+passed=""
+failed=""
+first_failure=0
+while IFS=$'\t' read -r label scheme; do
+  if [ -z "$label" ]; then continue; fi
+  set +e
+  if [ -z "$scheme" ]; then "$here/test"; else "$here/test" --scheme "$scheme"; fi
+  rc=$?
+  set -e
+  if [ "$rc" -eq 0 ]; then
+    passed="$passed $label"
+  else
+    failed="$failed $label"
+    if [ "$first_failure" -eq 0 ]; then first_failure=$rc; fi
+  fi
+done <<EOF
+$steps
+EOF
+
+elapsed=$((SECONDS - start))
+detail=""
+if [ -n "$passed" ]; then detail="$detail · 통과:$passed"; fi
+if [ -n "$untested" ]; then detail="$detail · 테스트 없음:$untested"; fi
+if [ -z "$passed$failed" ]; then detail="$detail · 실행할 테스트 없음 (빌드만 확인)"; fi
+
+if [ -n "$failed" ]; then
+  echo "✗ verify · 실패:$failed$detail · ${elapsed}s"
+  exit "$first_failure"
+fi
+echo "✓ verify$detail · ${elapsed}s"
