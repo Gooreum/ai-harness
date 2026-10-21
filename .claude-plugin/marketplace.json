@@ -8,7 +8,7 @@
     {
       "name": "ios-harness",
       "source": "./plugin",
-      "description": "자동 생성 파일과 project.pbxproj를 직접 고치지 못하게 막는 훅"
+      "description": "생성 파일·pbxproj 편집 차단 훅과 iOS 변경 리뷰 서브에이전트"
     }
   ]
 }
