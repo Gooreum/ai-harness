@@ -44,7 +44,7 @@ plugin/
 
 ## 프로젝트에서 켜기
 
-지금은 개발 중이라 로컬 경로를 마켓플레이스로 쓴다. 프로젝트의 `.claude/settings.local.json`(또는 `.claude/settings.json`)에 다음을 넣는다.
+지금은 개발 중이라 로컬 경로를 마켓플레이스로 쓴다. `scripts/dev-install.sh`가 프로젝트의 `.claude/settings.local.json`에 다음을 넣는다.
 
 ```json
 {

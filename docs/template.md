@@ -30,8 +30,25 @@ template 안의 경로가 그대로 프로젝트 루트 기준 경로가 된다.
 - 표시와 안내는 HTML 주석이라 Claude의 컨텍스트에서는 빠진다. 파일을 열어 고칠 때는 보인다.
 - 명령 블록에는 프로젝트별 값을 채워 넣지 않는다. 스크립트가 `.harness/project.json`을 직접 읽기 때문에 명령이 모든 프로젝트에서 같다.
 
+## 설치: scripts/dev-install.sh
+
+```bash
+scripts/dev-install.sh <프로젝트 경로>
+```
+
+- 위 표대로 파일을 맞추고, `.harness/project.json`이 없으면 detect로 초안을 만든다.
+- 하네스 저장소를 로컬 마켓플레이스로 등록하고 플러그인을 켠다(`.claude/settings.local.json`).
+- 여러 번 실행해도 결과가 같다. 바뀐 파일과 사람이 직접 할 일을 출력한다.
+
 ## 지침 파일이 이미 있는 프로젝트
 
-- CLAUDE.md만 있으면 그 내용을 AGENTS.md 프로젝트 영역으로 옮기고, CLAUDE.md는 import 파일로 바꾼다.
-- AGENTS.md가 있으면 기존 내용을 프로젝트 영역으로 두고 관리 블록을 덧붙인다.
-- 단위 9에서 MotoTrace에 적용하면서 구체화한다.
+MotoTrace에 적용하며 정한 방식이다.
+
+1. dev-install을 실행한다. 기존 AGENTS.md는 그대로 두고 끝에 관리 블록을 붙인다. CLAUDE.md가 import 형태가 아니면 손대지 않고 알린다.
+2. 기존 지침(CLAUDE.md, AGENTS.md)의 내용을 셋으로 나눈다.
+   - 하네스 관리 블록과 겹치는 것(커밋 승인, 파괴적 명령, 검증 보고 등)은 지운다.
+   - 특정 파일 종류에만 해당하는 프로젝트 규칙(아키텍처, 테스트 관례)은 `.claude/rules/project/`에 `paths:`를 달아 옮긴다.
+   - 나머지 프로젝트 정보(소개, 구조, 작업 흐름)는 AGENTS.md 프로젝트 영역에 쓴다.
+3. CLAUDE.md를 `template/CLAUDE.md` 형태(`@AGENTS.md` import)로 바꾼다. 이 단계 전에는 Claude Code가 AGENTS.md를 읽지 않는다.
+4. 하네스가 대신하게 된 기존 장치(별도 검증 스크립트, 커밋 훅 등)는 지우고, 그 장치를 설명하던 문서도 고친다.
+5. 프로젝트 고유 스크립트가 빌드 결과를 찾는다면 하네스의 DerivedData를 보게 한다. 경로는 `scripts/harness/lib.sh`의 `harness_derived_data_path`로 얻는다.

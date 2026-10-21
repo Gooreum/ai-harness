@@ -15,7 +15,8 @@
   - `template/.claude/settings.json`: 권한 규칙(시크릿 읽기 deny, pbxproj 편집 deny, 파괴적 git 작업 ask)
 - `plugin/`: Claude Code 플러그인 `ios-harness`. 훅(생성 파일·pbxproj 편집 차단)과 리뷰 서브에이전트(`ios-reviewer`)를 담는다. 루트의 `.claude-plugin/marketplace.json`이 이 저장소를 마켓플레이스로 만든다
 - `scripts/`: 하네스를 설치·관리하는 도구. 대상 프로젝트 경로를 인자로 받는다.
-  - 예: `scripts/detect <프로젝트 경로>`
+  - `scripts/detect <프로젝트 경로>`: 프로젝트 설정 파일 초안 만들기
+  - `scripts/dev-install.sh <프로젝트 경로>`: 개발 중인 하네스를 프로젝트에 설치·갱신
 - `tests/`: 스크립트 회귀 테스트. `bash tests/run.sh`로 전부 실행한다.
 - `docs/roadmap.md`: 작업 단위와 순서, 진행 상황
 - `docs/project-config.md`: 프로젝트 설정 파일(`.harness/project.json`) 스펙
