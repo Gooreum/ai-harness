@@ -6,7 +6,7 @@ set -euo pipefail
 
 usage() {
   cat <<'EOF'
-사용법: scripts/dev-install.sh <프로젝트 경로>
+사용법: scripts/dev-install <프로젝트 경로>
 
   template/의 파일을 프로젝트에 설치한다.
   - scripts/harness/, .harness/.gitignore, .claude/rules/harness/는 template과 같게 맞춘다

@@ -4,7 +4,7 @@ set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
 . "$here/lib.sh"
-install="$here/../scripts/dev-install.sh"
+install="$here/../scripts/dev-install"
 template="$here/../template"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT

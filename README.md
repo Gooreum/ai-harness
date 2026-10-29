@@ -53,7 +53,7 @@ AI 코딩 에이전트(Claude Code, Codex 등)는 iOS 프로젝트에서 자주 
 ios-ai-harness (이 저장소)                         대상 iOS 프로젝트
 ───────────────────────────                       ─────────────────────────────
 scripts/detect ─────────── 프로젝트를 훑어서 ───────▶ .harness/project.json
-scripts/dev-install.sh ─┐
+scripts/dev-install ────┐
                         │  복사·병합
 template/ ──────────────┴────────────────────────▶ AGENTS.md, CLAUDE.md
                                                     .claude/rules/harness/*.md
@@ -74,7 +74,7 @@ plugin/ ─────────── 플러그인으로 켬 (복사 안 함
 ### 1. 설치
 
 ```bash
-scripts/dev-install.sh ~/path/to/MyApp
+scripts/dev-install ~/path/to/MyApp
 ```
 
 1. `.harness/project.json`이 없으면 `scripts/detect`가 프로젝트를 훑어 초안을 만든다.
@@ -237,7 +237,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | 파일 | 역할 |
 |---|---|
 | `detect` | 프로젝트를 훑어 `.harness/project.json` 초안을 만든다. `--write`로 저장, `--force`로 덮어쓰기 |
-| `dev-install.sh` | 개발 중인 하네스를 프로젝트에 설치·갱신한다. 정식 설치·갱신 도구(init/sync/doctor)는 후보 14에서 만든다 |
+| `dev-install` | 개발 중인 하네스를 프로젝트에 설치·갱신한다. 정식 설치·갱신 도구(init/sync/doctor)는 후보 14에서 만든다 |
 
 ### tests/ — 스크립트 회귀 테스트
 
@@ -303,7 +303,7 @@ scripts/detect ~/path/to/MyApp
 ```
 
 ```bash
-scripts/dev-install.sh ~/path/to/MyApp
+scripts/dev-install ~/path/to/MyApp
 ```
 
 ```bash
@@ -312,7 +312,7 @@ claude plugin validate plugin
 
 - `bash tests/run.sh`: 회귀 테스트 전체. Xcode 없이 돈다.
 - `scripts/detect`: 설정 파일 초안을 출력만 한다. 파일은 쓰지 않는다.
-- `scripts/dev-install.sh`: 실제로 설치한다. 설치한 뒤 출력된 "직접 할 일"을 처리하고, 프로젝트에서 `scripts/harness/verify`를 돌려 본다.
+- `scripts/dev-install`: 실제로 설치한다. 설치한 뒤 출력된 "직접 할 일"을 처리하고, 프로젝트에서 `scripts/harness/verify`를 돌려 본다.
 - 필요한 도구: macOS 기본 bash·jq, Xcode(빌드·테스트), 해당 프로젝트의 생성기(Tuist 등)
 
 ## 진행 상황

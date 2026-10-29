@@ -30,10 +30,10 @@ template 안의 경로가 그대로 프로젝트 루트 기준 경로가 된다.
 - 표시와 안내는 HTML 주석이라 Claude의 컨텍스트에서는 빠진다. 파일을 열어 고칠 때는 보인다.
 - 명령 블록에는 프로젝트별 값을 채워 넣지 않는다. 스크립트가 `.harness/project.json`을 직접 읽기 때문에 명령이 모든 프로젝트에서 같다.
 
-## 설치: scripts/dev-install.sh
+## 설치: scripts/dev-install
 
 ```bash
-scripts/dev-install.sh <프로젝트 경로>
+scripts/dev-install <프로젝트 경로>
 ```
 
 - 위 표대로 파일을 맞추고, `.harness/project.json`이 없으면 detect로 초안을 만든다.
