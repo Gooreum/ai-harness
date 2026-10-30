@@ -18,8 +18,8 @@ usage() {
 EOF
 }
 
-write_to_file=0        # --write: 초안을 파일로 저장한다
-overwrite_existing=0   # --force: 이미 있는 설정 파일을 덮어쓴다
+write_to_file=0        # --write: 초안을 파일로 저장한다 (0 또는 1)
+overwrite_existing=0   # --force: 이미 있는 설정 파일을 덮어쓴다 (0 또는 1)
 project_dir=""         # 설정 파일 초안을 만들 iOS 프로젝트의 루트
 
 while [ $# -gt 0 ]; do
@@ -58,18 +58,22 @@ if [ ! -d "$project_dir" ]; then
   echo "detect: 디렉터리가 없습니다: $project_dir" >&2
   exit 1
 fi
-project_dir="$(cd "$project_dir" && pwd)"
-offline="${HARNESS_OFFLINE:-0}"
+project_dir="$(cd "$project_dir" && pwd)"   # 절대 경로로 바꾼다 (예: /Users/me/MotoTrace)
+offline="${HARNESS_OFFLINE:-0}"             # 1이면 xcodebuild·simctl을 부르지 않는다
 
+# 판단 근거를 stderr에 한 줄 출력한다. stdout은 초안 JSON만 쓴다.
 note() {
   echo "detect: $*" >&2
 }
 
+# 사용자가 확인해야 할 문제를 stderr에 한 줄 출력한다.
 warn() {
   echo "detect: 경고: $*" >&2
 }
 
-# 디렉터리에서 glob 패턴에 맞는 첫 항목의 이름. 없으면 빈 문자열.
+# 디렉터리에서 glob 패턴에 맞는 첫 항목의 이름을 출력한다. 없으면 아무것도 출력하지 않는다.
+#   $1 찾을 디렉터리, $2 glob 패턴. 출력은 그 디렉터리 기준 상대 경로다.
+#   예: first_match "$project_dir" '*.xcworkspace' → MotoTrace.xcworkspace
 first_match() {
   local search_dir="$1"
   local pattern="$2"
@@ -84,24 +88,35 @@ first_match() {
   ) || true
 }
 
-# 루트 Makefile에 타깃이 있으면 성공
+# 루트 Makefile에 타깃이 있으면 성공(0), 없으면 실패(1)
+#   $1 타깃 이름
+#   예: Makefile에 "generate:" 줄이 있으면 makefile_has_target generate → 성공
 makefile_has_target() {
   local target="$1"
   [ -f "$project_dir/Makefile" ] && grep -qE "^$target[[:space:]]*:" "$project_dir/Makefile"
 }
 
-# 파일에서 정규식에 맞는 첫 부분을 찾아, 그 안의 따옴표 값을 꺼낸다. 없으면 빈 문자열.
-# 예: name: "MotoTrace" → MotoTrace
+# 파일에서 정규식에 맞는 첫 부분을 찾아, 그 안의 따옴표 값을 출력한다. 없으면 아무것도 출력하지 않는다.
+#   $1 파일, $2 정규식(ERE)
+#   예: Workspace.swift의 '    name: "MotoTrace",' → MotoTrace
 first_quoted_value() {
   local file="$1"
   local pattern="$2"
-  { grep -m1 -oE "$pattern" "$file" 2> /dev/null || true; } \
+  local matched=""   # 정규식에 맞은 부분 (예: ' name: "MotoTrace"')
+
+  if ! matched="$(grep -m1 -oE "$pattern" "$file" 2>/dev/null)"; then
+    return 0
+  fi
+
+  printf '%s\n' "$matched" \
     | sed -E 's/^[^"]*"([^"]*)".*/\1/' \
     | head -n 1 \
-    || true
+    || return 0
 }
 
-# Tuist 설정 파일이 있거나, Tuist/ 폴더와 manifest(Workspace.swift·Project.swift)가 함께 있으면 Tuist 프로젝트다.
+# Tuist 프로젝트면 성공(0)
+#   Tuist 설정 파일(Tuist.swift, Tuist/Config.swift)이 있거나,
+#   Tuist/ 폴더와 manifest(Workspace.swift, Project.swift)가 함께 있으면 Tuist 프로젝트로 본다.
 is_tuist_project() {
   if [ -f "$project_dir/Tuist.swift" ] || [ -f "$project_dir/Tuist/Config.swift" ]; then
     return 0
@@ -112,7 +127,7 @@ is_tuist_project() {
 
 # --- 생성기 -------------------------------------------------------------------
 
-generator=""
+generator=""   # 프로젝트를 만드는 방식: tuist · xcodegen · xcodeproj · spm
 if is_tuist_project; then
   generator="tuist"
 elif [ -f "$project_dir/project.yml" ] && grep -qE '^targets:' "$project_dir/project.yml"; then
@@ -131,8 +146,8 @@ note "생성기: $generator"
 # --- 명령 ---------------------------------------------------------------------
 # 프로젝트가 Makefile로 감싼 명령이 있으면 그것을 쓴다. 환경 변수 같은 프로젝트 고유 설정이 들어 있을 수 있다.
 
-install_cmd=""
-generate_cmd=""
+install_cmd=""    # 외부 의존성을 받는 명령 (예: make install, tuist install). 없으면 빈 문자열
+generate_cmd=""   # .xcodeproj·.xcworkspace를 만드는 명령 (예: make generate, tuist generate). 없으면 빈 문자열
 case "$generator" in
   tuist)
     if makefile_has_target generate; then
@@ -165,13 +180,16 @@ fi
 
 # --- 빌드 대상 (workspace / project) -----------------------------------------
 
-workspace=""
-project=""
+workspace=""   # 워크스페이스 파일 이름, 루트 기준 (예: MotoTrace.xcworkspace)
+project=""     # 프로젝트 파일 이름, 루트 기준 (예: Sample.xcodeproj). 워크스페이스가 없을 때만 채운다
 case "$generator" in
   tuist)
-    # Workspace.swift의 name, 없으면 Project.swift의 name을 워크스페이스 이름으로 쓴다.
-    name_pattern='(^|[^A-Za-z])name:[[:space:]]*"[^"]+"'
-    workspace_name=""
+    # Swift 인자 name: "..."를 찾는다. 앞 글자는 줄 시작, "(", ",", 공백만 허용한다.
+    # 그래야 _name:, ㅁname: 같은 다른 이름의 인자는 걸리지 않는다.
+    name_pattern='(^|[(,[:space:]])name:[[:space:]]*"[^"]+"'
+    workspace_name=""   # 워크스페이스 이름, 확장자 제외 (예: MotoTrace)
+
+    # Workspace.swift의 name, 없으면 Project.swift의 name을 쓴다.
     if [ -f "$project_dir/Workspace.swift" ]; then
       workspace_name="$(first_quoted_value "$project_dir/Workspace.swift" "$name_pattern")"
     fi
@@ -186,7 +204,7 @@ case "$generator" in
     fi
     ;;
   xcodegen)
-    # project.yml의 최상위 name: 값이 프로젝트 이름이다.
+    # project.yml의 최상위 name: 값이 프로젝트 이름이다 (예: name: Sample → Sample)
     xcodegen_project_name="$(
       { grep -m1 -E '^name:' "$project_dir/project.yml" || true; } \
         | sed -E 's/^name:[[:space:]]*"?([^"]*)"?[[:space:]]*$/\1/'
@@ -206,9 +224,8 @@ case "$generator" in
     ;;
 esac
 
-# xcodebuild에 넘길 빌드 대상. workspace가 있으면 workspace, 없으면 project.
-container=""
-container_flag=""
+container=""        # xcodebuild에 넘길 빌드 대상 파일 이름. workspace가 있으면 workspace, 없으면 project 값
+container_flag=""   # 빌드 대상에 맞는 xcodebuild 옵션: -workspace 또는 -project
 if [ -n "$workspace" ]; then
   container="$workspace"
   container_flag="-workspace"
@@ -224,8 +241,7 @@ if [ -z "$container" ] && [ "$generator" != "spm" ]; then
   warn "빌드 대상(workspace/project)을 정하지 못했습니다. 직접 채우세요"
 fi
 
-# 빌드 대상 파일이 실제로 있는지. Tuist·XcodeGen은 generate 전에는 없다.
-container_exists=0
+container_exists=0   # 빌드 대상 파일이 실제로 있으면 1. Tuist·XcodeGen은 generate 전에는 0이다
 if [ -n "$container" ] && [ -e "$project_dir/$container" ]; then
   container_exists=1
 fi
@@ -236,9 +252,11 @@ fi
 
 # --- 스킴 목록 (생성된 프로젝트가 있고 온라인일 때) ------------------------------
 
-schemes_json="[]"
-schemes_known=0
+schemes_json="[]"   # 빌드 대상에 있는 스킴 이름 배열 (예: ["CoreTracking","MotoTrace"])
+schemes_known=0     # 스킴 목록을 실제로 확인했으면 1. 0이면 스킴 이름을 추정만 하고 대조하지 않는다
 if [ "$offline" != 1 ] && [ "$container_exists" = 1 ]; then
+  # xcodebuild -list -json 출력 예. project일 때는 "workspace" 자리에 "project"가 온다.
+  #   {"workspace":{"name":"MotoTrace","schemes":["CoreTracking","MotoTrace"]}}
   if xcodebuild_list_json="$(
     cd "$project_dir" && xcodebuild -list -json "$container_flag" "$container" 2> /dev/null
   )"; then
@@ -246,13 +264,23 @@ if [ "$offline" != 1 ] && [ "$container_exists" = 1 ]; then
       printf '%s' "$xcodebuild_list_json" \
         | jq -c '(.workspace.schemes // .project.schemes // [])'
     )"
-    schemes_known=1
-    note "스킴 $(printf '%s' "$schemes_json" | jq length)개 확인 (xcodebuild -list)"
+    scheme_count="$(printf '%s' "$schemes_json" | jq length)"
+
+    if [ "$scheme_count" -gt 0 ]; then
+      schemes_known=1
+      note "스킴 ${scheme_count}개 확인 (xcodebuild -list)"
+    else
+      # 빈 목록을 그대로 믿으면 앱·모듈 스킴이 모두 "없다"고 판단한다. 확인하지 못한 것으로 처리한다.
+      schemes_json="[]"
+      warn "xcodebuild -list가 스킴을 하나도 돌려주지 않았습니다 — 스킴을 확인하지 못했습니다"
+    fi
   else
     warn "xcodebuild -list 실패 — 스킴을 확인하지 못했습니다"
   fi
 fi
 
+# 스킴 목록(schemes_json)에 그 이름이 있으면 성공(0)
+#   $1 스킴 이름
 has_scheme() {
   local scheme="$1"
   printf '%s' "$schemes_json" | jq -e --arg scheme "$scheme" 'index($scheme) != null' > /dev/null
@@ -260,12 +288,13 @@ has_scheme() {
 
 # --- 앱 ---------------------------------------------------------------------
 
-app_path=""           # 앱 manifest가 있는 디렉터리 (프로젝트 루트 기준)
-app_project_name=""   # 앱 .xcodeproj 이름 (확장자 제외)
-app_pbxproj=""        # 앱 타깃을 읽을 project.pbxproj 경로
+app_path=""           # 앱 manifest(Project.swift)가 있는 디렉터리, 루트 기준 (예: MotoTrace). Tuist만 채운다
+app_project_name=""   # 앱 .xcodeproj 이름에서 확장자를 뺀 것 (예: MotoTrace)
+app_pbxproj=""        # 앱 타깃을 읽을 project.pbxproj 절대 경로 (예: <루트>/MotoTrace/MotoTrace.xcodeproj/project.pbxproj)
 case "$generator" in
   tuist)
     # product: .app이 있는 Project.swift를 찾는다. 생성물·의존성 폴더는 뺀다.
+    # 결과: 한 줄에 하나, 루트 기준 경로 (예: MotoTrace/Project.swift)
     app_manifests="$(
       cd "$project_dir" \
         && { grep -rlE 'product:[[:space:]]*\.app([^A-Za-z]|$)' --include='Project.swift' . 2> /dev/null || true; } \
@@ -277,7 +306,7 @@ case "$generator" in
     if [ -z "$app_manifests" ]; then
       warn "앱 manifest(product: .app)를 찾지 못했습니다. app 값을 직접 채우세요"
     else
-      app_manifest="$(printf '%s\n' "$app_manifests" | head -n 1)"
+      app_manifest="$(printf '%s\n' "$app_manifests" | head -n 1)"                     # 그중 첫 번째
       app_manifest_count="$(printf '%s\n' "$app_manifests" | wc -l | tr -d ' ')"
       if [ "$app_manifest_count" -gt 1 ]; then
         warn "앱 manifest가 여러 개입니다. 첫 번째($app_manifest)를 골랐습니다:" \
@@ -285,16 +314,18 @@ case "$generator" in
       fi
 
       app_path="$(dirname "$app_manifest")"
-      app_xcodeproj="$(first_match "$project_dir/$app_path" '*.xcodeproj')"
+      app_xcodeproj="$(first_match "$project_dir/$app_path" '*.xcodeproj')"   # 생성된 앱 프로젝트 (예: MotoTrace.xcodeproj)
       if [ -n "$app_xcodeproj" ]; then
         app_project_name="${app_xcodeproj%.xcodeproj}"
         app_pbxproj="$project_dir/$app_path/$app_xcodeproj/project.pbxproj"
       else
+        # 아직 생성 전이면 디렉터리 이름으로 추정한다.
         app_project_name="$(basename "$project_dir/$app_path")"
       fi
     fi
     ;;
   xcodegen | xcodeproj)
+    # 루트의 앱 프로젝트 (예: Sample.xcodeproj)
     if [ -n "$project" ]; then
       app_xcodeproj="$project"
     else
@@ -309,12 +340,23 @@ case "$generator" in
 esac
 
 # pbxproj에서 앱 타깃·단위 테스트 타깃·번들 ID를 읽는다. pbxproj는 plutil로 JSON 변환한다.
-app_target=""
-bundle_id=""
-unit_tests_json="[]"
+app_target=""          # 앱 타깃 이름 (예: MotoTrace)
+bundle_id=""           # 앱 번들 ID (예: com.woong.MotoTrace)
+unit_tests_json="[]"   # 앱 단위 테스트 타깃 이름 배열 (예: ["MotoTraceTests"]). UI 테스트는 뺀다
 if [ -n "$app_pbxproj" ] && [ -f "$app_pbxproj" ]; then
-  # objects는 ID → 객체 사전이다. 타깃은 설정 목록 ID를, 설정 목록은 설정 ID들을 가리킨다.
-  # 결과 예: [{"name":"MotoTrace","type":"com.apple.product-type.application","bundleId":"com.woong.MotoTrace"}]
+  # plutil로 바꾼 pbxproj 예 (필요한 부분만). objects는 ID → 객체 사전이고,
+  # 타깃은 설정 목록 ID를, 설정 목록은 설정 ID들을 가리킨다.
+  #   {"objects": {
+  #     "T1": {"isa":"PBXNativeTarget", "name":"MotoTrace", "buildConfigurationList":"L1",
+  #            "productType":"com.apple.product-type.application"},
+  #     "L1": {"isa":"XCConfigurationList", "buildConfigurations":["C1","C2"]},
+  #     "C1": {"isa":"XCBuildConfiguration", "name":"Debug",
+  #            "buildSettings":{"PRODUCT_BUNDLE_IDENTIFIER":"com.woong.MotoTrace"}}
+  #   }}
+  #
+  # targets_json: 타깃마다 이름·종류·Debug 번들 ID를 뽑은 배열
+  #   [{"name":"MotoTrace", "type":"com.apple.product-type.application", "bundleId":"com.woong.MotoTrace"},
+  #    {"name":"MotoTraceTests", "type":"com.apple.product-type.bundle.unit-test", "bundleId":"com.woong.MotoTraceTests"}]
   targets_json="$(
     plutil -convert json -o - "$app_pbxproj" 2> /dev/null \
       | jq -c '
@@ -357,7 +399,8 @@ if [ -n "$app_pbxproj" ] && [ -f "$app_pbxproj" ]; then
 fi
 
 # 앱 스킴: 앱 타깃 이름 → 프로젝트 이름 순으로, 스킴 목록에 있는 것을 고른다.
-app_scheme=""
+# 스킴 목록을 확인하지 못했으면(schemes_known=0) 첫 후보를 그대로 쓴다.
+app_scheme=""   # 앱을 빌드할 스킴 이름 (예: MotoTrace)
 for candidate in "$app_target" "$app_project_name"; do
   if [ -z "$candidate" ]; then
     continue
@@ -377,17 +420,18 @@ else
 fi
 
 # 번들 ID가 $(VAR)처럼 빌드 설정 변수면 xcodebuild로 실제 값을 확인한다.
+bundle_id_unresolved=""   # 확인하지 못한 원래 값 (예: $(APP_BUNDLE_ID)). 경고에 보여 준다
 case "$bundle_id" in
   *'$('*)
     bundle_id_unresolved="$bundle_id"
     bundle_id=""
     ;;
-  *)
-    bundle_id_unresolved=""
-    ;;
 esac
 
 if [ -z "$bundle_id" ] && [ -n "$app_scheme" ] && [ "$offline" != 1 ] && [ "$container_exists" = 1 ]; then
+  # xcodebuild -showBuildSettings -json 출력 예: 스킴에 든 타깃마다 하나씩
+  #   [{"target":"MotoTrace", "buildSettings":{"WRAPPER_EXTENSION":"app", "PRODUCT_BUNDLE_IDENTIFIER":"com.woong.MotoTrace"}},
+  #    {"target":"CoreTracking", "buildSettings":{"WRAPPER_EXTENSION":"framework", ...}}]
   bundle_id="$(
     cd "$project_dir" \
       && xcodebuild -showBuildSettings -json "$container_flag" "$container" -scheme "$app_scheme" 2> /dev/null \
@@ -408,6 +452,7 @@ if [ -z "$bundle_id" ]; then
     "app.bundleId를 직접 채우세요"
 fi
 
+# 출력용 문자열 (예: "MotoTraceTests", 없으면 "없음")
 unit_test_names="$(
   printf '%s' "$unit_tests_json" \
     | jq -r 'if length == 0 then "없음" else join(", ") end'
@@ -417,8 +462,9 @@ note "앱 단위 테스트 타깃: $unit_test_names"
 # --- 모듈 (Tuist) -----------------------------------------------------------
 # Project.swift가 있는 디렉터리를 모듈 하나로 본다. 앱 디렉터리와 루트는 제외한다.
 
-modules_json="null"
+modules_json="null"   # 모듈 규칙 객체. 모듈이 없으면 null
 if [ "$generator" = "tuist" ]; then
+  # 모듈 디렉터리 목록. 한 줄에 하나, 루트 기준 (예: Modules/Core/CoreTracking)
   module_dirs="$(
     cd "$project_dir" \
       && find . -name Project.swift \
@@ -432,17 +478,21 @@ if [ "$generator" = "tuist" ]; then
   )"
 
   if [ -n "$module_dirs" ]; then
+    # manifest: 모듈을 알아보는 파일, scheme: 스킴 이름 규칙({dir} = 디렉터리 이름), testsDir: 테스트 폴더 이름
     modules_json='{"manifest":"Project.swift","scheme":"{dir}","testsDir":"Tests"}'
-    module_count=0
-    modules_with_tests=0
-    modules_without_scheme=""
+    module_count=0              # 찾은 모듈 수
+    modules_with_tests=0        # 그중 테스트가 있는 모듈 수
+    modules_without_scheme=""   # 디렉터리 이름과 같은 스킴이 없는 모듈 디렉터리. 공백으로 구분
 
     while IFS= read -r module_dir; do
       module_count=$((module_count + 1))
-      module_name="$(basename "$module_dir")"
+      module_name="$(basename "$module_dir")"   # 예: CoreTracking
 
-      # 생성된 스킴 파일이 있으면 테스트 대상이 있는지 보고, 없으면 Tests 폴더로 판단한다.
+      # 생성된 공유 스킴 파일. 모듈 디렉터리 기준
+      # (예: CoreTracking.xcodeproj/xcshareddata/xcschemes/CoreTracking.xcscheme)
       scheme_file="$(first_match "$project_dir/$module_dir" "*.xcodeproj/xcshareddata/xcschemes/$module_name.xcscheme")"
+
+      # 스킴 파일이 있으면 테스트 대상이 들어 있는지 보고, 없으면 Tests 폴더로 판단한다.
       if [ -n "$scheme_file" ]; then
         if grep -q '<TestableReference' "$project_dir/$module_dir/$scheme_file"; then
           modules_with_tests=$((modules_with_tests + 1))
@@ -469,9 +519,13 @@ fi
 # --- 시뮬레이터 -------------------------------------------------------------
 # 가장 최신 iOS 런타임의 iPhone 중 번호가 가장 큰 Pro 모델, 없으면 첫 iPhone을 고른다.
 
-simulator="${HARNESS_SIMULATOR:-}"
+simulator="${HARNESS_SIMULATOR:-}"   # 시뮬레이터 기기 이름 (예: iPhone 17 Pro)
 if [ -z "$simulator" ] && [ "$offline" != 1 ]; then
-  # 런타임 키 예: com.apple.CoreSimulator.SimRuntime.iOS-26-0
+  # xcrun simctl list devices available -j 출력 예: 런타임 키마다 기기 배열
+  #   {"devices": {
+  #     "com.apple.CoreSimulator.SimRuntime.iOS-26-0": [{"name":"iPhone 17 Pro", "udid":"3422B9FD-...", ...}, ...],
+  #     "com.apple.CoreSimulator.SimRuntime.watchOS-26-0": [...]
+  #   }}
   simulator="$(
     xcrun simctl list devices available -j 2> /dev/null \
       | jq -r '
@@ -508,6 +562,7 @@ fi
 
 # --- 출력 -------------------------------------------------------------------
 
+# 설정 파일 초안. 각 값의 뜻은 docs/project-config.md에 있다.
 draft_json="$(
   jq -n \
     --arg generator "$generator" \
