@@ -513,7 +513,8 @@ if [ "$generator" = "tuist" ]; then
     # modules_json에는 영향이 없다.
     module_count=0              # 찾은 모듈 수
     modules_with_tests=0        # 그중 테스트가 있는 모듈 수
-    modules_without_scheme=""   # 디렉터리 이름과 같은 스킴이 없는 모듈 디렉터리. 공백으로 구분
+    # 디렉터리 이름과 같은 스킴이 없는 모듈 디렉터리. ", "로 구분 (예: Modules/Core/CoreB, Modules/Feature/FeatureA)
+    modules_without_scheme=""
 
     while IFS= read -r module_dir; do
       module_count=$((module_count + 1))
@@ -533,13 +534,17 @@ if [ "$generator" = "tuist" ]; then
       fi
 
       if [ "$schemes_known" = 1 ] && ! has_scheme "$module_name"; then
-        modules_without_scheme="$modules_without_scheme $module_dir"
+        # 두 번째 모듈부터는 앞에 구분자를 붙인다.
+        if [ -n "$modules_without_scheme" ]; then
+          modules_without_scheme="$modules_without_scheme, "
+        fi
+        modules_without_scheme="$modules_without_scheme$module_dir"
       fi
     done <<< "$module_dirs"
 
     note "모듈 ${module_count}개 (테스트 있는 모듈 ${modules_with_tests}개, 기준: Project.swift)"
     if [ -n "$modules_without_scheme" ]; then
-      warn "디렉터리 이름과 같은 스킴이 없는 모듈:$modules_without_scheme" \
+      warn "디렉터리 이름과 같은 스킴이 없는 모듈: $modules_without_scheme" \
         "— modules.scheme 규칙을 확인하세요"
     elif [ "$schemes_known" = 1 ]; then
       note "모듈 스킴 규칙 {dir}: ${module_count}개 모두 일치"

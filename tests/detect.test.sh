@@ -138,6 +138,14 @@ assert_eq "schemes-empty: 빈 목록을 경고한다" "1" "$warned"
 out="$(FAKE_SCHEMES='["Other"]' PATH="$bin:$PATH" HARNESS_OFFLINE=0 "$detect" "$p" 2> /dev/null)"
 assert_eq "schemes-other: 목록에 앱 스킴 후보가 없으면 null" 'null' "$(field "$out" .app.scheme)"
 
+# 생성된 Tuist 프로젝트: 스킴이 없는 모듈이 여럿이면 모두 구분해서 알린다.
+p="$work/tuist"
+mkdir -p "$p/Sample.xcworkspace"
+FAKE_SCHEMES='["App"]' PATH="$bin:$PATH" HARNESS_OFFLINE=0 "$detect" "$p" > /dev/null 2> "$work/err"
+assert_eq "modules-no-scheme: 스킴 없는 모듈을 \", \"로 나열" \
+  "detect: 경고: 디렉터리 이름과 같은 스킴이 없는 모듈: Modules/Core/CoreB, Modules/Feature/FeatureA — modules.scheme 규칙을 확인하세요" \
+  "$(grep '스킴이 없는 모듈' "$work/err")"
+
 # --- iOS 프로젝트가 아님 -------------------------------------------------------
 p="$work/empty"
 mkdir -p "$p"
