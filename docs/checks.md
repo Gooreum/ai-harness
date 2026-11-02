@@ -36,7 +36,8 @@
 {
   "schemaVersion": 1,
   "stages": {
-    "plan": { "prompt": "계획에는 View → Intent → Processor → State 중 어디를 바꾸는지 적는다" }
+    "plan": { "prompt": "먼저 scripts/harness/wiki search로 관련 정책·결정 기록을 찾아 읽는다. 계획에는 View → Intent → Processor → State 중 어디를 바꾸는지 적는다" },
+    "finish": { "prompt": "이번에 정한 정책·결정과 알게 된 사실을 docs/wiki/에 기록한다(비슷한 기록이 있으면 고친다). 쓴 뒤 scripts/harness/wiki check를 돌린다" }
   },
   "checks": [
     { "name": "lint", "description": "팀 컨벤션 검사", "prompt": "scripts/harness/lint를 실행하고 통과할 때까지 고친다", "run": "jq -e .passed .harness/out/lint.json" },

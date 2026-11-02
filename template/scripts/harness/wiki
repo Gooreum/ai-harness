@@ -1,0 +1,72 @@
+#!/usr/bin/env bash
+# 정책·결정 기록(docs/wiki/)을 찾고 형식을 검사한다. 검색 기록은 .harness/state/wiki-search.log에 남긴다.
+set -euo pipefail
+
+here="$(cd "$(dirname "$0")" && pwd)"
+. "$here/lib.sh"
+
+usage() {
+  cat <<'EOF2'
+사용법: scripts/harness/wiki search <단어>...
+       scripts/harness/wiki check [파일...]
+
+  search   docs/wiki/의 기록 중 모든 단어가 들어 있는 것을 찾는다(대소문자 무시).
+           한 줄에 하나씩 "종류  경로  제목"을 출력한다. 내용은 그 파일을 열어 읽는다.
+  check    기록의 형식(kind, tags, 제목, 종류별 항목)을 검사한다. 파일을 주지 않으면 전부.
+
+  종료 코드: search는 찾으면 0, 없으면 1. check는 문제가 없으면 0, 있으면 1. 인자 오류 2
+EOF2
+}
+
+[ $# -ge 1 ] || { usage >&2; exit 2; }
+cmd="$1"; shift
+harness_init
+wiki_dir="$root/docs/wiki"
+
+case "$cmd" in
+  search)
+    [ $# -ge 1 ] || harness_die "search에 찾을 단어가 필요합니다"
+    hits=""
+    if [ -d "$wiki_dir" ]; then
+      hits="$(cd "$root" && find docs/wiki -name '*.md' -type f | LC_ALL=C sort)"
+      for word in "$@"; do
+        [ -n "$hits" ] || break
+        hits="$(cd "$root" && printf '%s\n' "$hits" | while IFS= read -r f; do grep -qiF -- "$word" "$f" && echo "$f"; done || true)"
+      done
+    fi
+    count="$(printf '%s' "$hits" | grep -c . || true)"
+    printf '%s\t%s\t%s\n' "$(date '+%Y-%m-%dT%H:%M:%S')" "$*" "$count" >> "$state_dir/wiki-search.log"
+    if [ "$count" -eq 0 ]; then
+      echo "· wiki · \"$*\"에 맞는 기록 없음"
+      exit 1
+    fi
+    printf '%s\n' "$hits" | while IFS= read -r f; do
+      printf '%s\t%s\t%s\n' "$(wiki_kind "$root/$f")" "$f" "$(wiki_title "$root/$f")"
+    done
+    ;;
+  check)
+    if [ $# -eq 0 ]; then
+      [ -d "$wiki_dir" ] || { echo "✓ wiki · 기록 없음"; exit 0; }
+      set -- $(cd "$root" && find docs/wiki -name '*.md' -type f | LC_ALL=C sort)
+      [ $# -gt 0 ] || { echo "✓ wiki · 기록 없음"; exit 0; }
+    fi
+    bad=0
+    for f in "$@"; do
+      case "$f" in /*) path="$f" ;; *) path="$root/$f" ;; esac
+      [ -f "$path" ] || { echo "  ${f}: 파일이 없습니다"; bad=$((bad + 1)); continue; }
+      problems="$(wiki_problems "$path")"
+      if [ -n "$problems" ]; then
+        printf '%s\n' "$problems" | sed "s|^|  ${f#"$root"/}: |"
+        bad=$((bad + 1))
+      fi
+    done
+    if [ "$bad" -eq 0 ]; then
+      echo "✓ wiki · 기록 $#개"
+    else
+      echo "✗ wiki · 기록 $#개 중 ${bad}개에 문제" >&2
+      exit 1
+    fi
+    ;;
+  -h|--help) usage ;;
+  *) echo "wiki: 알 수 없는 명령: $cmd" >&2; usage >&2; exit 2 ;;
+esac

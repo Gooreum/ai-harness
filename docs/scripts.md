@@ -104,3 +104,14 @@ scripts/harness/lint --all         # git이 추적하는 모든 Swift 파일
   ```
 - 결과 파일 `.harness/out/lint.json`: `passed`, `score`, `passScore`, `files`(검사한 파일 수), `violations`(`rule`·`severity`·`penalty`·`file`·`line`·`column`·`message`). 바뀐 파일이 없어도 남긴다.
 - 종료 코드: 통과 0, 기준 미달 1, 설정 오류·SwiftLint 없음·SwiftLint 실행 실패 2
+
+## wiki
+
+```bash
+scripts/harness/wiki search <단어>...   # 정책·결정 기록 찾기
+scripts/harness/wiki check [파일...]     # 기록 형식 검사
+```
+
+- 기록 형식과 쓰는 때는 [wiki.md](wiki.md)에 있다.
+- search 결과는 한 줄에 `종류	경로	제목`이다. 내용은 그 파일을 열어 읽는다. 검색마다 `.harness/state/wiki-search.log`에 남긴다.
+- 종료 코드: search는 찾으면 0, 없으면 1. check는 문제가 없으면 0, 있으면 1. 인자 오류 2
