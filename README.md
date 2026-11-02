@@ -28,7 +28,7 @@ AI 코딩 에이전트(Claude Code, Codex 등)는 iOS 프로젝트에서 자주 
 | 권한 규칙 | `.claude/settings.json`의 `deny`(항상 거부), `ask`(매번 사용자에게 물음) 목록 |
 | 서브에이전트 | 메인 에이전트가 일을 맡기는 별도 에이전트. 자기만의 지시문과 도구 목록을 가진다 |
 | 플러그인·마켓플레이스 | Claude Code 플러그인은 훅·서브에이전트·스킬을 묶어 여러 프로젝트에 배포하는 단위다. 마켓플레이스는 플러그인 목록이고, 이 저장소 자체가 마켓플레이스 역할을 한다 |
-| 시험장 | 하네스를 실제로 돌려 보는 프로젝트. 지금은 MotoTrace의 `MotoTrace-ai-workflow` 워크트리다 |
+| 시험장 | 하네스를 실제로 돌려 보는 프로젝트. 지금은 ReadSharp(`EnglishStudy`)의 `EnglishStudy-harness` 워크트리다. 이전 단위는 MotoTrace에서 했다 |
 
 ## 하네스 계층
 
@@ -269,6 +269,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `decisions/0002-rule-placement.md` | 규칙을 무엇에 붙는지(파일 종류 / 행동)에 따라 경로 규칙·AGENTS.md·스킬·권한으로 나누는 기준 |
 | `decisions/0003-agents-md-areas.md` | AGENTS.md를 프로젝트 영역과 관리 블록으로 나누고 명령 블록을 고정 문장으로 둔 이유 |
 | `decisions/0004-enforcement.md` | 무엇을 훅으로, 무엇을 deny·ask로 막는지 |
+| `decisions/0005-talk-criteria.md` | 여기어때 안드로이드 팀 발표의 기준으로 이후 후보를 다시 정하고, 워크플로 엔진을 함께 쓰지 않는 이유 |
 
 ## 설치하면 대상 프로젝트는 이렇게 된다
 
@@ -318,7 +319,7 @@ claude plugin validate plugin
 ## 진행 상황
 
 - 단위 1~8 완료: 저장소 구조, 프로젝트 설정 파일·detect, build·test·verify, 경로 규칙, AGENTS.md 템플릿, 훅·권한·플러그인, ios-reviewer
-- 단위 9 진행 중: MotoTrace에 설치를 마쳤고, 1~2주 운영하며 실패를 기록하는 중이다. 이 기록으로 이후 순서를 정한다.
-- 이후 후보: UI 확인, 빌드·Tuist 스킬, 워크플로 스킬, 플러그인 배포와 init/sync/doctor, 두 번째 프로젝트 적용, Codex 어댑터, 평가 등
+- 단위 9 진행 중: MotoTrace에 설치해 확인한 뒤, 시험장을 ReadSharp로 옮겼다. 1~2주 운영하며 실패를 기록하고, 이 기록으로 이후 순서를 정한다.
+- 이후 후보: 동작·화면 검증(Maestro, 스냅샷+Figma), 결정적 컨벤션 센서, 사람이 검사를 고르는 작업 흐름, (조건부) 검증 강제, 정책·결정 기록, 플러그인 배포, Codex 어댑터, 평가 등. 기준은 [ADR 0005](docs/decisions/0005-talk-criteria.md)에 있다
 
 자세한 내용은 [docs/roadmap.md](docs/roadmap.md)에 있다. 이 저장소에 기여하는 방법(브랜치, 커밋 규칙)은 [AGENTS.md](AGENTS.md)에 있다.

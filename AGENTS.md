@@ -40,7 +40,7 @@
   - prefix는 `feat:` `fix:` `docs:` `chore:` `test:` 중 하나를 쓴다.
 - 단위를 마치면 roadmap의 체크박스를 갱신한다. 설계 결정은 `docs/decisions/`에 ADR로 남긴다.
 - 완료 기준은 시험장 프로젝트에서 실제로 실행해 확인한다.
-  - 시험장은 MotoTrace의 `MotoTrace-ai-workflow` 워크트리다.
+  - 시험장은 ReadSharp(`~/Code/EnglishStudy`)의 `~/Code/EnglishStudy-harness` 워크트리다. 단위 1~9의 기록은 MotoTrace에서 했다.
   - 시험장에 이미 있는 하네스 구성은 설계 근거로 쓰지 않는다.
 
 ## 설계 원칙 (자세한 내용은 docs/principles.md)
