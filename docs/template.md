@@ -52,3 +52,4 @@ MotoTrace에 적용하며 정한 방식이다.
 3. CLAUDE.md를 `template/CLAUDE.md` 형태(`@AGENTS.md` import)로 바꾼다. 이 단계 전에는 Claude Code가 AGENTS.md를 읽지 않는다.
 4. 하네스가 대신하게 된 기존 장치(별도 검증 스크립트, 커밋 훅 등)는 지우고, 그 장치를 설명하던 문서도 고친다.
 5. 프로젝트 고유 스크립트가 빌드 결과를 찾는다면 하네스의 DerivedData를 보게 한다. 경로는 `scripts/harness/lib.sh`의 `harness_derived_data_path`로 얻는다.
+6. 프로젝트 `.gitignore`가 `.claude/`를 통째로 무시하면 하네스 규칙이 커밋되지 않는다. `.claude/*`와 `!.claude/rules/` 형태로 바꾼다. `.claude/settings.json`에 개인 값이 들어 있어 무시하는 프로젝트는 권한 규칙을 공유할 방법을 따로 정한다. ReadSharp에 적용하며 발견했다.

@@ -18,6 +18,20 @@
 
 ## 기록
 
+### 2026-11-03 — 앱 스킴의 테스트 액션이 Release라 기본 test가 실패한다
+- 프로젝트·작업: ReadSharp 시험장(`EnglishStudy-harness`), 단위 9 설치 확인
+- 무슨 일이 있었나
+  - detect가 앱 스킴으로 `EnglishStudy`를 골랐다. `scripts/harness/build`는 통과했다(170s, 경고 31).
+  - `scripts/harness/test`는 테스트 실행 전에 `MockAIProvider.swift:2:18: Unable to find module dependency: 'EnglishStudy'`로 중단됐다.
+  - 이 스킴은 테스트 액션을 포함한 모든 액션이 `buildConfiguration = "Release"`다. 배포용 스킴이라 `@testable import`가 되지 않는다.
+  - `--scheme "EnglishStudy Dev"`(전부 Debug)는 공유 확장 산출물이 겹쳐 `Multiple commands produce …ReadSharpShareExtension.appex`로 실패했다. 프로젝트 쪽 문제다.
+  - `--scheme EnglishStudyTests`(테스트 액션 Debug)는 212개 모두 통과했다(207s).
+- 원인: State·Execution — `app.scheme` 하나로 빌드와 테스트를 모두 하는데, 이 앱은 빌드용 스킴과 테스트용 스킴이 다르다. detect는 스킴의 테스트 액션 구성을 보지 않는다.
+- 조치(제안)
+  - 설정 파일에 테스트 스킴 필드를 따로 두거나, detect가 테스트 액션이 Debug인 스킴을 고르게 한다.
+  - 프로젝트의 `EnglishStudy Dev` 산출물 중복은 프로젝트에서 따로 고친다.
+- 상태: 미해결
+
 ### 2026-10-21 — 리뷰어가 "규칙 파일을 먼저 읽으라"는 지시를 따르지 않았다
 - 프로젝트·작업: MotoTrace 시험장, 단위 8 `ios-reviewer` 확인 (위반 4종을 넣고 터미널 `claude -p`로 리뷰를 맡김)
 - 무슨 일이 있었나
