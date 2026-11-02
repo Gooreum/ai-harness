@@ -61,7 +61,7 @@ template/ ──────────────┴────────�
                                                     scripts/harness/*
                                                     .harness/.gitignore
 
-plugin/ ─────────── 플러그인으로 켬 (복사 안 함) ───▶ 훅, ios-reviewer
+plugin/ ─────────── 플러그인으로 켬 (복사 안 함) ───▶ 훅, task 스킬, ios-reviewer
                     (.claude/settings.local.json)
 ```
 
@@ -171,7 +171,16 @@ scripts/harness/test --scheme CoreTracking
 - 훅은 판단할 수 없으면(설정 파일 없음, 입력 오류) 막지 않는다. 실수를 줄이는 장치이지 보안 경계가 아니라서, 고장 난 훅이 정상 작업을 막으면 안 된다.
 - "검증을 돌렸는지 확인하는 게이트" 같은 장치는 일부러 넣지 않았다. 그런 실패가 실제로 관찰되면 그때 넣는다.
 
-### 6. 리뷰: ios-reviewer
+### 6. 작업 흐름: task
+
+코드를 고치는 작업은 플러그인 스킬 `task`로 시작한다. 사람이 처음에 두 가지만 정한다: 계획이 필요한 일인지(plan / simple)와 이번 작업에 돌릴 검사다.
+
+- plan: 계획 → 구현 → 검증 → 마무리, simple: 구현 → 검증 → 마무리
+- 에이전트가 단계를 마치고 `.harness/state/task.json`의 `stage`를 바꾸면, 훅이 그 단계의 지시를 넣는다. 검증 단계에는 고른 검사의 지시만 들어간다.
+- 검사 목록은 프로젝트의 `.harness/checks.json`에 있다. 훅은 검사 내용을 모르고 이 파일의 글을 옮길 뿐이다([docs/checks.md](docs/checks.md), [ADR 0007](docs/decisions/0007-task-flow.md)).
+- 단계를 건너뛰는 것을 막는 장치는 아직 없다. 건너뛰는 일이 관찰되면 후보 13에서 넣는다.
+
+### 7. 리뷰: ios-reviewer
 
 PR을 만들기 전에 메인 에이전트가 플러그인의 서브에이전트 `ios-reviewer`에게 변경 검토를 맡긴다.
 
@@ -185,7 +194,7 @@ PR을 만들기 전에 메인 에이전트가 플러그인의 서브에이전트
 - Claude Code 안에서 도는 서브에이전트다. 메인 세션과 같은 모델을 쓰고(`model: inherit`), Codex를 부르지 않는다.
 - Codex로 하는 리뷰(예: Codex 플러그인의 `/codex:review`)와는 별개다. 프로젝트가 원하면 둘을 함께 쓸 수 있지만, Codex 리뷰는 하네스에 포함되지 않는다.
 
-### 7. 개선: 같은 실수는 한 번만
+### 8. 개선: 같은 실수는 한 번만
 
 시험장에서 에이전트가 실패하면 [docs/harness-log.md](docs/harness-log.md)에 기록한다. 그리고 [docs/principles.md](docs/principles.md)의 기준표에 따라 알맞은 층을 고친다.
 반복되는 실수일수록 강한 수단으로 옮긴다: 문장 지침 → 경로 규칙 → 스크립트가 딸린 스킬 → 린트·테스트 → 훅·권한.
@@ -235,8 +244,10 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | 파일 | 계층 | 역할 |
 |---|---|---|
 | `.claude-plugin/plugin.json` | — | 플러그인 이름(`ios-harness`)과 버전 |
-| `hooks/hooks.json` | Enforcement | Edit·Write·MultiEdit·NotebookEdit 직전에 `protect-generated.sh`를 실행하도록 등록 |
+| `hooks/hooks.json` | Enforcement + Context | 편집 직전에 `protect-generated.sh`, 편집 직후에 `stage-context.sh`를 실행하도록 등록 |
 | `hooks/protect-generated.sh` | Enforcement | 생성 파일·pbxproj 편집을 막는 훅 |
+| `hooks/stage-context.sh` | Context | 작업 상태 파일(`.harness/state/task.json`)이 바뀌면 그 단계의 지시를 `.harness/checks.json`에서 꺼내 넣는 훅 |
+| `skills/task/SKILL.md` | State | 작업 시작: 계획 여부(plan/simple)와 검사를 사용자에게 묻고 상태 파일을 만든다 |
 | `agents/ios-reviewer.md` | Validation (추론적) | 읽기 전용 리뷰 서브에이전트의 지시문 |
 
 ### scripts/ — 하네스를 설치하는 도구
@@ -260,6 +271,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `build.test.sh` | build가 쓰는 공용 함수: 시뮬레이터 선택, 에러 요약 형식, 다시 생성할지 판단 |
 | `verify.test.sh` | test·verify의 공용 함수(실패 요약 등)와 verify의 실행 계획: 바뀐 파일 → 모듈 → 돌릴 테스트 |
 | `lint.test.sh` | 컨벤션 파일 검사, SwiftLint 설정 변환, 점수 판정, 주석·문자열 제외, 바뀐 파일 고르기 |
+| `stage.test.sh` | 단계 지시 훅이 상태 파일이 바뀔 때만, 고른 검사의 지시만 넣는지 |
 | `hooks.test.sh` | 훅이 막을 것만 막고, 판단할 수 없으면 통과시키는지 |
 | `dev-install.test.sh` | 파일 배치, AGENTS.md 관리 블록 교체, 설정 병합, 반복 실행 |
 
@@ -274,7 +286,8 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `scripts.md` | build·test·verify·lint의 출력 형식, 산출물 위치, 생성 판단 |
 | `conventions.md` | `.harness/conventions.json` 필드 스펙과 규칙을 만드는 단계 |
 | `template.md` | template 파일이 어디에 설치되고 어떻게 갱신되는지, 기존 지침이 있는 프로젝트에 적용하는 절차 |
-| `plugin.md` | 플러그인 구성, 훅이 막는 것, 리뷰어 동작, 프로젝트에서 켜는 방법 |
+| `plugin.md` | 플러그인 구성, 훅이 막는 것, 단계 지시 훅과 task 스킬, 리뷰어 동작, 프로젝트에서 켜는 방법 |
+| `checks.md` | 작업 흐름(plan/simple)과 `.harness/checks.json` 필드 스펙 |
 | `harness-log.md` | 시험장에서 관찰한 에이전트 실패와 그에 따른 수정 |
 | `decisions/0001-layers.md` | 다섯 계층과 산출물 위치(template·plugin·scripts)를 나눈 이유 |
 | `decisions/0002-rule-placement.md` | 규칙을 무엇에 붙는지(파일 종류 / 행동)에 따라 경로 규칙·AGENTS.md·스킬·권한으로 나누는 기준 |
@@ -282,6 +295,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `decisions/0004-enforcement.md` | 무엇을 훅으로, 무엇을 deny·ask로 막는지 |
 | `decisions/0005-talk-criteria.md` | 여기어때 안드로이드 팀 발표의 기준으로 이후 후보를 다시 정하고, 워크플로 엔진을 함께 쓰지 않는 이유 |
 | `decisions/0006-convention-lint.md` | 컨벤션 목록을 JSON으로 두고 SwiftLint와 점수로 판정하는 이유 |
+| `decisions/0007-task-flow.md` | 사람이 고른 모드·검사와 단계 지시 훅으로 작업 흐름을 만들고, 강제는 미룬 이유 |
 
 ## 설치하면 대상 프로젝트는 이렇게 된다
 
@@ -333,6 +347,7 @@ claude plugin validate plugin
 - 단위 1~8 완료: 저장소 구조, 프로젝트 설정 파일·detect, build·test·verify, 경로 규칙, AGENTS.md 템플릿, 훅·권한·플러그인, ios-reviewer
 - 단위 9 진행 중: MotoTrace에 설치해 확인한 뒤, 시험장을 ReadSharp로 옮겼다. 1~2주 운영하며 실패를 기록하고, 이 기록으로 이후 순서를 정한다.
 - 후보 11 완료: 팀 컨벤션 목록과 `lint`(SwiftLint + 점수 판정). 레이어 의존·형식 검사는 후보 20으로 넘겼다
-- 이후 후보: 동작·화면 검증(Maestro, 스냅샷+Figma), 레이어 의존 검사, 사람이 검사를 고르는 작업 흐름, (조건부) 검증 강제, 정책·결정 기록, 플러그인 배포, Codex 어댑터, 평가 등. 기준은 [ADR 0005](docs/decisions/0005-talk-criteria.md)에 있다
+- 후보 12 완료: 사람이 모드·검사를 고르는 작업 흐름(`task` 스킬 + 단계 지시 훅)
+- 이후 후보: 동작·화면 검증(Maestro, 스냅샷+Figma), 레이어 의존 검사, (조건부) 검증 강제, 정책·결정 기록, 플러그인 배포, Codex 어댑터, 평가 등. 기준은 [ADR 0005](docs/decisions/0005-talk-criteria.md)에 있다
 
 자세한 내용은 [docs/roadmap.md](docs/roadmap.md)에 있다. 이 저장소에 기여하는 방법(브랜치, 커밋 규칙)은 [AGENTS.md](AGENTS.md)에 있다.

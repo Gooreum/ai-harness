@@ -117,12 +117,13 @@
   - 첫 대상(ReadSharp): `.sheet(isPresented:)` 금지, `MobileCoreServices` 금지, View에서 `Service.shared`·`AppContainer.shared` 직접 참조 금지
   - 진행 (2026-11-03): ReadSharp 전체 199개 파일 검사에서 주석 속 `.sheet(isPresented:)` 2곳은 잡지 않았고, `SettingsView`의 `AppContainer.shared` 1곳을 찾았다(코드는 따로 고친다). 위반 3개를 넣은 파일은 70점으로 실패. `claude -p`로 시트 화면을 만들게 하자 에이전트가 스스로 `lint`를 돌렸고 처음부터 `.sheet(item:)`으로 작성했다
   - 남은 항목은 후보 20으로 넘겼다. 시험장(xcodeproj 단일 앱)에서 확인할 수 없거나 아직 필요가 관찰되지 않아서다
-- [ ] 12. 작업 흐름과 워크플로 스킬
-  - 작업을 시작할 때 사람이 모드(plan: 계획 → 구현 → 검증 → 마무리 / simple: 구현 → 검증 → 마무리)와 검사를 고른다
-  - 검사 목록 `.harness/checks.json`: 검사마다 `name`, `prompt`(시킬 일), `run`(했는지 확인하는 스크립트). `project.json`(사실)과 나눈다
-  - 단계 상태 파일을 고치면 PostToolUse 훅이 그 단계의 prompt를 `additionalContext`로 넣는다. 훅은 검사 내용을 모르고 설정의 글을 옮길 뿐이다
-  - 마무리 단계 prompt에 "이번에 정한 정책 정리"를 넣는다 (후보 19)
-  - git 관례(커밋 구성, 브랜치, PR 본문에 검증 결과 넣기), 워크트리 (ADR 0002에서 넘긴 항목 포함)
+- [x] 12. 작업 흐름 (ADR 0007)
+  - 작업을 시작할 때 사람이 모드(plan: 계획 → 구현 → 검증 → 마무리 / simple: 구현 → 검증 → 마무리)와 검사를 고른다. 플러그인 스킬 `task`가 묻는다
+  - 검사 목록 `.harness/checks.json`: 검사마다 `name`, `description`, `prompt`(시킬 일), `run`(했는지 확인하는 명령, 후보 13에서 사용). `project.json`(사실)과 나눈다
+  - 단계 상태 파일 `.harness/state/task.json`을 고치면 PostToolUse 훅 `stage-context.sh`가 그 단계의 지시를 `additionalContext`로 넣는다. 훅은 검사 내용을 모르고 설정의 글을 옮길 뿐이다
+  - 마무리 단계 지시에 "코드에 남지 않는 정책·결정 정리"를 넣었다 (기록 저장소는 후보 19)
+  - 남은 것: git 관례(커밋 구성, 브랜치, PR 본문에 검증 결과 넣기), 워크트리 (ADR 0002에서 넘긴 항목)
+  - 진행 (2026-11-03): ReadSharp에서 `claude -p`로 simple 모드·lint 검사를 골라 시트 화면을 만들게 했다. implement → verify → finish → done 네 번 모두 훅 지시가 들어갔고(지시문의 훅 전용 문장을 그대로 인용), verify 단계에서 고른 lint만 돌렸으며, 마무리 보고에 코드에 남지 않는 결정을 따로 정리했다. 16턴
 - [ ] 13. (조건부) 검증 강제
   - 다음 단계로 넘어가거나 끝내려 할 때 고른 검사의 `run`을 실행한다. run은 결과 파일(`passed`와 작업 트리 해시)만 확인한다
   - 실패하면 이유를 붙여 막고, 같은 실패가 반복되면 사람에게 넘긴다

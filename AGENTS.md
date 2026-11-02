@@ -14,7 +14,7 @@
   - `template/scripts/harness/`: 프로젝트 안에서 매일 쓰는 스크립트(build·test·verify·lint)와 공용 함수 `lib.sh`. 설치되면 `scripts/harness/`가 된다.
   - `template/.harness/.gitignore`: 프로젝트의 `.harness/`에서 설정 파일만 커밋하게 한다.
   - `template/.claude/settings.json`: 권한 규칙(시크릿 읽기 deny, pbxproj 편집 deny, 파괴적 git 작업 ask)
-- `plugin/`: Claude Code 플러그인 `ios-harness`. 훅(생성 파일·pbxproj 편집 차단)과 리뷰 서브에이전트(`ios-reviewer`)를 담는다. 루트의 `.claude-plugin/marketplace.json`이 이 저장소를 마켓플레이스로 만든다
+- `plugin/`: Claude Code 플러그인 `ios-harness`. 훅(생성 파일·pbxproj 편집 차단, 단계 지시), 작업 시작 스킬(`task`), 리뷰 서브에이전트(`ios-reviewer`)를 담는다. 루트의 `.claude-plugin/marketplace.json`이 이 저장소를 마켓플레이스로 만든다
 - `scripts/`: 하네스를 설치·관리하는 도구. 대상 프로젝트 경로를 인자로 받는다.
   - `scripts/detect <프로젝트 경로>`: 프로젝트 설정 파일 초안 만들기
   - `scripts/dev-install <프로젝트 경로>`: 개발 중인 하네스를 프로젝트에 설치·갱신
@@ -22,6 +22,7 @@
 - `docs/roadmap.md`: 작업 단위와 순서, 진행 상황
 - `docs/project-config.md`: 프로젝트 설정 파일(`.harness/project.json`) 스펙
 - `docs/conventions.md`: 팀 컨벤션 목록(`.harness/conventions.json`) 스펙
+- `docs/checks.md`: 작업 흐름(plan/simple)과 검사 목록(`.harness/checks.json`) 스펙
 - `docs/scripts.md`: 프로젝트 스크립트의 동작 방식(출력 형식, 산출물 위치, 프로젝트 생성 판단)
 - `docs/template.md`: template 파일이 프로젝트의 어디에 설치되고 어떻게 갱신되는지
 - `docs/plugin.md`: 플러그인 구성, 훅이 막는 것, 프로젝트에서 켜는 방법
