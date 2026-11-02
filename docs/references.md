@@ -164,6 +164,61 @@
   - 편집 직후 sourcekit-lsp의 진단을 받는다.
   - Xcode 프로젝트는 빌드 서버 설정이 필요할 수 있다(백로그).
 
+## 팀 적용 사례
+
+### 여기어때 안드로이드 팀 — Workflow AX 적용기: 자동 정책 정리부터 E2E까지 (DroidKnights 2026, 2026-11-02)
+
+발표 슬라이드의 발표자 노트를 기준으로 정리했다(2026-11-03). 반영 내용은 [ADR 0005](decisions/0005-talk-criteria.md)에 있다.
+
+- 출발점은 문제 네 가지였다.
+  - 사람마다 방식이 제각각이다.
+  - 에이전트가 끝까지 하지 않는다(TODO를 남기고, 커밋을 빠뜨린다).
+  - 중간 확인이 없다.
+  - 팀 정책을 모른다.
+- v1 하네스
+  - 팀 공통 규칙을 스킬 하나에 모았다.
+  - Stop 훅이 `state.json`의 단계를 보고, 완료 전에는 끝내지 못하게 막는다.
+  - Phase·Step으로 나누고 테스트를 먼저 쓰게 강제했다.
+- v1 피드백은 "너무 오래 걸린다"와 "다른 플랫폼에서 못 쓴다" 두 가지였다. "iOS에도 도입할 수 있나요?"라는 질문도 나왔다.
+- v2 하네스
+  - `.dev-workflow/config.yaml`의 `verifications:`에 검사마다 `name`·`prompt`·`run`을 적는다.
+  - 단계가 바뀌면 PostToolUse 훅이 prompt를 `additionalContext`로 넣는다(exit 0).
+  - 다음 단계로 넘어가려 하면 훅이 run을 직접 돌린다. 실패하면 이유를 붙여 막는다.
+  - 스킬은 `dev-workflow-plan`과 `dev-workflow-simple` 둘이고, 어느 쪽을 쓸지와 어떤 검사를 돌릴지는 사람이 고른다.
+  - 같은 훅을 웹·안드로이드·위키 저장소에 쓰고, config만 다르다.
+- 수치
+  - 작은 작업: plan 평균 19.1분, simple 평균 9.3분(결함 없음)
+  - 큰 작업 결함 비율: plan 25%(4번 중 1번), simple 78%(9번 중 7번)
+  - Phase 분할: 안드로이드 작은 작업 100% = 100%, 웹 큰 작업 나눔 93.1% < 안 나눔 94.4%(조건마다 3번)
+- LLM Wiki
+  - 별도 저장소(`yeogi-library`)에 두고 MCP `library_search`로 찾는다.
+  - 마무리 단계에서 쓴다(config 한 줄). 비슷한 문서가 있으면 고친다.
+  - 기록은 두 종류다.
+    - 기술 기록 `kind: fact`: 확인된 동작, 확인 방법, 함의, 안 다룬 것
+    - 결정 기록 `kind: rule`: 규칙, 적용 범위, 근거 링크, 예외
+  - 같은 티켓을 줬을 때 위키가 없는 AI는 정책을 뒤집었고, 위키가 있는 AI는 티켓을 반려했다.
+  - 한 달 사용량: 검색 2,322회, 열람 540회, 반영 504회(93%)
+- andcon (컨벤션)
+  - AI에게 확인을 맡겼더니 "모두 지켰다"고 했지만 실제로는 어겼다.
+  - 그래서 AI는 규칙만 뽑아 `conventions.yml`에 초안을 쓰고, 팀이 고른다.
+  - 그 규칙을 Konsist(구조)·detekt(금지 API)·ktlint(형식) 설정으로 옮긴다.
+  - 검사는 AI 없이 한다. 100점에서 깎는 점수와 기준선으로 판정하고, 결과는 `.andcon/last-check.json`에 남는다.
+- 화면 검증
+  - Roborazzi가 기존 `@Preview`를 기기 없이 그린다.
+  - 픽셀 비교는 전부 빨갛게 나와 실패했다.
+  - 그래서 AI가 큰 배치를 보고, 파이썬 스크립트가 Figma MCP 수치와 코드 값을 1:1로 비교한다(dp 차이 리포트). 판정은 사람이 한다.
+- 동작 검증
+  - Appium 대신 Maestro를 골랐다. 작성·검토가 쉽고, 알아서 기다리고, MCP와 CLI를 다 쓸 수 있어서다.
+  - 팀 작성 규칙
+    - 딥링크로 진입한다.
+    - 요소는 id로 먼저 찾는다.
+    - 계정은 환경 변수로 넣는다.
+    - 반복 단계는 공통 `runFlow`로 쓴다.
+    - 끝까지 통과한 시나리오만 저장한다.
+  - 프록시 MCP로 서버 응답을 바꾼다(500·느린 네트워크·빈 응답).
+  - 행동 로그를 판정한다.
+  - `tags: [regression]` 회귀 묶음을 만들고, MR에 수정 전후 영상을 붙인다.
+
 ## 에이전트 플랫폼 제약
 
 ### Claude Code
@@ -235,3 +290,5 @@
 - [Codex — Skills](https://learn.chatgpt.com/docs/build-skills)
 - [Codex — Plugins](https://developers.openai.com/codex/plugins/build)
 - [Codex hooks 정리 (Blake Crosley)](https://blakecrosley.com/blog/codex-hooks-make-the-harness-real)
+- [여기어때 — Workflow AX 적용기 슬라이드 (DroidKnights 2026)](https://claude.ai/artifact/KBRFrrtvkB8RUB2TJFVGaP)
+- [여기어때 — Workflow AX 적용기 발표 요약·전사](https://claude.ai/artifact/SK8EowGXyMV4x2hSCMNi8t)
