@@ -48,6 +48,7 @@
 | `workspace` | 경로 또는 `null` | 빌드할 `.xcworkspace`. 루트 기준 경로다 |
 | `project` | 경로 또는 `null` | 빌드할 `.xcodeproj`. `workspace`와 `project` 중 하나만 값을 가진다 |
 | `app.scheme` | 문자열 | 앱을 빌드하는 스킴 |
+| `app.testScheme` | 문자열 또는 `null` | 앱 단위 테스트를 돌리는 스킴. `null`이면 `app.scheme`을 쓴다. 앱 스킴의 테스트 액션이 Release(배포용 스킴 등)라 `@testable import`가 안 될 때만 채운다 |
 | `app.path` | 경로 또는 `null` | 앱 manifest가 있는 디렉터리(Tuist). 이 안의 파일은 앱의 변경으로 본다 |
 | `app.bundleId` | 문자열 또는 `null` | Debug 구성의 앱 번들 ID. 시뮬레이터에서 앱을 실행할 때 쓴다 |
 | `app.unitTestTargets` | 문자열 배열 | 앱이 바뀌었을 때 돌릴 단위 테스트 타깃. UI 테스트는 넣지 않는다 |
@@ -83,5 +84,8 @@ scripts/detect --write ~/path/to/app   # <프로젝트>/.harness/project.json에
   - pbxproj 내용: `plutil`로 JSON 변환
   - 생성된 워크스페이스가 있으면 `xcodebuild -list`, `-showBuildSettings`로 스킴과 번들 ID를 확인한다
   - `xcrun simctl`: 가장 최신 iOS 런타임의 iPhone을 고른다(Pro 모델 우선)
+  - 공유 스킴 파일(`xcshareddata/xcschemes/*.xcscheme`)
+    - 앱 스킴의 테스트 액션 구성이 Debug가 아니면 `app.testScheme`을 찾는다.
+    - 테스트 액션이 Debug이고 첫 단위 테스트 타깃을 담은 스킴이어야 한다. 단위 테스트 타깃과 이름이 같은 스킴을 먼저 보고, 나머지는 이름순으로 본다.
 - Tuist 프로젝트를 아직 생성하지 않았으면 스킴과 번들 ID를 확인할 수 없다. 이 경우 추정값을 쓰거나 `null`로 두고, 경고를 출력한다.
 - `HARNESS_OFFLINE=1`을 주면 xcodebuild·simctl을 부르지 않고 파일만 본다(테스트용). 이때 시뮬레이터 이름은 `HARNESS_SIMULATOR`에서 읽는다.

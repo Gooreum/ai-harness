@@ -87,6 +87,61 @@ assert_eq "xcodeproj: 앱 스킴은 앱 타깃 이름" '"Sample"' "$(field "$out
 assert_eq "xcodeproj: 번들 ID" '"com.example.Sample"' "$(field "$out" .app.bundleId)"
 assert_eq "xcodeproj: UI 테스트는 빼고 단위 테스트만" '["SampleTests"]' "$(field "$out" .app.unitTestTargets)"
 assert_eq "xcodeproj: 모듈 없음" 'null' "$(field "$out" .modules)"
+assert_eq "xcodeproj: 스킴 파일이 없으면 테스트 스킴 없음" 'null' "$(field "$out" .app.testScheme)"
+
+# --- 앱 테스트 스킴 ---------------------------------------------------------------
+# 공유 스킴 파일. $1: 프로젝트, $2: 스킴 이름, $3: 테스트 액션 구성, $4: 테스트 액션에 넣을 타깃
+write_scheme() {
+  local dir="$1/Sample.xcodeproj/xcshareddata/xcschemes"
+  mkdir -p "$dir"
+  cat > "$dir/$2.xcscheme" <<EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<Scheme>
+   <BuildAction>
+      <BuildActionEntries>
+         <BuildableReference BlueprintName = "Sample"/>
+      </BuildActionEntries>
+   </BuildAction>
+   <TestAction
+      buildConfiguration = "$3">
+      <Testables>
+         <TestableReference>
+            <BuildableReference
+               BlueprintName = "$4"/>
+         </TestableReference>
+      </Testables>
+   </TestAction>
+   <LaunchAction
+      buildConfiguration = "$3">
+   </LaunchAction>
+</Scheme>
+EOF
+}
+
+p="$work/test-scheme-debug"
+write_pbxproj "$p/Sample.xcodeproj" "com.example.Sample"
+write_scheme "$p" "Sample" "Debug" "SampleTests"
+out="$(run_detect "$p")"
+assert_eq "test-scheme: 앱 스킴 테스트가 Debug면 따로 두지 않는다" 'null' "$(field "$out" .app.testScheme)"
+
+p="$work/test-scheme-release"
+write_pbxproj "$p/Sample.xcodeproj" "com.example.Sample"
+write_scheme "$p" "Sample" "Release" "SampleTests"
+write_scheme "$p" "Sample Dev" "Debug" "SampleTests"
+write_scheme "$p" "SampleTests" "Debug" "SampleTests"
+out="$(run_detect "$p")"
+assert_eq "test-scheme: Release면 테스트 타깃 이름의 Debug 스킴을 먼저 고른다" '"SampleTests"' "$(field "$out" .app.testScheme)"
+
+rm "$p/Sample.xcodeproj/xcshareddata/xcschemes/SampleTests.xcscheme"
+out="$(run_detect "$p")"
+assert_eq "test-scheme: 이름이 다른 Debug 스킴도 테스트 타깃을 담으면 고른다(공백 이름)" '"Sample Dev"' "$(field "$out" .app.testScheme)"
+
+write_scheme "$p" "Sample Dev" "Debug" "OtherTests"
+out="$(run_detect "$p")"
+assert_eq "test-scheme: 단위 테스트 타깃이 없는 스킴은 고르지 않는다" 'null' "$(field "$out" .app.testScheme)"
+"$detect" "$p" > /dev/null 2> "$work/err"
+if grep -q "app.testScheme을 직접 채우세요" "$work/err"; then warned=1; else warned=0; fi
+assert_eq "test-scheme: 찾지 못하면 경고한다" "1" "$warned"
 
 # --- 번들 ID가 빌드 설정 변수일 때 (오프라인에서는 확인 불가 → null) ------------
 p="$work/xcodeproj-var"

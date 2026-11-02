@@ -486,6 +486,69 @@ unit_test_names="$(
 )"
 note "앱 단위 테스트 타깃: $unit_test_names"
 
+# --- 앱 테스트 스킴 -------------------------------------------------------------
+# 결과: app.testScheme
+# 앱 스킴의 테스트 액션이 Debug가 아니면(배포용 스킴 등) @testable import가 되지 않아 테스트가 빌드되지 않는다.
+# 그럴 때만 테스트 액션이 Debug이고 첫 단위 테스트 타깃을 담은 공유 스킴을 찾는다.
+# 단위 테스트 타깃과 이름이 같은 스킴을 먼저 보고, 나머지 스킴은 이름순으로 본다.
+
+# 공유 스킴 파일 경로(루트 기준)를 한 줄에 하나씩. $1: 스킴 이름, 비우면 전부
+# (예: Sample.xcodeproj/xcshareddata/xcschemes/Sample Dev.xcscheme)
+shared_scheme_files() {
+  (
+    cd "$project_dir" \
+      && find . -path "*/xcshareddata/xcschemes/${1:-*}.xcscheme" \
+        -not -path '*/.build/*' -not -path '*/Derived/*' -not -path '*/DerivedData/*' 2> /dev/null \
+      | sed 's|^\./||' | sort
+  ) || true
+}
+
+# 스킴 파일($1)의 테스트 액션 구성 이름 (예: Debug). 테스트 액션이 없으면 빈 문자열
+scheme_test_configuration() {
+  awk '/<TestAction/ { in_test = 1 }
+       in_test && /buildConfiguration *=/ {
+         sub(/.*buildConfiguration *= *"/, ""); sub(/".*/, ""); print; exit
+       }' "$project_dir/$1"
+}
+
+# 스킴 파일($1)의 테스트 액션에 타깃($2)이 들어 있으면 성공
+scheme_tests_target() {
+  # grep -q는 찾자마자 끝나 awk가 SIGPIPE로 실패할 수 있다(pipefail). 끝까지 읽게 출력만 버린다.
+  awk '/<TestAction/,/<\/TestAction>/' "$project_dir/$1" | grep "BlueprintName = \"$2\"" > /dev/null
+}
+
+app_test_scheme=""   # 앱 테스트용 스킴 이름. 앱 스킴으로 테스트할 수 있으면 비워 둔다 (예: SampleTests)
+first_unit_test="$(printf '%s' "$unit_tests_json" | jq -r '.[0] // empty')"   # 예: SampleTests
+app_scheme_file=""
+if [ -n "$app_scheme" ]; then
+  app_scheme_file="$(shared_scheme_files "$app_scheme" | head -n 1)"
+fi
+if [ -n "$app_scheme_file" ] && [ -n "$first_unit_test" ]; then
+  app_test_config="$(scheme_test_configuration "$app_scheme_file")"
+  if [ -n "$app_test_config" ] && [ "$app_test_config" != "Debug" ]; then
+    while IFS= read -r candidate_file; do
+      if [ -z "$candidate_file" ] || [ "$candidate_file" = "$app_scheme_file" ]; then continue; fi
+      if [ "$(scheme_test_configuration "$candidate_file")" = "Debug" ] \
+        && scheme_tests_target "$candidate_file" "$first_unit_test"; then
+        app_test_scheme="$(basename "$candidate_file" .xcscheme)"
+        break
+      fi
+    done <<< "$(
+      printf '%s' "$unit_tests_json" | jq -r '.[]' | while IFS= read -r unit_test; do
+        shared_scheme_files "$unit_test"
+      done
+      shared_scheme_files
+    )"
+
+    if [ -n "$app_test_scheme" ]; then
+      note "앱 스킴의 테스트 액션이 $app_test_config 라 테스트 스킴을 따로 씁니다: $app_test_scheme"
+    else
+      warn "앱 스킴($app_scheme)의 테스트 액션이 $app_test_config 입니다." \
+        "테스트 액션이 Debug인 스킴을 찾지 못했습니다. app.testScheme을 직접 채우세요"
+    fi
+  fi
+fi
+
 # --- 모듈 (Tuist) -----------------------------------------------------------
 # 결과: modules
 # Project.swift가 있는 디렉터리를 모듈 하나로 본다. 앱 디렉터리와 루트는 제외한다.
@@ -608,6 +671,7 @@ draft_json="$(
     --arg workspace "$workspace" \
     --arg project "$project" \
     --arg appScheme "$app_scheme" \
+    --arg appTestScheme "$app_test_scheme" \
     --arg appPath "$app_path" \
     --arg bundleId "$bundle_id" \
     --argjson unitTests "$unit_tests_json" \
@@ -627,6 +691,7 @@ draft_json="$(
       project: ($project | orNull),
       app: {
         scheme: ($appScheme | orNull),
+        testScheme: ($appTestScheme | orNull),
         path: ($appPath | orNull),
         bundleId: ($bundleId | orNull),
         unitTestTargets: $unitTests
