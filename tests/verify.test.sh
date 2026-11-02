@@ -128,4 +128,10 @@ jq -n '{
 echo '// changed' >> "$p/App/App.swift"
 assert_eq "plan: 모듈 구조가 없으면 모든 변경을 앱 변경으로 본다" "  test 앱 (App: AppTests)" "$(plan | sed -n 3p)"
 
+# 앱 테스트 스킴이 따로 있으면 빌드는 앱 스킴, 테스트는 테스트 스킴으로 돈다.
+jq '.app.testScheme = "AppTests"' "$p/.harness/project.json" > "$p/.harness/tmp.json" \
+  && mv "$p/.harness/tmp.json" "$p/.harness/project.json"
+assert_eq "plan: app.testScheme이 있으면 빌드는 앱 스킴" "  build App" "$(plan | sed -n 2p)"
+assert_eq "plan: app.testScheme이 있으면 앱 테스트는 그 스킴" "  test 앱 (AppTests: AppTests)" "$(plan | sed -n 3p)"
+
 finish

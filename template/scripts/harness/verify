@@ -41,6 +41,8 @@ export HARNESS_ROOT="$root"
 start=$SECONDS
 
 app_scheme="$(cfg .app.scheme)"
+app_test_scheme="$(cfg .app.testScheme)"   # 앱 테스트에 쓰는 스킴. 없으면 앱 스킴 (test와 같은 규칙)
+[ -n "$app_test_scheme" ] || app_test_scheme="$app_scheme"
 app_path="$(cfg .app.path)"
 app_tests="$(jq -r '.app.unitTestTargets // [] | join(", ")' "$config")"
 manifest="$(cfg .modules.manifest)"
@@ -154,7 +156,7 @@ if [ "$plan" = 1 ]; then
   while IFS=$'\t' read -r label scheme; do
     if [ -z "$label" ]; then continue; fi
     if [ -z "$scheme" ]; then
-      echo "  test 앱 ($app_scheme: $app_tests)"
+      echo "  test 앱 ($app_test_scheme: $app_tests)"
     else
       echo "  test $label ($scheme)"
     fi

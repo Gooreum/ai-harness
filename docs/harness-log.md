@@ -27,10 +27,11 @@
   - `--scheme "EnglishStudy Dev"`(전부 Debug)는 공유 확장 산출물이 겹쳐 `Multiple commands produce …ReadSharpShareExtension.appex`로 실패했다. 프로젝트 쪽 문제다.
   - `--scheme EnglishStudyTests`(테스트 액션 Debug)는 212개 모두 통과했다(207s).
 - 원인: State·Execution — `app.scheme` 하나로 빌드와 테스트를 모두 하는데, 이 앱은 빌드용 스킴과 테스트용 스킴이 다르다. detect는 스킴의 테스트 액션 구성을 보지 않는다.
-- 조치(제안)
-  - 설정 파일에 테스트 스킴 필드를 따로 두거나, detect가 테스트 액션이 Debug인 스킴을 고르게 한다.
+- 조치
+  - 설정 파일에 `app.testScheme`을 추가했다(없으면 `app.scheme`). `test`와 `verify`의 앱 테스트가 이 값을 쓴다.
+  - detect는 앱 스킴의 테스트 액션이 Debug가 아닐 때만, 테스트 액션이 Debug이고 단위 테스트 타깃을 담은 공유 스킴을 고른다. ReadSharp에서는 `EnglishStudyTests`를 골랐다.
   - 프로젝트의 `EnglishStudy Dev` 산출물 중복은 프로젝트에서 따로 고친다.
-- 상태: 미해결
+- 상태: 반영됨 (단위 9)
 
 ### 2026-10-21 — 리뷰어가 "규칙 파일을 먼저 읽으라"는 지시를 따르지 않았다
 - 프로젝트·작업: MotoTrace 시험장, 단위 8 `ios-reviewer` 확인 (위반 4종을 넣고 터미널 `claude -p`로 리뷰를 맡김)
