@@ -1,0 +1,34 @@
+{
+  "permissions": {
+    "deny": [
+      "Read(**/*.p12)",
+      "Read(**/*.p8)",
+      "Read(**/*.mobileprovision)",
+      "Read(**/.env)",
+      "Read(**/.env.*)",
+      "Edit(**/*.pbxproj)"
+    ],
+    "ask": [
+      "Bash(git push *)",
+      "Bash(git reset --hard *)",
+      "Bash(git clean *)",
+      "Bash(git checkout -- *)",
+      "Bash(git checkout .)",
+      "Bash(git restore *)",
+      "Bash(git branch -D *)",
+      "Bash(git rebase *)",
+      "Bash(git commit *--no-verify*)",
+      "Bash(gh pr create *)",
+      "Bash(gh pr merge *)",
+      "Bash(git -C * push *)",
+      "Bash(git -C * reset --hard *)",
+      "Bash(git -C * clean *)",
+      "Bash(git -C * checkout -- *)",
+      "Bash(git -C * checkout .)",
+      "Bash(git -C * restore *)",
+      "Bash(git -C * branch -D *)",
+      "Bash(git -C * rebase *)",
+      "Bash(git -C * commit *--no-verify*)"
+    ]
+  }
+}

@@ -57,40 +57,49 @@
     - `scripts/harness/test` 작성: 실패만 요약
     - `scripts/harness/verify` 작성: 빌드와 변경 모듈 테스트를 명령 하나로 실행
   - 완료 기준: 모듈 하나를 고치면 그 모듈의 테스트가 돌고, 실패가 요약돼 보인다.
-- [ ] **5. 규칙 재구성** (Context)
+- [x] **5. 규칙 재구성** (Context)
   - 하는 일
     - 규칙을 `template/.claude/rules/harness/*.md`로 옮기고 `paths:` 추가
-    - `build.md`의 절차는 verify로 대체
+    - `build.md`의 절차는 verify로 대체 (`project-settings.md`로 이름 변경)
+    - `git.md`는 경로로 걸 수 없어 꼭 지킬 줄만 AGENTS.md로 옮김 (ADR 0002)
   - 완료 기준: `.swift` 파일을 읽을 때 해당 규칙이 로드된다.
-- [ ] **6. AGENTS.md 템플릿과 CLAUDE.md** (Context)
+- [x] **6. AGENTS.md 템플릿과 CLAUDE.md** (Context)
   - 하는 일
-    - AGENTS.md 템플릿 작성(100줄 이하): 목차, 설정 파일에서 생성하는 명령 블록, 꼭 지킬 규칙, Codex용 규칙 인덱스
+    - AGENTS.md 템플릿 작성(100줄 이하): 프로젝트 영역, 명령 블록, 꼭 지킬 규칙, Codex용 규칙 인덱스
+    - 명령 블록은 생성하지 않고 고정 문장으로 둔다. 스크립트가 설정 파일을 직접 읽기 때문이다 (ADR 0003)
     - CLAUDE.md는 `@AGENTS.md`를 import
     - 프로젝트 고유 규칙 자리 `.claude/rules/project/` 마련
   - 완료 기준: 새 세션에서 빌드·테스트 방법을 물으면 정확한 명령으로 답한다.
-- [ ] **7. 안전 훅·권한과 플러그인 골격** (Enforcement)
+- [x] **7. 안전 훅·권한과 플러그인 골격** (Enforcement)
   - 하는 일
     - 플러그인 골격과 로컬 마켓플레이스 작성
     - 자동 생성 파일·`.pbxproj` 편집 차단 훅
-    - 서명·시크릿 파일 읽기 deny, 파괴적 git 명령 deny
+    - 서명·시크릿 파일 읽기 deny, 파괴적·외부 공개 git 작업은 ask(사용자 확인)
     - 훅 픽스처 테스트
   - 완료 기준: 위 차단이 MotoTrace에서 실제로 동작한다.
-- [ ] **8. 코드 리뷰 서브에이전트** (추론적 Validation)
+  - 확인: MotoTrace에서 띄운 실제 세션에서 세 가지 차단 모두 동작. 이 과정에서 `git -C` 형식이 규칙을 피해 가는 것을 발견해 보완함 (harness-log, ADR 0004)
+- [x] **8. 코드 리뷰 서브에이전트** (추론적 Validation)
   - 하는 일: `ios-reviewer` 작성. 읽기 전용으로 diff를 규칙에 비춰 검토한다.
   - 검토 항목: 동시성 격리, 의존 방향, 접근성, 테스트 약화·설정 완화 같은 편법, 과설계
   - 완료 기준: 일부러 넣은 위반을 잡아낸다.
+  - 확인: 시험장에 위반 4종(테스트 약화, @unchecked Sendable, 구현 모듈 import, 설정 완화)을 넣고 맡겼더니 모두 [차단]으로 잡음. 리뷰어가 파일을 열지 않던 문제는 검토 순서로 보완함 (harness-log)
 - [ ] **9. MotoTrace에 새로 구성하고 운영하기**
   - 하는 일
-    - `scripts/dev-install.sh` 작성
+    - `scripts/dev-install` 작성
     - MotoTrace의 기존 하네스를 걷어내고 범용 하네스로 새로 구성
     - 1~2주 운영하며 `docs/harness-log.md`에 실패 기록
   - 완료 기준: 실패 기록을 분류해 이후 우선순위를 확정한다.
+  - 진행 (2026-10-21)
+    - `scripts/dev-install` 작성 (회귀 테스트 26개)
+    - MotoTrace `feature/ios-harness` 브랜치에 설치하고 기존 구성 정리. Codex 위임 검증·스탬프·커밋 게이트는 제거하고, mock ride·XcodeBuildMCP·/codex:review는 유지
+    - 새 세션이 빌드·테스트·PR 절차를 정확히 답하고, Swift 파일을 열면 규칙이 로드되는 것 확인 (단위 5·6의 실제 프로젝트 확인)
+    - 남은 일: 1~2주 운영하며 실패 기록, 분류해서 이후 우선순위 확정
 
 ## 이후 후보 (기본 순서이며, 단위 9의 기록으로 조정)
 
 - [ ] 10. UI 확인: 시뮬레이터 실행·접근성 트리·스크린샷 도구, `ios-ui-check` 스킬, 프로젝트 시나리오 스킬 템플릿
 - [ ] 11. 빌드·Tuist 절차 스킬과 아키텍처 센서: `ios-build-fix`, `tuist-change`, `tuist inspect` 래퍼
-- [ ] 12. 워크플로 스킬: 실행 계획, PR 본문에 검증 결과 넣기, 워크트리
+- [ ] 12. 워크플로 스킬: 실행 계획, git 관례(커밋 구성, 브랜치, PR 본문에 검증 결과 넣기), 워크트리 (ADR 0002에서 넘긴 항목 포함)
 - [ ] 13. (조건부) 검증 강제: 에이전트가 검증을 건너뛰는 일이 관찰될 때만 추가한다. 가장 단순한 형태부터 시도한다.
 - [ ] 14. 플러그인 배포와 init/sync/doctor
 - [ ] 15. 두 번째 프로젝트 적용: coinness-ios, 이어서 xcodeproj 앱

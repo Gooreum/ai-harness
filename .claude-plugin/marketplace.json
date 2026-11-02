@@ -1,0 +1,14 @@
+{
+  "name": "ios-ai-harness",
+  "owner": {
+    "name": "woong"
+  },
+  "description": "iOS 프로젝트용 AI 코딩 에이전트 하네스",
+  "plugins": [
+    {
+      "name": "ios-harness",
+      "source": "./plugin",
+      "description": "생성 파일·pbxproj 편집 차단 훅과 iOS 변경 리뷰 서브에이전트"
+    }
+  ]
+}

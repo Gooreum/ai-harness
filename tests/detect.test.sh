@@ -105,6 +105,47 @@ assert_eq "xcodegen: generator" '"xcodegen"' "$(field "$out" .generator)"
 assert_eq "xcodegen: generate" '"xcodegen generate"' "$(field "$out" .commands.generate)"
 assert_eq "xcodegen: project" '"Sample.xcodeproj"' "$(field "$out" .project)"
 
+# --- Tuist: 이름은 name: 인자에서만 읽는다 -----------------------------------------
+p="$work/tuist-name"
+mkdir -p "$p/Tuist"
+echo 'let tuist = Tuist(project: .tuist())' > "$p/Tuist.swift"
+printf 'let workspace = Workspace(\n    ㅁname: "Wrong1",\n    my_name: "Wrong2",\n    name: "Right",\n    projects: []\n)\n' > "$p/Workspace.swift"
+
+out="$(run_detect "$p")"
+assert_eq "tuist-name: ㅁname·my_name은 건너뛰고 name: 값을 쓴다" '"Right.xcworkspace"' "$(field "$out" .workspace)"
+
+# --- xcodebuild -list의 스킴 목록 (가짜 xcodebuild로 온라인 경로 확인) ----------------
+# 가짜 xcodebuild는 -list에만 FAKE_SCHEMES를 스킴 목록으로 돌려주고, 나머지 호출은 실패한다.
+bin="$work/bin"
+mkdir -p "$bin"
+cat > "$bin/xcodebuild" <<'EOF'
+#!/usr/bin/env bash
+case " $* " in
+  *" -list "*) printf '{"project":{"name":"Sample","schemes":%s}}\n' "${FAKE_SCHEMES:-[]}" ;;
+  *) exit 1 ;;
+esac
+EOF
+chmod +x "$bin/xcodebuild"
+
+p="$work/xcodeproj-online"
+write_pbxproj "$p/Sample.xcodeproj" "com.example.Sample"
+
+out="$(FAKE_SCHEMES='[]' PATH="$bin:$PATH" HARNESS_OFFLINE=0 "$detect" "$p" 2> "$work/err")"
+assert_eq "schemes-empty: 빈 목록은 확인 못 한 것으로 보고 앱 타깃 이름으로 추정" '"Sample"' "$(field "$out" .app.scheme)"
+if grep -q "스킴을 하나도 돌려주지 않았습니다" "$work/err"; then warned=1; else warned=0; fi
+assert_eq "schemes-empty: 빈 목록을 경고한다" "1" "$warned"
+
+out="$(FAKE_SCHEMES='["Other"]' PATH="$bin:$PATH" HARNESS_OFFLINE=0 "$detect" "$p" 2> /dev/null)"
+assert_eq "schemes-other: 목록에 앱 스킴 후보가 없으면 null" 'null' "$(field "$out" .app.scheme)"
+
+# 생성된 Tuist 프로젝트: 스킴이 없는 모듈이 여럿이면 모두 구분해서 알린다.
+p="$work/tuist"
+mkdir -p "$p/Sample.xcworkspace"
+FAKE_SCHEMES='["App"]' PATH="$bin:$PATH" HARNESS_OFFLINE=0 "$detect" "$p" > /dev/null 2> "$work/err"
+assert_eq "modules-no-scheme: 스킴 없는 모듈을 \", \"로 나열" \
+  "detect: 경고: 디렉터리 이름과 같은 스킴이 없는 모듈: Modules/Core/CoreB, Modules/Feature/FeatureA — modules.scheme 규칙을 확인하세요" \
+  "$(grep '스킴이 없는 모듈' "$work/err")"
+
 # --- iOS 프로젝트가 아님 -------------------------------------------------------
 p="$work/empty"
 mkdir -p "$p"

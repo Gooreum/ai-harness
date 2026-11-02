@@ -1,3 +1,11 @@
+---
+paths:
+  - "**/Tests/**"
+  - "**/*Tests/**"
+  - "**/*Tests.swift"
+  - "**/*.xctestplan"
+---
+
 # 테스트
 
 ## 작성
