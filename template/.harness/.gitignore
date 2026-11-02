@@ -4,3 +4,4 @@
 !.gitignore
 !project.json
 !conventions.json
+!checks.json

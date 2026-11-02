@@ -1,6 +1,6 @@
 # 플러그인
 
-`plugin/`은 Claude Code 플러그인 `ios-harness`다. 여러 프로젝트에 공통으로 적용할 훅과 서브에이전트를 담는다. 이후 단위에서 스킬도 추가한다.
+`plugin/`은 Claude Code 플러그인 `ios-harness`다. 여러 프로젝트에 공통으로 적용할 훅, 서브에이전트, 스킬을 담는다.
 이 저장소 루트의 `.claude-plugin/marketplace.json` 덕분에 저장소 자체가 마켓플레이스(`ios-ai-harness`) 역할을 한다.
 
 ## 구성
@@ -11,9 +11,12 @@ plugin/
 ├── .claude-plugin/plugin.json      플러그인 정보(이름 ios-harness, 버전)
 ├── agents/
 │   └── ios-reviewer.md             읽기 전용 리뷰 서브에이전트 (ios-harness:ios-reviewer)
+├── skills/
+│   └── task/SKILL.md               작업 시작: 모드·검사를 사용자에게 묻고 상태 파일을 만든다 (ios-harness:task)
 └── hooks/
-    ├── hooks.json                  훅 등록: Edit·Write·MultiEdit·NotebookEdit 전에 protect-generated.sh 실행
-    └── protect-generated.sh        생성 파일·pbxproj 편집 차단
+    ├── hooks.json                  훅 등록: 편집 전 protect-generated.sh, 편집 후 stage-context.sh
+    ├── protect-generated.sh        생성 파일·pbxproj 편집 차단
+    └── stage-context.sh            작업 상태 파일이 바뀌면 그 단계의 지시를 넣는다
 ```
 
 ## 훅: protect-generated.sh
@@ -26,6 +29,14 @@ plugin/
 - 파일이 속한 프로젝트는 `.harness/project.json`이 있는 가장 가까운 상위 디렉터리다. 생성기는 그 파일에서 읽는다.
 - 판단할 수 없으면 막지 않는다. 설정 파일이 없거나 입력이 깨진 경우다.
 - 왜 훅과 권한 규칙을 나눴는지는 [ADR 0004](decisions/0004-enforcement.md)에 있다.
+
+## 훅: stage-context.sh와 스킬: task
+
+작업 흐름(plan/simple 모드, 사람이 고른 검사)을 만든다. 동작과 설정 형식은 [checks.md](checks.md)에 있다.
+
+- PostToolUse(Edit·Write·MultiEdit)에서 고친 파일이 `<프로젝트>/.harness/state/task.json`일 때만 동작한다. 프로젝트는 `.harness/project.json`이 있어야 한다.
+- 지금 단계의 지시를 `.harness/checks.json`에서 꺼내 `additionalContext`로 넣고 0으로 끝난다. 막지 않는다.
+- `task` 스킬은 모드와 검사를 사용자에게 묻고 상태 파일을 만든다. 모드와 검사를 AI가 대신 고르지 않는다.
 
 ## 서브에이전트: ios-reviewer
 
