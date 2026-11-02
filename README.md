@@ -332,7 +332,7 @@ claude plugin validate plugin
 
 - 단위 1~8 완료: 저장소 구조, 프로젝트 설정 파일·detect, build·test·verify, 경로 규칙, AGENTS.md 템플릿, 훅·권한·플러그인, ios-reviewer
 - 단위 9 진행 중: MotoTrace에 설치해 확인한 뒤, 시험장을 ReadSharp로 옮겼다. 1~2주 운영하며 실패를 기록하고, 이 기록으로 이후 순서를 정한다.
-- 후보 11 일부 완료: 팀 컨벤션 목록과 `lint`(SwiftLint + 점수 판정). 레이어 의존·형식 검사는 남았다
+- 후보 11 완료: 팀 컨벤션 목록과 `lint`(SwiftLint + 점수 판정). 레이어 의존·형식 검사는 후보 20으로 넘겼다
 - 이후 후보: 동작·화면 검증(Maestro, 스냅샷+Figma), 레이어 의존 검사, 사람이 검사를 고르는 작업 흐름, (조건부) 검증 강제, 정책·결정 기록, 플러그인 배포, Codex 어댑터, 평가 등. 기준은 [ADR 0005](docs/decisions/0005-talk-criteria.md)에 있다
 
 자세한 내용은 [docs/roadmap.md](docs/roadmap.md)에 있다. 이 저장소에 기여하는 방법(브랜치, 커밋 규칙)은 [AGENTS.md](AGENTS.md)에 있다.

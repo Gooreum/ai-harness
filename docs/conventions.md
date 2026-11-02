@@ -57,4 +57,4 @@
 | `rules[].excluded` | 정규식 배열, 선택 | 파일 경로가 맞으면 검사하지 않는다 |
 
 - 잘못된 파일이면 `lint`가 첫 문제를 알려 주고 2로 끝난다.
-- 아직 정규식 하나로 잡는 금지 패턴만 다룬다. 레이어 의존(Konsist 대응)과 형식(ktlint·SwiftFormat 대응)은 로드맵 후보 11의 남은 항목이다.
+- 정규식 하나로 잡는 금지 패턴만 다룬다. 단일 모듈 앱의 레이어 의존은 `included`와 import 금지 정규식으로 표현한다(예: `/Domain/` 아래에서 `import SwiftUI` 금지). 모듈 간 의존과 형식(ktlint·SwiftFormat 대응)은 로드맵 후보 20이다.
