@@ -82,3 +82,25 @@ scripts/harness/verify --plan        # 실행하지 않고 무엇을 할지만 �
   ✓ test CoreTracking · 통과 20 · 7s
   ✓ verify · 통과: CoreTracking · 29s
   ```
+
+## lint
+
+```bash
+scripts/harness/lint               # 커밋하지 않은 변경 중 Swift 파일
+scripts/harness/lint --base main   # main에서 갈라진 뒤 바뀐 Swift 파일
+scripts/harness/lint --all         # git이 추적하는 모든 Swift 파일
+```
+
+- 팀 컨벤션 목록 `.harness/conventions.json`([conventions.md](conventions.md))의 규칙으로 검사한다. 파일이 없으면 건너뛰고 0으로 끝난다.
+- 검사는 SwiftLint가 한다. 에이전트는 규칙 초안을 만들 때만 쓰고, 통과 여부는 AI가 판단하지 않는다([ADR 0006](decisions/0006-convention-lint.md)).
+  - 실행할 때마다 컨벤션 목록을 SwiftLint 설정(`.harness/out/swiftlint.yml`)으로 옮긴다. 목록과 설정이 어긋날 일이 없다.
+  - 컨벤션 규칙만 켠다. 프로젝트의 `.swiftlint.yml`이나 SwiftLint 기본 규칙은 판정에 넣지 않는다.
+- 바뀐 파일은 verify와 같은 기준으로 고른다(지운 파일은 뺀다).
+- 100점에서 위반마다 감점한다(기본 error 10, warning 5, info 1). `passScore`(기본 95) 이상이면 통과다.
+- 출력: 첫 줄에 점수, 이어서 위반을 심각한 것부터 위치와 함께 `HARNESS_MAX_ERRORS`개(기본 5)까지 보여 준다.
+  ```
+  ✗ lint · 70점 (기준 95) · 파일 1개 · 위반 3개
+    EnglishStudy/Features/Settings/View/LintProbeView.swift:2: [imports.no_mobile_core_services] MobileCoreServices 대신 UniformTypeIdentifiers를 쓴다 (−10)
+  ```
+- 결과 파일 `.harness/out/lint.json`: `passed`, `score`, `passScore`, `files`(검사한 파일 수), `violations`(`rule`·`severity`·`penalty`·`file`·`line`·`column`·`message`). 바뀐 파일이 없어도 남긴다.
+- 종료 코드: 통과 0, 기준 미달 1, 설정 오류·SwiftLint 없음·SwiftLint 실행 실패 2

@@ -1,0 +1,107 @@
+#!/usr/bin/env bash
+# 팀 컨벤션(.harness/conventions.json)을 SwiftLint로 검사하고 점수로 판정한다. 검사에는 AI를 쓰지 않는다.
+set -euo pipefail
+
+here="$(cd "$(dirname "$0")" && pwd)"
+. "$here/lib.sh"
+
+usage() {
+  cat <<'EOF'
+사용법: scripts/harness/lint [--base 브랜치] [--all]
+
+  .harness/conventions.json의 규칙으로 Swift 파일을 검사한다.
+  100점에서 위반마다 감점하고, 기준 점수(passScore) 이상이면 통과다.
+  결과는 .harness/out/lint.json에 남는다.
+
+  기본           커밋하지 않은 변경(HEAD 대비 수정 + 새 파일)을 본다 (verify와 같은 기준)
+  --base 브랜치   그 브랜치에서 갈라진 뒤의 모든 변경을 본다
+  --all          git이 추적하는 모든 Swift 파일을 본다
+
+  종료 코드: 0 통과, 1 기준 미달, 2 설정·도구 문제
+EOF
+}
+
+base=""
+all=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --base) [ $# -ge 2 ] || harness_die "--base에 브랜치가 필요합니다"; base="$2"; shift ;;
+    --all) all=1 ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "lint: 알 수 없는 인자: $1" >&2; usage >&2; exit 2 ;;
+  esac
+  shift
+done
+
+harness_init
+conventions="$root/.harness/conventions.json"
+result="$out_dir/lint.json"
+rm -f "$result"
+
+if [ ! -f "$conventions" ]; then
+  echo "· lint · .harness/conventions.json이 없어 건너뜁니다"
+  exit 0
+fi
+conventions_check "$conventions"
+command -v swiftlint >/dev/null 2>&1 || harness_die "swiftlint가 필요합니다 (brew install swiftlint)"
+
+# --- 검사할 파일 ---------------------------------------------------------------
+
+if [ "$all" = 1 ] || ! git -C "$root" rev-parse --git-dir >/dev/null 2>&1; then
+  files="$(cd "$root" && { git ls-files '*.swift'; git ls-files -o --exclude-standard '*.swift'; } 2>/dev/null | LC_ALL=C sort -u)"
+  [ -n "$files" ] || files="$(cd "$root" && find . -name '*.swift' -not -path './.harness/*' -not -path '*/.build/*' -not -path '*/Derived/*' | sed 's|^\./||' | LC_ALL=C sort)"
+else
+  files="$(harness_changed_files "$base" | { grep '\.swift$' || true; })"
+fi
+# 지운 파일은 뺀다.
+existing=""
+while IFS= read -r f; do
+  [ -n "$f" ] && [ -f "$root/$f" ] && existing="$existing$f"$'\n'
+done <<< "$files"
+files="$(printf '%s' "$existing")"
+count="$(printf '%s' "$files" | grep -c . || true)"
+
+# --- 실행 ---------------------------------------------------------------------
+
+violations='[]'
+if [ "$count" -gt 0 ]; then
+  sl_config="$out_dir/swiftlint.yml"
+  conventions_to_swiftlint "$conventions" > "$sl_config"
+  raw="$out_dir/lint-swiftlint.json"
+  args=()
+  while IFS= read -r f; do args+=("$f"); done <<< "$files"
+  # swiftlint는 위반이 있으면 0이 아닌 코드로 끝난다. 판정은 아래에서 JSON으로 한다.
+  (cd "$root" && swiftlint lint --config "$sl_config" --reporter json --quiet --no-cache "${args[@]}" > "$raw" 2> "$out_dir/lint-swiftlint.err") || true
+  if ! jq -e 'type == "array"' "$raw" >/dev/null 2>&1; then
+    echo "✗ lint · swiftlint 실행 실패" >&2
+    head -n 20 "$out_dir/lint-swiftlint.err" >&2
+    exit 2
+  fi
+  violations="$(lint_violations "$conventions" "$raw" "$root")"
+fi
+
+pass_score="$(jq -r '.passScore // 95' "$conventions")"
+jq -n --argjson v "$violations" --argjson pass "$pass_score" --argjson files "$count" '
+  ([100 - ($v | map(.penalty) | add // 0), 0] | max) as $score
+  | { passed: ($score >= $pass), score: $score, passScore: $pass, files: $files, violations: $v }' > "$result"
+
+score="$(jq -r .score "$result")"
+n="$(jq -r '.violations | length' "$result")"
+if [ "$count" -eq 0 ]; then
+  echo "✓ lint · 바뀐 Swift 파일 없음"
+  exit 0
+fi
+if jq -e .passed "$result" >/dev/null; then
+  mark="✓"
+else
+  mark="✗"
+fi
+if [ "$n" -eq 0 ]; then
+  echo "$mark lint · ${score}점 (기준 $pass_score) · 파일 ${count}개"
+else
+  echo "$mark lint · ${score}점 (기준 $pass_score) · 파일 ${count}개 · 위반 ${n}개"
+  jq -r --argjson max "$max_errors" '.violations[:$max][]
+    | "  \(.file):\(.line): [\(.rule)] \(.message) (−\(.penalty))"' "$result"
+  [ "$n" -le "$max_errors" ] || echo "  … 외 $((n - max_errors))개 (전체: .harness/out/lint.json)"
+fi
+jq -e .passed "$result" >/dev/null

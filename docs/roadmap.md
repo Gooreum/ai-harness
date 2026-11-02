@@ -111,11 +111,12 @@
   - `tags: [regression]`이 붙은 시나리오를 회귀 묶음으로 모아 배포 전·리팩터링 후에 돌린다. PR에 수정 전후 영상을 붙인다
   - 그다음 화면 검증: `#Preview` 스냅샷 + Figma MCP 수치 비교. 배치는 AI가, 간격·크기 수치는 스크립트가 보고, 판정은 사람이 한다. 픽셀 비교는 쓰지 않는다(발표에서 차이가 전부 빨갛게 나와 실패)
   - 나중에: 서버 응답 조작(500·느린 네트워크·빈 응답), 행동 로그 판정
-- [ ] 11. 결정적 컨벤션 센서와 빌드·Tuist 절차 스킬
-  - 규칙 목록 `.harness/conventions.yml`: AI가 코드에서 초안을 뽑고 사람이 고른다. 여기서 SwiftLint `custom_rules`·SwiftFormat 설정을 만든다
-  - `scripts/harness/lint`: 결과를 `.harness/out/lint.json`(`passed`, 위반 목록)으로 남긴다. 검사에는 AI를 쓰지 않는다
-  - 첫 대상 예시(ReadSharp): `.sheet(isPresented:)` 금지, `MobileCoreServices` 금지, View에서 `Service.shared` 직접 참조 금지
-  - 아키텍처 의존 검사(Konsist 대응 후보: Harmonize, `tuist inspect`), `ios-build-fix`, `tuist-change`, `tuist inspect` 래퍼
+- [x] 11. 결정적 컨벤션 센서
+  - 규칙 목록 `.harness/conventions.json`: AI가 코드에서 초안을 뽑고 사람이 고른다. `lint`가 실행할 때마다 SwiftLint `custom_rules` 설정으로 옮긴다. YAML 대신 JSON을 쓴다(ADR 0006)
+  - `scripts/harness/lint`: 100점에서 위반마다 감점하고 `passScore` 이상이면 통과. 결과를 `.harness/out/lint.json`(`passed`, `score`, 위반 목록)으로 남긴다. 검사에는 AI를 쓰지 않는다
+  - 첫 대상(ReadSharp): `.sheet(isPresented:)` 금지, `MobileCoreServices` 금지, View에서 `Service.shared`·`AppContainer.shared` 직접 참조 금지
+  - 진행 (2026-11-03): ReadSharp 전체 199개 파일 검사에서 주석 속 `.sheet(isPresented:)` 2곳은 잡지 않았고, `SettingsView`의 `AppContainer.shared` 1곳을 찾았다(코드는 따로 고친다). 위반 3개를 넣은 파일은 70점으로 실패. `claude -p`로 시트 화면을 만들게 하자 에이전트가 스스로 `lint`를 돌렸고 처음부터 `.sheet(item:)`으로 작성했다
+  - 남은 항목은 후보 20으로 넘겼다. 시험장(xcodeproj 단일 앱)에서 확인할 수 없거나 아직 필요가 관찰되지 않아서다
 - [ ] 12. 작업 흐름과 워크플로 스킬
   - 작업을 시작할 때 사람이 모드(plan: 계획 → 구현 → 검증 → 마무리 / simple: 구현 → 검증 → 마무리)와 검사를 고른다
   - 검사 목록 `.harness/checks.json`: 검사마다 `name`, `prompt`(시킬 일), `run`(했는지 확인하는 스크립트). `project.json`(사실)과 나눈다
@@ -136,6 +137,11 @@
   - 결정 기록(`kind: rule`): 이 서비스·팀이 정한 규칙. 항목은 규칙, 적용 범위, 근거(기획서·Slack 링크), 예외
   - 마무리 때 쓰고(비슷한 문서가 있으면 고친다), 작업을 시작할 때 관련 기록부터 찾아 읽는다
   - 처음에는 프로젝트 안의 `docs/wiki/`와 grep으로 시작한다. 별도 저장소와 검색 MCP는 필요해지면 만든다
+
+- [ ] 20. 컨벤션 센서 확장과 빌드·Tuist 절차 스킬 (후보 11에서 넘김)
+  - 레이어 의존 검사(Konsist 대응). 단일 모듈 앱은 지금 `lint`의 경로 규칙(`included` + import 금지 정규식)으로 표현할 수 있다. 모듈 프로젝트는 Harmonize, `tuist inspect`를 조사한다
+  - 형식 규칙(ktlint 대응): SwiftFormat 설정 생성. 프로젝트가 SwiftFormat을 쓰기 시작할 때
+  - `ios-build-fix`, `tuist-change` 스킬, `tuist inspect` 래퍼. Tuist 시험장이 필요하다
 
 ## 만들지 않는 것
 

@@ -3,3 +3,4 @@
 *
 !.gitignore
 !project.json
+!conventions.json

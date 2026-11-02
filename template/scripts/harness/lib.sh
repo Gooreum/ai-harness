@@ -1,4 +1,4 @@
-# 하네스 스크립트 공용 함수. build·test·verify가 source한다. (bash 3.2 호환)
+# 하네스 스크립트 공용 함수. build·test·verify·lint가 source한다. (bash 3.2 호환)
 #
 # harness_init 이후 쓸 수 있는 변수
 #   root          프로젝트 루트 (HARNESS_ROOT 또는 현재 디렉터리의 git 루트)
@@ -35,6 +35,21 @@ harness_derived_data_path() {
     return 0
   fi
   echo "$HOME/Library/Developer/Xcode/DerivedData/$(basename "$1")-harness-$(printf '%s' "$1" | shasum -a 256 | cut -c1-8)"
+}
+
+# 바뀐 파일 목록(루트 기준 경로, 한 줄에 하나). verify·lint가 같은 기준을 쓴다.
+# 인자가 없으면 커밋하지 않은 변경(HEAD 대비 수정 + 새 파일), $1이 있으면 그 브랜치에서 갈라진 뒤의 모든 변경.
+# 하네스 산출물(.harness/)은 뺀다. 지운 파일도 목록에 남으므로 필요하면 호출한 쪽에서 거른다.
+harness_changed_files() {
+  local base="${1:-}" merge_base=""
+  if [ -n "$base" ]; then
+    merge_base="$(git -C "$root" merge-base "$base" HEAD 2>/dev/null)" \
+      || harness_die "--base $base: 기준 커밋을 찾지 못했습니다"
+  fi
+  (cd "$root" && {
+      if [ -n "$merge_base" ]; then git diff --name-only "$merge_base"; else git diff --name-only HEAD; fi
+      git ls-files -o --exclude-standard
+    } | { grep -v '^\.harness/' || true; } | LC_ALL=C sort -u)
 }
 
 # 설정 값을 읽는다. 없거나 null이면 빈 문자열.
@@ -295,4 +310,63 @@ format_issues() {
           + (if $col then ":\(($col | tonumber) + 1)" else "" end)
           + ": \(.message)"
       end'
+}
+
+# --- 컨벤션 검사 (lint) ---------------------------------------------------------
+# .harness/conventions.json 형식은 하네스 저장소의 docs/conventions.md에 있다.
+
+# 컨벤션 파일($1)을 검사한다. 문제가 있으면 첫 문제를 출력하고 끝낸다.
+conventions_check() {
+  local problem
+  jq -e . "$1" >/dev/null 2>&1 || harness_die "$1: JSON 형식이 아닙니다"
+  problem="$(jq -r '
+    def bad($i; $msg): "rules[\($i)]: \($msg)";
+    if .schemaVersion != 1 then "schemaVersion은 1이어야 합니다"
+    elif (.rules | type) != "array" then "rules는 배열이어야 합니다"
+    elif (.passScore != null) and ((.passScore | type) != "number" or .passScore < 0 or .passScore > 100) then "passScore는 0~100 숫자여야 합니다"
+    else
+      ([.rules | to_entries[] | .key as $i | .value as $r |
+        if ($r.id | type) != "string" or ($r.id | test("^[a-z0-9_.]+$") | not) then bad($i; "id는 영문 소문자·숫자·_·.만 씁니다")
+        elif ($r.severity | IN("error", "warning", "info") | not) then bad($i; "\($r.id): severity는 error·warning·info 중 하나입니다")
+        elif ($r.regex | type) != "string" or $r.regex == "" then bad($i; "\($r.id): regex가 필요합니다")
+        elif ($r.description | type) != "string" or $r.description == "" then bad($i; "\($r.id): description이 필요합니다")
+        elif ($r.penalty != null) and (($r.penalty | type) != "number" or $r.penalty < 0) then bad($i; "\($r.id): penalty는 0 이상 숫자입니다")
+        else empty end] | first)
+      // ([.rules[].id] | group_by(.) | map(select(length > 1) | .[0]) | first | if . then "id가 겹칩니다: \(.)" else empty end)
+      // empty
+    end' "$1")"
+  [ -z "$problem" ] || harness_die ".harness/conventions.json: $problem"
+}
+
+# 컨벤션 파일($1)을 SwiftLint 설정으로 옮긴다. JSON은 YAML이기도 해서 SwiftLint가 그대로 읽는다.
+# 컨벤션 규칙만 켠다(only_rules). SwiftLint 기본 규칙은 판정에 넣지 않는다.
+conventions_to_swiftlint() {
+  jq '{
+    only_rules: ["custom_rules"],
+    custom_rules: (.rules | map({ key: .id, value: (
+      { name: .id, regex: .regex, message: .description,
+        severity: (if .severity == "error" then "error" else "warning" end) }
+      + (if .matchKinds then { match_kinds: .matchKinds } else {} end)
+      + (if .included then { included: .included } else {} end)
+      + (if .excluded then { excluded: .excluded } else {} end)) }) | from_entries)
+  }' "$1"
+}
+
+# swiftlint JSON 결과($2)를 위반 목록으로 바꾼다. 심각도·감점은 컨벤션 파일($1)에서 가져오고,
+# 경로는 루트($3) 기준으로 줄인다. 심각한 것부터, 같은 심각도는 파일·줄 순서로 정렬한다.
+lint_violations() {
+  local real prefixes
+  real="$(cd "$3" && pwd -P)"
+  prefixes="$(jq -cn --arg a "$3" --arg b "$real" '[$a, $b, ($b | sub("^/private/"; "/"))] | unique | map(. + "/")')"
+  jq --slurpfile conv "$1" --argjson prefixes "$prefixes" '
+    ($conv[0].rules | map({ key: .id, value: . }) | from_entries) as $rules
+    | { error: 10, warning: 5, info: 1 } as $default
+    | { error: 0, warning: 1, info: 2 } as $order
+    | map(select($rules[.rule_id]) | $rules[.rule_id] as $r
+        | .file as $f
+        | { rule: .rule_id, severity: $r.severity,
+            penalty: ($r.penalty // $default[$r.severity]),
+            file: (reduce $prefixes[] as $p ($f; if startswith($p) then .[($p | length):] else . end)),
+            line: .line, column: .character, message: $r.description })
+    | sort_by($order[.severity], .file, .line, .column)' "$2"
 }

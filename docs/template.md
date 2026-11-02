@@ -14,10 +14,12 @@ template 안의 경로가 그대로 프로젝트 루트 기준 경로가 된다.
 | `.claude/rules/harness/*.md` | 하네스가 관리하는 상황별 규칙 | 통째로 바꾼다 |
 | `.claude/rules/project/` | 프로젝트 고유 규칙을 두는 자리 (`.gitkeep`만 있음) | 건드리지 않는다 |
 | `.claude/settings.json` | 권한 규칙: 시크릿 읽기 deny, pbxproj 편집 deny, 파괴적·외부 공개 git 작업 ask | 프로젝트 설정과 합친다 (단위 9) |
-| `scripts/harness/*` | 프로젝트 스크립트(build·test·verify, lib.sh) | 통째로 바꾼다 |
+| `scripts/harness/*` | 프로젝트 스크립트(build·test·verify·lint, lib.sh) | 통째로 바꾼다 |
 | `.harness/.gitignore` | `.harness/`에서 설정 파일만 커밋되게 함 | 통째로 바꾼다 |
 
 `.harness/project.json`은 template에 없다. 설치할 때 하네스 저장소의 `scripts/detect`가 프로젝트를 보고 만들고, 이후에는 `detect --write --force`로만 다시 만든다.
+
+`.harness/conventions.json`(팀 컨벤션 목록)도 template에 없다. 팀이 규칙을 고른 뒤 프로젝트에서 직접 만든다([conventions.md](conventions.md)). 없으면 `lint`는 건너뛴다.
 
 ## AGENTS.md의 두 영역
 
