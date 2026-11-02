@@ -112,10 +112,12 @@
   - 그다음 화면 검증: `#Preview` 스냅샷 + Figma MCP 수치 비교. 배치는 AI가, 간격·크기 수치는 스크립트가 보고, 판정은 사람이 한다. 픽셀 비교는 쓰지 않는다(발표에서 차이가 전부 빨갛게 나와 실패)
   - 나중에: 서버 응답 조작(500·느린 네트워크·빈 응답), 행동 로그 판정
 - [ ] 11. 결정적 컨벤션 센서와 빌드·Tuist 절차 스킬
-  - 규칙 목록 `.harness/conventions.yml`: AI가 코드에서 초안을 뽑고 사람이 고른다. 여기서 SwiftLint `custom_rules`·SwiftFormat 설정을 만든다
-  - `scripts/harness/lint`: 결과를 `.harness/out/lint.json`(`passed`, 위반 목록)으로 남긴다. 검사에는 AI를 쓰지 않는다
-  - 첫 대상 예시(ReadSharp): `.sheet(isPresented:)` 금지, `MobileCoreServices` 금지, View에서 `Service.shared` 직접 참조 금지
-  - 아키텍처 의존 검사(Konsist 대응 후보: Harmonize, `tuist inspect`), `ios-build-fix`, `tuist-change`, `tuist inspect` 래퍼
+  - [x] 규칙 목록 `.harness/conventions.json`: AI가 코드에서 초안을 뽑고 사람이 고른다. `lint`가 실행할 때마다 SwiftLint `custom_rules` 설정으로 옮긴다. YAML 대신 JSON을 쓴다(ADR 0006)
+  - [x] `scripts/harness/lint`: 100점에서 위반마다 감점하고 `passScore` 이상이면 통과. 결과를 `.harness/out/lint.json`(`passed`, `score`, 위반 목록)으로 남긴다. 검사에는 AI를 쓰지 않는다
+  - [x] 첫 대상(ReadSharp): `.sheet(isPresented:)` 금지, `MobileCoreServices` 금지, View에서 `Service.shared` 직접 참조 금지
+  - [ ] 형식 규칙(ktlint 대응): SwiftFormat 설정 생성. 프로젝트가 SwiftFormat을 쓰기 시작할 때
+  - [ ] 아키텍처 의존 검사(Konsist 대응 후보: Harmonize, `tuist inspect`), `ios-build-fix`, `tuist-change`, `tuist inspect` 래퍼
+  - 진행 (2026-11-03): ReadSharp 전체 199개 파일 100점(주석 속 `.sheet(isPresented:)` 2곳은 잡지 않음). 위반 3개를 넣은 파일은 70점으로 실패. `claude -p`로 시트 화면을 만들게 하자 에이전트가 스스로 `lint`를 돌렸고 처음부터 `.sheet(item:)`으로 작성했다
 - [ ] 12. 작업 흐름과 워크플로 스킬
   - 작업을 시작할 때 사람이 모드(plan: 계획 → 구현 → 검증 → 마무리 / simple: 구현 → 검증 → 마무리)와 검사를 고른다
   - 검사 목록 `.harness/checks.json`: 검사마다 `name`, `prompt`(시킬 일), `run`(했는지 확인하는 스크립트). `project.json`(사실)과 나눈다

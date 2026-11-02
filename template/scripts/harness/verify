@@ -58,14 +58,7 @@ fi
 
 changed=""
 if [ "$all" = 0 ]; then
-  if [ -n "$base" ]; then
-    merge_base="$(git -C "$root" merge-base "$base" HEAD 2>/dev/null)" \
-      || harness_die "--base $base: 기준 커밋을 찾지 못했습니다"
-  fi
-  changed="$(cd "$root" && {
-      if [ -n "$base" ]; then git diff --name-only "$merge_base"; else git diff --name-only HEAD; fi
-      git ls-files -o --exclude-standard
-    } | { grep -v '^\.harness/' || true; } | LC_ALL=C sort -u)"
+  changed="$(harness_changed_files "$base")"
   if [ -z "$changed" ]; then
     echo "✓ verify · 바뀐 파일 없음"
     exit 0

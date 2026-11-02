@@ -37,7 +37,7 @@ AI 코딩 에이전트(Claude Code, Codex 등)는 iOS 프로젝트에서 자주 
 | 계층 | 하는 일 | 이 저장소에서 |
 |---|---|---|
 | Context (가이드) | 행동하기 전에 알려준다 | `AGENTS.md`, 경로 규칙 |
-| Execution (실행 도구) | 에이전트가 일을 하는 손 | `scripts/harness/build`·`test`·`verify` |
+| Execution (실행 도구) | 에이전트가 일을 하는 손 | `scripts/harness/build`·`test`·`verify`·`lint` |
 | Validation (센서) | 결과가 맞는지 판정한다 | 결정적: 빌드·테스트 결과 요약 / 추론적: `ios-reviewer` 코드 리뷰 |
 | Enforcement (강제) | 모델 판단과 상관없이 막는다 | 생성 파일 편집 차단 훅, 권한 규칙 |
 | State (설정·상태) | 위 계층이 함께 쓰는 데이터 | `.harness/project.json`, 실패 기록 |
@@ -150,6 +150,13 @@ scripts/harness/test --scheme CoreTracking
 - DerivedData는 `~/Library/Developer/Xcode/DerivedData/<워크트리 이름>-harness-<경로 해시>`에 둔다. 프로젝트가 `~/Desktop` 같은 macOS 보호 폴더 아래 있으면 시뮬레이터가 테스트 번들을 읽지 못해서다.
 - 종료 코드: 성공 0, 빌드·테스트 실패는 xcodebuild의 코드(보통 65), 설정·인자 오류 2
 
+컨벤션은 `scripts/harness/lint`가 검사한다. 팀이 고른 규칙 목록(`.harness/conventions.json`)을 SwiftLint 설정으로 옮겨 바뀐 Swift 파일을 검사하고, 100점에서 감점해 기준 점수로 판정한다. 지켰는지를 에이전트의 말이 아니라 검사 결과로 확인하기 위해서다([ADR 0006](docs/decisions/0006-convention-lint.md)).
+
+```
+✗ lint · 70점 (기준 95) · 파일 1개 · 위반 3개
+  EnglishStudy/Features/Settings/View/LintProbeView.swift:2: [imports.no_mobile_core_services] MobileCoreServices 대신 UniformTypeIdentifiers를 쓴다 (−10)
+```
+
 ### 5. 막는 장치: 훅과 권한 규칙
 
 모델이 지침을 잊어도 위험하거나 되돌리기 어려운 행동은 막는다. 왜 이렇게 나눴는지는 [ADR 0004](docs/decisions/0004-enforcement.md)에 있다.
@@ -216,8 +223,10 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `scripts/harness/build` | Execution + Validation | 빌드하고 첫 에러를 요약한다 |
 | `scripts/harness/test` | Execution + Validation | 테스트하고 실패만 요약한다 |
 | `scripts/harness/verify` | Execution + Validation | 바뀐 파일로 대상을 정해 빌드와 테스트를 한 번에 돌린다 |
-| `scripts/harness/lib.sh` | Execution | 세 스크립트의 공용 함수: 설정 읽기, 시뮬레이터 찾기, 생성 지문, DerivedData 경로, `xcresulttool` 결과 정리 |
-| `.harness/.gitignore` | State | `.harness/`에서 `project.json`만 커밋되게 한다 |
+| `scripts/harness/lint` | Validation | 팀 컨벤션 목록을 SwiftLint로 검사하고 점수로 판정한다 |
+| `scripts/harness/lib.sh` | Execution | 스크립트 공용 함수: 설정 읽기, 바뀐 파일 목록, 시뮬레이터 찾기, 생성 지문, DerivedData 경로, `xcresulttool` 결과 정리, 컨벤션 변환 |
+| `.claude/rules/harness/conventions.md` | Context | 컨벤션 목록을 열 때 읽히는 규칙: 규칙 후보는 사람이 고르고, 통과하려고 규칙을 완화하지 않는다 |
+| `.harness/.gitignore` | State | `.harness/`에서 `project.json`·`conventions.json`만 커밋되게 한다 |
 
 ### plugin/ — Claude Code 플러그인 ios-harness
 
@@ -250,6 +259,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `detect.test.sh` | 생성기(Tuist·XcodeGen·xcodeproj·SPM)별로 detect가 만든 초안 |
 | `build.test.sh` | build가 쓰는 공용 함수: 시뮬레이터 선택, 에러 요약 형식, 다시 생성할지 판단 |
 | `verify.test.sh` | test·verify의 공용 함수(실패 요약 등)와 verify의 실행 계획: 바뀐 파일 → 모듈 → 돌릴 테스트 |
+| `lint.test.sh` | 컨벤션 파일 검사, SwiftLint 설정 변환, 점수 판정, 주석·문자열 제외, 바뀐 파일 고르기 |
 | `hooks.test.sh` | 훅이 막을 것만 막고, 판단할 수 없으면 통과시키는지 |
 | `dev-install.test.sh` | 파일 배치, AGENTS.md 관리 블록 교체, 설정 병합, 반복 실행 |
 
@@ -261,7 +271,8 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `principles.md` | 하네스 계층, 설계 원칙, 실수를 어느 층에서 고칠지 정한 기준표, 용어 |
 | `references.md` | 레퍼런스 조사 요약, 플랫폼 제약, 로컬 환경, 출처 |
 | `project-config.md` | `.harness/project.json` 필드 스펙과 detect가 값을 찾는 방법 |
-| `scripts.md` | build·test·verify의 출력 형식, 산출물 위치, 생성 판단 |
+| `scripts.md` | build·test·verify·lint의 출력 형식, 산출물 위치, 생성 판단 |
+| `conventions.md` | `.harness/conventions.json` 필드 스펙과 규칙을 만드는 단계 |
 | `template.md` | template 파일이 어디에 설치되고 어떻게 갱신되는지, 기존 지침이 있는 프로젝트에 적용하는 절차 |
 | `plugin.md` | 플러그인 구성, 훅이 막는 것, 리뷰어 동작, 프로젝트에서 켜는 방법 |
 | `harness-log.md` | 시험장에서 관찰한 에이전트 실패와 그에 따른 수정 |
@@ -270,6 +281,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `decisions/0003-agents-md-areas.md` | AGENTS.md를 프로젝트 영역과 관리 블록으로 나누고 명령 블록을 고정 문장으로 둔 이유 |
 | `decisions/0004-enforcement.md` | 무엇을 훅으로, 무엇을 deny·ask로 막는지 |
 | `decisions/0005-talk-criteria.md` | 여기어때 안드로이드 팀 발표의 기준으로 이후 후보를 다시 정하고, 워크플로 엔진을 함께 쓰지 않는 이유 |
+| `decisions/0006-convention-lint.md` | 컨벤션 목록을 JSON으로 두고 SwiftLint와 점수로 판정하는 이유 |
 
 ## 설치하면 대상 프로젝트는 이렇게 된다
 
@@ -289,7 +301,7 @@ MyApp/
 │       ├── harness/*.md           하네스 경로 규칙 (하네스가 관리)
 │       └── project/*.md           프로젝트 고유 규칙 (프로젝트가 관리)
 └── scripts/harness/
-    ├── build, test, verify
+    ├── build, test, verify, lint
     └── lib.sh
 ```
 
@@ -320,6 +332,7 @@ claude plugin validate plugin
 
 - 단위 1~8 완료: 저장소 구조, 프로젝트 설정 파일·detect, build·test·verify, 경로 규칙, AGENTS.md 템플릿, 훅·권한·플러그인, ios-reviewer
 - 단위 9 진행 중: MotoTrace에 설치해 확인한 뒤, 시험장을 ReadSharp로 옮겼다. 1~2주 운영하며 실패를 기록하고, 이 기록으로 이후 순서를 정한다.
-- 이후 후보: 동작·화면 검증(Maestro, 스냅샷+Figma), 결정적 컨벤션 센서, 사람이 검사를 고르는 작업 흐름, (조건부) 검증 강제, 정책·결정 기록, 플러그인 배포, Codex 어댑터, 평가 등. 기준은 [ADR 0005](docs/decisions/0005-talk-criteria.md)에 있다
+- 후보 11 일부 완료: 팀 컨벤션 목록과 `lint`(SwiftLint + 점수 판정). 레이어 의존·형식 검사는 남았다
+- 이후 후보: 동작·화면 검증(Maestro, 스냅샷+Figma), 레이어 의존 검사, 사람이 검사를 고르는 작업 흐름, (조건부) 검증 강제, 정책·결정 기록, 플러그인 배포, Codex 어댑터, 평가 등. 기준은 [ADR 0005](docs/decisions/0005-talk-criteria.md)에 있다
 
 자세한 내용은 [docs/roadmap.md](docs/roadmap.md)에 있다. 이 저장소에 기여하는 방법(브랜치, 커밋 규칙)은 [AGENTS.md](AGENTS.md)에 있다.
