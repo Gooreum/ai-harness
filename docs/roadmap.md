@@ -130,7 +130,7 @@
   - 실패하면 이유를 붙여 막고, 같은 실패가 반복되면 사람에게 넘긴다
   - 에이전트가 검증을 건너뛰는 일이 관찰될 때만 켠다 (원칙 2)
 - [ ] 14. 플러그인 배포와 init/sync/doctor
-- [ ] 15. 두 번째 프로젝트 적용: coinness-ios (xcodeproj 앱은 시험장 ReadSharp로 대신한다)
+- [ ] 15. 두 번째 프로젝트 적용: IntervalTimer(`~/Code/IntervalTimer`, Tuist 다중 모듈. xcodeproj 앱은 시험장 ReadSharp로 대신한다)
 - [ ] 16. Codex 어댑터
 - [ ] 17. 평가: fixtures와 `claude plugin eval`로 하네스가 없을 때와 비교
 - [ ] 18. 래칫·청소 자동화: `harness-retro`, 주기 점검, 지식 큐레이션
