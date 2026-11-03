@@ -32,7 +32,7 @@
 - `docs/references.md`: 레퍼런스 조사 요약, 플랫폼 제약, 로컬 환경, 출처
 - `docs/decisions/`: 설계 결정 기록(ADR)
 - `docs/harness-log.md`: 시험장에서 관찰한 에이전트 실패 기록
-- `docs/problem-notes.md`: 시험장에서 만난 문제와 해결을 쉬운 비유로 정리한 노트
+- `docs/problem-notes.md`: 시험장에서 만난 문제의 기술 설명(문제·원인·해결·결과)과 비유 노트
 - `docs/talk/`: 설계 기준인 발표의 전사·슬라이드 노트 로컬 사본. git에 올리지 않는다(CLAUDE.md 참고)
 
 ## 작업 방식
