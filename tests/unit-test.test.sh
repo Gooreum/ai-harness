@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# test·verify가 쓰는 공용 함수와 verify의 실행 계획(--plan)을 가짜 입력으로 검사한다.
+# test·unit-test가 쓰는 공용 함수와 unit-test의 실행 계획(--plan)을 가짜 입력으로 검사한다.
 # xcodebuild는 부르지 않는다. 실제 테스트 실행은 시험장에서 확인한다.
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
 . "$here/lib.sh"
 . "$here/../template/scripts/harness/lib.sh"
-verify="$here/../template/scripts/harness/verify"
+unit_test="$here/../template/scripts/harness/unit-test"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
@@ -56,7 +56,7 @@ assert_eq "tests: Tests 폴더가 있어도 스킴에 테스트 대상이 없으
 assert_eq "tests: 스킴 파일이 없으면 Tests 폴더로 판단" "yes" "$(has FolderOnly)"
 assert_eq "tests: 둘 다 없으면 없음" "no" "$(has Nothing)"
 
-# --- verify --plan (Tuist 모듈 프로젝트) -----------------------------------------
+# --- unit-test --plan (Tuist 모듈 프로젝트) -----------------------------------------
 p="$work/tuist"
 mkdir -p "$p/.harness" "$p/App/Sources" "$p/Tuist" \
          "$p/Modules/FeatureA/Sources" "$p/Modules/FeatureA/Tests" \
@@ -80,13 +80,13 @@ jq -n '{
   modules: { manifest: "Project.swift", scheme: "{dir}", testsDir: "Tests" } }' > "$p/.harness/project.json"
 (cd "$p" && git init -q -b main && printf '*.xcodeproj\n' > .gitignore && git add -A && git -c user.name=t -c user.email=t@t commit -qm init)
 
-plan() { (cd "$p" && "$verify" --plan "$@"); }
+plan() { (cd "$p" && "$unit_test" --plan "$@"); }
 reset() { (cd "$p" && git checkout -q -- . && git clean -qfd -e .harness); }
 
-assert_eq "plan: 바뀐 파일이 없으면 끝" "✓ verify · 바뀐 파일 없음" "$(plan)"
+assert_eq "plan: 바뀐 파일이 없으면 끝" "✓ unit-test · 바뀐 파일 없음" "$(plan)"
 
 echo '// changed' >> "$p/Modules/FeatureA/Sources/A.swift"
-assert_eq "plan: 모듈 소스가 바뀌면 그 모듈만 테스트" "$(printf '· verify 계획 · 바뀐 파일 1개\n  build App\n  test FeatureA (FeatureA)')" "$(plan)"
+assert_eq "plan: 모듈 소스가 바뀌면 그 모듈만 테스트" "$(printf '· unit-test 계획 · 바뀐 파일 1개\n  build App\n  test FeatureA (FeatureA)')" "$(plan)"
 reset
 
 echo '// new' > "$p/Modules/FeatureA/Sources/New.swift"
@@ -109,13 +109,13 @@ echo '// changed' >> "$p/Tuist/Helpers.swift"
 assert_eq "plan: 생성 설정이 바뀌면 전체" "$(printf '  test 앱 (App: AppTests)\n  test FeatureA (FeatureA)\n  건너뜀 (테스트 없음): CoreB')" "$(plan | sed -n '3,5p')"
 reset
 
-assert_eq "plan: --all은 변경과 상관없이 전체" "· verify 계획 · 전체" "$(plan --all | sed -n 1p)"
+assert_eq "plan: --all은 변경과 상관없이 전체" "· unit-test 계획 · 전체" "$(plan --all | sed -n 1p)"
 
 (cd "$p" && git checkout -q -b feature && echo '// committed' >> Modules/FeatureA/Sources/A.swift && git -c user.name=t -c user.email=t@t commit -qam change)
-assert_eq "plan: 커밋한 변경은 기본으로는 보지 않는다" "✓ verify · 바뀐 파일 없음" "$(plan)"
+assert_eq "plan: 커밋한 변경은 기본으로는 보지 않는다" "✓ unit-test · 바뀐 파일 없음" "$(plan)"
 assert_eq "plan: --base로 브랜치의 모든 변경을 본다" "  test FeatureA (FeatureA)" "$(plan --base main | sed -n 3p)"
 
-# --- verify --plan (모듈 구조가 없는 xcodeproj 앱) --------------------------------
+# --- unit-test --plan (모듈 구조가 없는 xcodeproj 앱) --------------------------------
 p="$work/xcodeproj"
 mkdir -p "$p/.harness" "$p/App"
 echo '// source' > "$p/App/App.swift"
@@ -134,12 +134,12 @@ jq '.app.testScheme = "AppTests"' "$p/.harness/project.json" > "$p/.harness/tmp.
 assert_eq "plan: app.testScheme이 있으면 빌드는 앱 스킴" "  build App" "$(plan | sed -n 2p)"
 assert_eq "plan: app.testScheme이 있으면 앱 테스트는 그 스킴" "  test 앱 (AppTests: AppTests)" "$(plan | sed -n 3p)"
 
-# --- 결과 파일 .harness/out/verify.json (checks.json의 run이 읽는다) ----------------
-rm -f "$p/.harness/out/verify.json"
+# --- 결과 파일 .harness/out/unit-test.json (checks.json의 run이 읽는다) ----------------
+rm -f "$p/.harness/out/unit-test.json"
 plan > /dev/null
-assert_eq "result: --plan은 결과 파일을 남기지 않는다" "no" "$([ -f "$p/.harness/out/verify.json" ] && echo yes || echo no)"
+assert_eq "result: --plan은 결과 파일을 남기지 않는다" "no" "$([ -f "$p/.harness/out/unit-test.json" ] && echo yes || echo no)"
 (cd "$p" && git checkout -q -- App/App.swift)
 assert_eq "result: 바뀐 파일이 없으면 통과로 남긴다" "true|바뀐 파일 없음" \
-  "$( (cd "$p" && "$verify" > /dev/null) && jq -r '"\(.passed)|\(.summary)"' "$p/.harness/out/verify.json")"
+  "$( (cd "$p" && "$unit_test" > /dev/null) && jq -r '"\(.passed)|\(.summary)"' "$p/.harness/out/unit-test.json")"
 
 finish

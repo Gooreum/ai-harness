@@ -35,7 +35,7 @@ assert_eq "tuist: 소스 파일은 허용" "allow" "$(decide "$t/Modules/A/Sourc
 assert_eq "tuist: manifest는 허용" "allow" "$(decide "$t/Modules/A/Project.swift")"
 assert_eq "tuist: 상대 경로는 cwd 기준으로 판단" "deny" "$(decide "App.xcworkspace/contents.xcworkspacedata" "$t")"
 case "$(reason "$t/App.xcworkspace/contents.xcworkspacedata")" in
-  *"manifest"*"build·test·verify"*) ok=yes ;;
+  *"manifest"*"build·test·unit-test"*) ok=yes ;;
   *) ok=no ;;
 esac
 assert_eq "tuist: 막는 이유에 고치는 방법(manifest, 스크립트)이 들어 있다" "yes" "$ok"

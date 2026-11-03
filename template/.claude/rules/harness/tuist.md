@@ -19,7 +19,7 @@ paths:
 
 ## 생성
 
-- `scripts/harness/`의 build·test·verify는 파일 구성이나 manifest가 바뀌면 install·generate를 다시 실행한다. 이 스크립트로 빌드·테스트할 때는 직접 generate하지 않는다.
+- `scripts/harness/`의 build·test·unit-test는 파일 구성이나 manifest가 바뀌면 install·generate를 다시 실행한다. 이 스크립트로 빌드·테스트할 때는 직접 generate하지 않는다.
 - Xcode에서 열어 볼 때처럼 직접 생성해야 하면 `.harness/project.json`의 `commands.generate` 명령을 쓴다.
 - 생성 산출물(`*.xcodeproj`, `*.xcworkspace`, `Derived/`)은 git에 없다. 직접 편집하지 않는다.
 - 프로젝트가 고정한 Tuist 버전을 쓴다.

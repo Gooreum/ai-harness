@@ -41,7 +41,7 @@ case "$generator" in
   tuist | xcodegen)
     case "/$rel" in
       */*.xcodeproj/* | */*.xcworkspace/* | */Derived/*)
-        reason="자동 생성 파일이라 직접 고쳐도 다시 생성하면 사라집니다: $rel. manifest(Tuist는 Project.swift·Tuist/, XcodeGen은 project.yml)를 고치세요. scripts/harness의 build·test·verify가 필요할 때 다시 생성합니다."
+        reason="자동 생성 파일이라 직접 고쳐도 다시 생성하면 사라집니다: $rel. manifest(Tuist는 Project.swift·Tuist/, XcodeGen은 project.yml)를 고치세요. scripts/harness의 build·test·unit-test가 필요할 때 다시 생성합니다."
         ;;
     esac
     ;;

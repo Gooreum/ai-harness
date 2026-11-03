@@ -13,7 +13,7 @@ usage() {
   100점에서 위반마다 감점하고, 기준 점수(passScore) 이상이면 통과다.
   결과는 .harness/out/lint.json에 남는다.
 
-  기본           커밋하지 않은 변경(HEAD 대비 수정 + 새 파일)을 본다 (verify와 같은 기준)
+  기본           커밋하지 않은 변경(HEAD 대비 수정 + 새 파일)을 본다 (unit-test와 같은 기준)
   --base 브랜치   그 브랜치에서 갈라진 뒤의 모든 변경을 본다
   --all          git이 추적하는 모든 Swift 파일을 본다
 

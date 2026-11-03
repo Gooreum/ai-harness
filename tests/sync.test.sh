@@ -32,8 +32,8 @@ p="$work/fresh"
 new_project "$p"
 out="$("$init" "$p")"
 assert_eq "fresh: 설정 파일 초안을 만든다" '"xcodeproj"' "$(jq -c .generator "$p/.harness/project.json")"
-assert_eq "fresh: 스크립트를 복사한다" "yes" "$(same "$template/scripts/harness/verify" "$p/scripts/harness/verify")"
-assert_eq "fresh: 스크립트 실행 권한을 유지한다" "yes" "$([ -x "$p/scripts/harness/verify" ] && echo yes || echo no)"
+assert_eq "fresh: 스크립트를 복사한다" "yes" "$(same "$template/scripts/harness/unit-test" "$p/scripts/harness/unit-test")"
+assert_eq "fresh: 스크립트 실행 권한을 유지한다" "yes" "$([ -x "$p/scripts/harness/unit-test" ] && echo yes || echo no)"
 assert_eq "fresh: 규칙을 복사한다" "yes" "$(same "$template/.claude/rules/harness/swift.md" "$p/.claude/rules/harness/swift.md")"
 assert_eq "fresh: 프로젝트 규칙 자리를 만든다" "yes" "$([ -f "$p/.claude/rules/project/.gitkeep" ] && echo yes || echo no)"
 assert_eq "fresh: AGENTS.md 제목을 앱 스킴으로 채운다" "# Sample" "$(head -1 "$p/AGENTS.md")"
@@ -75,7 +75,9 @@ assert_eq "existing: 두 번째 실행은 바뀐 것이 없다" "✓ sync · 바
 # --- template에서 사라진 하네스 규칙은 지운다 -----------------------------------------------
 echo '# old' > "$p/.claude/rules/harness/old-rule.md"
 echo '# mine' > "$p/.claude/rules/project/mine.md"
+printf '#!/usr/bin/env bash\n' > "$p/scripts/harness/verify"
 "$install" "$p" > /dev/null
+assert_eq "scripts: template에 없는(이름이 바뀐) 스크립트는 지운다" "no" "$([ -f "$p/scripts/harness/verify" ] && echo yes || echo no)"
 assert_eq "rules: template에 없는 하네스 규칙은 지운다" "no" "$([ -f "$p/.claude/rules/harness/old-rule.md" ] && echo yes || echo no)"
 assert_eq "rules: 프로젝트 규칙은 지키지 않는다" "yes" "$([ -f "$p/.claude/rules/project/mine.md" ] && echo yes || echo no)"
 

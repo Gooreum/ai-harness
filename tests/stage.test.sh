@@ -16,7 +16,7 @@ cat > "$p/.harness/checks.json" <<'JSON'
   "stages": { "plan": { "prompt": "계획에 MVI 흐름을 적는다" } },
   "checks": [
     { "name": "lint", "description": "팀 컨벤션", "prompt": "scripts/harness/lint를 실행해 통과시킨다" },
-    { "name": "verify", "description": "빌드·테스트", "prompt": "scripts/harness/verify를 실행해 통과시킨다" } ] }
+    { "name": "unit-test", "description": "빌드·테스트", "prompt": "scripts/harness/unit-test를 실행해 통과시킨다" } ] }
 JSON
 
 # 상태 파일을 쓰고 훅을 실행해 넣는 글을 출력한다. 출력이 없으면 빈 문자열.
@@ -38,7 +38,7 @@ assert_eq "plan: 검증 단계가 아니면 검사 목록은 없다" "no" "$(has
 
 out="$(ctx '{"title":"시트","mode":"plan","stage":"verify","checks":["lint","e2e"]}')"
 assert_eq "verify: 고른 검사의 prompt만 넣는다" "yes" "$(has "- lint: scripts/harness/lint를 실행해 통과시킨다" "$out")"
-assert_eq "verify: 고르지 않은 검사는 넣지 않는다" "no" "$(has "scripts/harness/verify" "$out")"
+assert_eq "verify: 고르지 않은 검사는 넣지 않는다" "no" "$(has "scripts/harness/unit-test" "$out")"
 assert_eq "verify: 설정에 없는 검사는 알린다" "yes" "$(has "- e2e: .harness/checks.json에 없는 검사다" "$out")"
 
 out="$(ctx '{"title":"문구","mode":"simple","stage":"implement","checks":[]}')"
