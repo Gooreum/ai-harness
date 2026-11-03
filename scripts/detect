@@ -114,6 +114,39 @@ first_quoted_value() {
     || return 0
 }
 
+# Tuist manifest에서 Workspace(·Project( 호출의 name: 값을 출력한다. 못 찾으면 빈 문자열
+#   tuist_manifest_name <파일> <호출 이름>   (예: tuist_manifest_name Project.swift Project)
+#   name: 값이 문자열이 아니라 상수면(name: projectName) 같은 파일의 let projectName = "..."에서 찾는다.
+#   호출 앞에 다른 name: 인자(예: .debug(name: "Debug"))가 있어도 걸리지 않게 호출 뒤부터 본다.
+tuist_manifest_name() {
+  local file="$1"
+  local call="$2"
+  local value=""   # name: 뒤의 값. 따옴표가 있으면 문자열, 없으면 상수 이름 (예: "MotoTrace", projectName)
+
+  [ -f "$file" ] || return 0
+  value="$(
+    awk -v call="$call" 'BEGIN { RS = "\001" } {
+      start = index($0, call "(")
+      if (start == 0) exit
+      rest = substr($0, start + length(call) + 1)
+      if (match(rest, /(^|[(,[:space:]])name:[[:space:]]*("[^"]*"|[A-Za-z_][A-Za-z0-9_]*)/)) {
+        found = substr(rest, RSTART, RLENGTH)
+        sub(/^.*name:[[:space:]]*/, "", found)
+        print found
+      }
+    }' "$file"
+  )"
+
+  case "$value" in
+    '') return 0 ;;
+    \"*) printf '%s\n' "$value" | sed -E 's/^"([^"]*)"$/\1/' ;;
+    *)
+      { grep -m1 -E "^[[:space:]]*(let|var)[[:space:]]+$value([[:space:]]*:[[:space:]]*String)?[[:space:]]*=[[:space:]]*\"[^\"]+\"" "$file" || true; } \
+        | sed -E 's/^[^"]*"([^"]*)".*/\1/'
+      ;;
+  esac
+}
+
 # Tuist 프로젝트면 성공(0)
 #   Tuist 설정 파일(Tuist.swift, Tuist/Config.swift)이 있거나,
 #   Tuist/ 폴더와 manifest(Workspace.swift, Project.swift)가 함께 있으면 Tuist 프로젝트로 본다.
@@ -201,11 +234,14 @@ case "$generator" in
     workspace_name=""   # 워크스페이스 이름, 확장자 제외 (예: MotoTrace)
 
     # Workspace.swift의 name, 없으면 Project.swift의 name을 쓴다.
+    # Workspace(·Project( 호출의 name:을 먼저 보고, 호출을 못 찾으면 파일의 첫 name:을 쓴다.
     if [ -f "$project_dir/Workspace.swift" ]; then
-      workspace_name="$(first_quoted_value "$project_dir/Workspace.swift" "$name_pattern")"
+      workspace_name="$(tuist_manifest_name "$project_dir/Workspace.swift" Workspace)"
+      [ -n "$workspace_name" ] || workspace_name="$(first_quoted_value "$project_dir/Workspace.swift" "$name_pattern")"
     fi
     if [ -z "$workspace_name" ] && [ -f "$project_dir/Project.swift" ]; then
-      workspace_name="$(first_quoted_value "$project_dir/Project.swift" "$name_pattern")"
+      workspace_name="$(tuist_manifest_name "$project_dir/Project.swift" Project)"
+      [ -n "$workspace_name" ] || workspace_name="$(first_quoted_value "$project_dir/Project.swift" "$name_pattern")"
     fi
 
     if [ -n "$workspace_name" ]; then
@@ -297,7 +333,12 @@ case "$generator" in
         app_pbxproj="$project_dir/$app_path/$app_xcodeproj/project.pbxproj"
       else
         # 아직 생성 전이면 디렉터리 이름으로 추정한다.
-        app_project_name="$(basename "$project_dir/$app_path")"
+        # 앱 manifest가 루트에 있으면(app.path ".") Project.swift에서 읽은 이름을 쓴다.
+        if [ "$app_path" = "." ] && [ -n "$workspace_name" ]; then
+          app_project_name="$workspace_name"
+        else
+          app_project_name="$(basename "$(cd "$project_dir/$app_path" && pwd)")"
+        fi
       fi
     fi
     ;;

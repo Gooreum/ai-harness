@@ -169,6 +169,28 @@ printf 'let workspace = Workspace(\n    ㅁname: "Wrong1",\n    my_name: "Wrong2
 out="$(run_detect "$p")"
 assert_eq "tuist-name: ㅁname·my_name은 건너뛰고 name: 값을 쓴다" '"Right.xcworkspace"' "$(field "$out" .workspace)"
 
+# --- Tuist: 루트 Project.swift 하나에 앱이 있고 이름이 상수인 경우 (IntervalTimer) ------
+# Project( 앞의 .debug(name: "Debug")를 이름으로 잡으면 안 된다.
+p="$work/tuist-root-app"
+mkdir -p "$p/Tuist"
+echo 'let config = Config()' > "$p/Tuist.swift"
+cat > "$p/Project.swift" <<'EOF'
+let projectName = "Timer"
+let configs: [Configuration] = [.debug(name: "Debug"), .release(name: "Release")]
+let project = Project(
+    name: projectName,
+    settings: .settings(configurations: [.debug(name: "Debug")]),
+    targets: [
+        .target(name: projectName, destinations: .iOS, product: .app, bundleId: "com.example.timer")
+    ]
+)
+EOF
+
+out="$(run_detect "$p")"
+assert_eq "tuist-root-app: Project( 호출의 name 상수를 풀어 쓴다" '"Timer.xcworkspace"' "$(field "$out" .workspace)"
+assert_eq "tuist-root-app: 앱 경로는 루트" '"."' "$(field "$out" .app.path)"
+assert_eq "tuist-root-app: 생성 전 스킴은 프로젝트 이름으로 추정" '"Timer"' "$(field "$out" .app.scheme)"
+
 # --- xcodebuild -list의 스킴 목록 (가짜 xcodebuild로 온라인 경로 확인) ----------------
 # 가짜 xcodebuild는 -list에만 FAKE_SCHEMES를 스킴 목록으로 돌려주고, 나머지 호출은 실패한다.
 bin="$work/bin"
