@@ -3,6 +3,10 @@
 여러 iOS 프로젝트에서 재사용할 범용 하네스를 작업 단위로 나눠 하나씩 쌓아간다.
 단위 하나는 세션 하나 분량이다. 커밋 1~3개로 마무리하고, 끝나면 여기 체크박스를 갱신한다.
 
+지금: 14 — 플러그인 배포와 init/sync/doctor
+
+(위 줄은 로드맵 패널이 읽는다. 작업 단위를 바꾸면 함께 고친다.)
+
 ## 정해진 것
 
 - 에이전트: Claude Code를 먼저 지원한다. Codex는 후보 16에서 붙인다.
@@ -132,7 +136,12 @@
   - 실패하면 이유를 붙여 막고, 같은 실패가 반복되면 사람에게 넘긴다
   - 에이전트가 검증을 건너뛰는 일이 관찰될 때만 켠다 (원칙 2)
 - [ ] 14. 플러그인 배포와 init/sync/doctor
-- [ ] 15. 두 번째 프로젝트 적용: IntervalTimer(`~/Code/IntervalTimer`, Tuist 다중 모듈. xcodeproj 앱은 시험장 ReadSharp로 대신한다)
+- [x] 15. 두 번째 프로젝트 적용: IntervalTimer(`~/Code/IntervalTimer`, Tuist 다중 모듈. xcodeproj 앱은 시험장 ReadSharp로 대신한다)
+  - 진행 (2026-11-03): `~/Code/IntervalTimer-harness` 워크트리(`chore/ios-harness`)에 설치했다. 하네스 코드는 detect 한 곳만 고쳤고, 나머지는 프로젝트 설정 파일만 달랐다(발표 슬라이드 38 "같은 훅, 저장소마다 다른 config")
+    - detect가 `Project(name: projectName)`처럼 이름이 상수인 manifest에서 앞쪽 `.debug(name: "Debug")`를 이름으로 잡아 `Debug.xcworkspace`를 냈다. `Project(`·`Workspace(` 호출 뒤의 name을 읽고 상수를 풀도록 고쳤다
+    - 루트 `Project.swift` 하나에 모듈 타깃이 다 있어 `modules`는 `null`이다. 그래서 어느 파일이 바뀌어도 앱 빌드와 `ServicesTests`를 돌린다. 테스트 타깃이 하나뿐이라 지금은 손해가 없다
+    - `verify`: 빌드 통과(276s, generate 포함), 테스트 41개 중 1개 실패. 실패는 하네스와 무관하게 main에 있던 것이다(`WorkoutTimerEngineTests.swift:205`, 기대값 185 / 실제 215)
+    - 새 세션이 검증 명령과 `ServicesTests` 스킴을 AGENTS.md·project.json에서 찾아 답했다. ai-bouncer 설정은 이 브랜치에서 뺐다(ADR 0005)
 - [ ] 16. Codex 어댑터
 - [ ] 17. 평가: fixtures와 `claude plugin eval`로 하네스가 없을 때와 비교
 - [ ] 18. 래칫·청소 자동화: `harness-retro`, 주기 점검, 지식 큐레이션

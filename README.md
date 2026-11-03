@@ -359,6 +359,7 @@ claude plugin validate plugin
 - 후보 11 완료: 팀 컨벤션 목록과 `lint`(SwiftLint + 점수 판정). 레이어 의존·형식 검사는 후보 20으로 넘겼다
 - 후보 12 완료: 사람이 모드·검사를 고르는 작업 흐름(`task` 스킬 + 단계 지시 훅)
 - 후보 19 완료: 정책·결정 기록(`docs/wiki/`, `wiki` search·check)
+- 후보 15 완료: 두 번째 프로젝트 IntervalTimer(Tuist, 루트 manifest 하나)에 설치했다. 하네스는 detect만 고쳤고 나머지는 설정 파일만 달랐다
 - 후보 10 일부: Maestro E2E(`e2e`, 작성 규칙, 회귀 묶음, 녹화, 행동 로그 판정). 화면 검증과 서버 응답 조작은 남았다
 - 이후 후보: 화면 검증(스냅샷+Figma), 레이어 의존 검사, (조건부) 검증 강제, 플러그인 배포, Codex 어댑터, 평가 등. 기준은 [ADR 0005](docs/decisions/0005-talk-criteria.md)에 있다
 

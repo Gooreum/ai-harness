@@ -65,6 +65,7 @@
 | 구성 | `generator` | `commands` | 빌드 대상 | `modules` |
 |---|---|---|---|---|
 | Tuist 모듈 프로젝트 | `tuist` | install·generate | `workspace` | 규칙 있음 |
+| Tuist, 루트 manifest 하나 | `tuist` | install·generate | `workspace` | `null` (모듈마다 manifest가 없어 바뀐 파일과 상관없이 앱 단위 테스트를 돌린다. 예: IntervalTimer) |
 | xcodeproj 단일 앱 | `xcodeproj` | 둘 다 `null` | `project` (CocoaPods 등은 `workspace`) | `null` |
 | XcodeGen | `xcodegen` | generate | `project` | `null` |
 | SPM 패키지 | `spm` | 둘 다 `null` | 둘 다 `null` | `null` (아직 build·test 미지원) |
@@ -82,6 +83,7 @@ scripts/detect --write ~/path/to/app   # <프로젝트>/.harness/project.json에
 - 판단 근거
   - 파일 구조: `Tuist.swift`, `Workspace.swift`, `Project.swift`, `project.yml`, `*.xcodeproj`
   - Makefile 타깃: `make generate`처럼 프로젝트가 감싼 명령을 우선한다
+  - Tuist 워크스페이스 이름: `Workspace(`, 없으면 `Project(` 호출의 `name:`. 값이 상수(`name: projectName`)면 같은 파일의 `let projectName = "..."`를 읽는다
   - pbxproj 내용: `plutil`로 JSON 변환
   - 생성된 워크스페이스가 있으면 `xcodebuild -list`, `-showBuildSettings`로 스킴과 번들 ID를 확인한다
   - `xcrun simctl`: 가장 최신 iOS 런타임의 iPhone을 고른다(Pro 모델 우선)
