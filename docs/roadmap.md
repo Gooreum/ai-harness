@@ -110,8 +110,10 @@
   - [x] Maestro 시나리오와 팀 작성 규칙(ADR 0009): 딥링크로 진입, accessibilityIdentifier로 먼저 찾기, 계정은 환경 변수, 반복 단계는 공통 `runFlow`, 끝까지 통과한 시나리오만 저장. 규칙은 template `rules/harness/maestro.md`, 실행은 `scripts/harness/e2e`
   - [x] `tags: [regression]` 회귀 묶음(`e2e --tag regression`), 수정 전후 영상(`e2e --record`)
   - [ ] 화면 검증: `#Preview` 스냅샷 + Figma MCP 수치 비교. 배치는 AI가, 간격·크기 수치는 스크립트가 보고, 판정은 사람이 한다. 픽셀 비교는 쓰지 않는다(발표에서 차이가 전부 빨갛게 나와 실패)
-  - [ ] 나중에: 서버 응답 조작(500·느린 네트워크·빈 응답), 행동 로그 판정
-  - 진행 (2026-11-03): ReadSharp에 회귀 시나리오 2개(프로필 빈 상태, 설정 진입)를 만들어 통과했다. 늦게 뜨는 온보딩과 빌드마다 다른 설정 항목 때문에 두 번 실패했고, 실패 스크린샷으로 고쳤다. 앱에 accessibilityIdentifier가 없어 문구로 찾는다
+  - [x] 행동 로그 판정(ADR 0010): 시나리오 옆 `<이름>.events.json`에 이벤트·횟수·값을 적으면 흐름이 끝난 뒤 판정하고, 수집 서버 업로드 성공까지 본다. 지금은 Firebase Analytics(`e2e.events: firebase`)만
+  - [ ] 나중에: 서버 응답 조작(500·느린 네트워크·빈 응답)
+  - 진행 (2026-11-03): ReadSharp에 회귀 시나리오 2개(프로필 빈 상태, 설정 진입)를 만들어 통과했다. 늦게 뜨는 온보딩과 빌드마다 다른 설정 항목 때문에 두 번 실패했고, 실패 스크린샷으로 고쳤다. 앱에 accessibilityIdentifier가 없어 문구로 찾다가, 같은 날 id를 달아 id로 바꿨다(탭 바는 SwiftUI `Tab`에 id를 달 수 없어 문구)
+  - 진행 (2026-11-03): ReadSharp 회귀 시나리오 2개에 행동 로그(온보딩 건너뛰기, 프로필 탭 선택)를 붙여 통과했다. 횟수를 틀리게 적으면 이벤트별로 실패를 보여 주는 것도 확인했다
 - [x] 11. 결정적 컨벤션 센서
   - 규칙 목록 `.harness/conventions.json`: AI가 코드에서 초안을 뽑고 사람이 고른다. `lint`가 실행할 때마다 SwiftLint `custom_rules` 설정으로 옮긴다. YAML 대신 JSON을 쓴다(ADR 0006)
   - `scripts/harness/lint`: 100점에서 위반마다 감점하고 `passScore` 이상이면 통과. 결과를 `.harness/out/lint.json`(`passed`, `score`, 위반 목록)으로 남긴다. 검사에는 AI를 쓰지 않는다
