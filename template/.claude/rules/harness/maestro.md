@@ -22,6 +22,15 @@ paths:
 
 - 앞으로도 계속 확인할 시나리오에는 `tags: [regression]`을 붙인다. 배포 전과 리팩터링 뒤에 `scripts/harness/e2e --tag regression`으로 묶어 돌린다.
 
+## 행동 로그
+
+- 화면에 안 보이는 이벤트도 확인해야 하면 시나리오 옆에 `<이름>.events.json`을 둔다. 어떤 이벤트가 몇 번, 어떤 값으로 나가야 하는지만 적는다.
+  ```json
+  { "events": [ { "name": "tab_select", "count": 1, "params": { "tab": "profile" } }, { "name": "banner_click", "count": 0 } ] }
+  ```
+- `.harness/project.json`의 `e2e.events`가 `firebase`여야 판정한다. 앱 실행에 `arguments: { "-FIRAnalyticsDebugEnabled": true }`를 넣는다. 공통 흐름의 `launchApp`에 두면 된다.
+- 이벤트 이름과 값은 앱 코드의 로깅 정의에서 가져온다. 기대 값을 지어내지 않는다.
+
 ## 수정 전후 영상
 
 - QA 티켓을 고칠 때는 고치기 전과 후에 `scripts/harness/e2e --record <파일>`로 돌려 `.harness/out/e2e.mp4`를 남긴다. PR에 두 영상을 붙인다.

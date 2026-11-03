@@ -137,5 +137,14 @@ scripts/harness/e2e --no-build              # 이미 빌드된 앱으로
     .maestro/settings-open.yaml: Assertion is false: "AI 모델" is visible
     스크린샷·로그: .harness/out/e2e/ · 전체 출력: .harness/out/e2e.log
   ```
-- 결과 파일 `.harness/out/e2e.json`: `passed`, `tag`, `flows`(`name`·`file`·`status`·`seconds`·`tags`·`failure`). Maestro JUnit 결과(`e2e-junit.xml`)에서 만든다.
+- 행동 로그 판정: 시나리오 옆에 `<이름>.events.json`을 두면, 그 흐름이 시작해서 다음 흐름이 시작하기 전까지 나간 이벤트를 판정한다. `.harness/project.json`의 `e2e.events`가 `firebase`일 때만 한다.
+  - 실행 동안 시뮬레이터 로그를 `log stream --level debug`로 받는다(`e2e-events.ndjson`). Maestro가 남기는 기기 로그에는 debug 수준이 빠져 있어 따로 받는다.
+  - Firebase Analytics는 앱을 `-FIRAnalyticsDebugEnabled`로 실행해야 이벤트를 로그에 남긴다. 시나리오의 `launchApp`에 `arguments: { "-FIRAnalyticsDebugEnabled": true }`를 넣는다(공통 흐름에 두면 된다).
+  - 형식: `{ "events": [ { "name": "tab_select", "count": 1, "params": { "tab": "profile" } } ], "uploaded": true }`
+    - `count`: 정확히 이 횟수만큼 나가야 한다. 없으면 1. `0`은 나가면 안 되는 이벤트다.
+    - `params`: 적은 값만 비교한다(문자열로). 적지 않은 파라미터는 보지 않는다.
+    - `uploaded`: 마지막으로 맞은 이벤트 뒤에 수집 서버 업로드가 성공(`Successful upload`)했는지 본다. 없으면 `true`. 스크립트는 Maestro가 끝난 뒤 업로드를 최대 20초 기다린다.
+  - 실패 출력: `  .maestro/profile-empty.yaml: 행동 로그 tab_select 1회 (기대 2회), onboarding_complete 1회 (기대 0회)`
+  - 시험 실행의 이벤트도 실제 Firebase 프로젝트로 올라간다(디버그 표시가 붙어 DebugView에 보인다).
+- 결과 파일 `.harness/out/e2e.json`: `passed`, `tag`, `flows`(`name`·`file`·`status`·`seconds`·`tags`·`failure`, 판정했으면 `events`). Maestro JUnit 결과(`e2e-junit.xml`)에서 만든다. 행동 로그를 판정한 흐름은 `events.passed`가 거짓이면 실패로 센다.
 - 종료 코드: 통과 0, 실패한 시나리오가 있거나 돌린 시나리오가 없으면 1, Maestro 없음·설정 오류·결과 없음 2
