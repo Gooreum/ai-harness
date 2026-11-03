@@ -14,8 +14,11 @@ plugin/
 ├── skills/
 │   └── task/SKILL.md               작업 시작: 모드·검사를 사용자에게 묻고 상태 파일을 만든다 (ios-harness:task)
 └── hooks/
-    ├── hooks.json                  훅 등록: 편집 전 protect-generated.sh, 편집 후 stage-context.sh
+    ├── hooks.json                  훅 등록: 모든 도구 전 tool-count.sh, 편집 전 protect-generated.sh·check-run.sh, 편집 후 stage-context.sh, 끝낼 때 stop-gate.sh
     ├── protect-generated.sh        생성 파일·pbxproj 편집 차단
+    ├── check-run.sh                검증 단계를 넘기려 할 때 고른 검사의 run을 돌려, 실패하면 막는다
+    ├── stop-gate.sh                작업 주인 세션이 done 전에 끝내지 못하게 막는다
+    ├── tool-count.sh               작업 주인 세션의 도구 호출 수를 센다 (stop-gate.sh의 반복 방지용)
     └── stage-context.sh            작업 상태 파일이 바뀌면 그 단계의 지시를 넣는다
 ```
 
@@ -37,6 +40,24 @@ plugin/
 - PostToolUse(Edit·Write·MultiEdit)에서 고친 파일이 `<프로젝트>/.harness/state/task.json`일 때만 동작한다. 프로젝트는 `.harness/project.json`이 있어야 한다.
 - 지금 단계의 지시를 `.harness/checks.json`에서 꺼내 `additionalContext`로 넣고 0으로 끝난다. 막지 않는다.
 - `task` 스킬은 모드와 검사를 사용자에게 묻고 상태 파일을 만든다. 모드와 검사를 AI가 대신 고르지 않는다.
+
+## 훅: check-run.sh
+
+검사를 정말 통과했는지 에이전트의 말이 아니라 run의 결과로 판정한다(발표 슬라이드 29·30, [ADR 0012](decisions/0012-run-gate.md)).
+
+- PreToolUse(Edit·Write·MultiEdit)에서 `.harness/state/task.json`을 고치려 할 때만 동작한다. 고친 뒤의 내용을 계산해 `stage`가 verify를 지나 finish·done으로 가는지 본다.
+- 그렇다면 고른 검사 중 `run`이 있는 것을 프로젝트 루트에서 실행한다. 하나라도 실패하면 이유를 stderr로 내고 2로 끝나 편집을 막는다.
+- 판단할 수 없으면(설정 없음, JSON 오류) 막지 않는다.
+
+## 훅: stop-gate.sh
+
+작업이 끝나기 전에는 멈추지 못하게 한다(발표 슬라이드 14·88, [ADR 0012](decisions/0012-run-gate.md)).
+
+- Stop에서 cwd의 프로젝트(`.harness/project.json`)를 찾고 `.harness/state/task.json`의 stage를 본다.
+- 작업 주인 세션(`.harness/state/task.owner`, `stage-context.sh`가 적는다)만 막는다. done 전이면 이유를 stderr로 내고 2로 끝난다.
+- plan 단계도 막는다. 승인은 Plan 모드(ExitPlanMode)로 턴 안에서 받는다.
+- 반복 방지는 ai-bouncer를 따른다: 도구 없이 같은 이유로 재진입하면 끝내게 두고(`tool-count.sh`가 도구 수를 센다), 같은 단계에서 10번 연속이면 사용자에게 넘기게 한다. 상태는 `.harness/state/stop-gate.json`.
+- 상태 파일이 없거나 깨졌을 때, 주인이 아닌 세션은 막지 않는다.
 
 ## 서브에이전트: ios-reviewer
 

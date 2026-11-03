@@ -134,4 +134,12 @@ jq '.app.testScheme = "AppTests"' "$p/.harness/project.json" > "$p/.harness/tmp.
 assert_eq "plan: app.testScheme이 있으면 빌드는 앱 스킴" "  build App" "$(plan | sed -n 2p)"
 assert_eq "plan: app.testScheme이 있으면 앱 테스트는 그 스킴" "  test 앱 (AppTests: AppTests)" "$(plan | sed -n 3p)"
 
+# --- 결과 파일 .harness/out/verify.json (checks.json의 run이 읽는다) ----------------
+rm -f "$p/.harness/out/verify.json"
+plan > /dev/null
+assert_eq "result: --plan은 결과 파일을 남기지 않는다" "no" "$([ -f "$p/.harness/out/verify.json" ] && echo yes || echo no)"
+(cd "$p" && git checkout -q -- App/App.swift)
+assert_eq "result: 바뀐 파일이 없으면 통과로 남긴다" "true|바뀐 파일 없음" \
+  "$( (cd "$p" && "$verify" > /dev/null) && jq -r '"\(.passed)|\(.summary)"' "$p/.harness/out/verify.json")"
+
 finish

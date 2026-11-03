@@ -1,0 +1,63 @@
+#!/usr/bin/env bash
+# 검사 결과 파일이 통과했고, 지금 코드에 대한 최신 결과인지 확인한다. checks.json의 run에 쓴다.
+#
+# 발표 슬라이드 29: run은 가장 최근 실행이 통과했는지 확인한다.
+# 결과가 최신인지 보는 기준은 발표에 없어 ai-bouncer의 `bouncer passed`(result_fresh)를 따른다.
+#   - 결과 파일이 이번 작업을 시작하기 전 것이면 실패
+#   - 바뀐 파일 중 결과 파일보다 나중에 고친 것이 있으면 실패
+set -euo pipefail
+
+here="$(cd "$(dirname "$0")" && pwd)"
+. "$here/lib.sh"
+
+case "${1:-}" in
+  "" | -h | --help)
+    cat <<'HELP'
+사용법: scripts/harness/passed <검사 이름>
+
+  .harness/out/<검사 이름>.json의 passed가 참이고, 결과가 최신이면 0으로 끝난다.
+  최신이 아니라는 것은 이번 작업을 시작하기 전 결과이거나, 그 뒤에 고친 파일이 있다는 뜻이다.
+  예: checks.json의 run에 "scripts/harness/passed verify"
+
+  종료 코드: 통과 0, 아직 통과하지 못함 2
+HELP
+    [ -n "${1:-}" ] && exit 0
+    exit 2
+    ;;
+esac
+name="$1"
+case "$name" in
+  */* | .*) harness_die "검사 이름에 경로를 쓸 수 없습니다: $name" ;;
+esac
+
+harness_init
+result="$out_dir/$name.json"
+rel=".harness/out/$name.json"
+
+if [ ! -f "$result" ]; then
+  echo "결과가 없다: ${rel} — 검사를 먼저 실행한다 (scripts/harness/${name})"
+  exit 2
+fi
+if ! jq -e '.passed == true' "$result" > /dev/null 2>&1; then
+  echo "검사 ${name}이 통과하지 못했다 (${rel}의 passed가 참이 아니다)"
+  jq -r '.summary // empty' "$result" 2> /dev/null | sed -n 1p
+  exit 2
+fi
+
+mtime() { stat -f %m "$1" 2> /dev/null || stat -c %Y "$1" 2> /dev/null; }
+rt="$(mtime "$result")"
+started="$state_dir/task.started"
+if [ -f "$started" ] && [ "$(mtime "$started")" -gt "$rt" ]; then
+  echo "결과(${rel})가 이번 작업을 시작하기 전 것이다 — 검사를 다시 실행한다"
+  exit 2
+fi
+if git -C "$root" rev-parse --git-dir > /dev/null 2>&1; then
+  while IFS= read -r f; do
+    [ -n "$f" ] && [ -f "$root/$f" ] || continue
+    if [ "$(mtime "$root/$f")" -gt "$rt" ]; then
+      echo "결과(${rel})가 ${f}보다 오래됐다 — 고친 뒤 검사를 다시 실행한다"
+      exit 2
+    fi
+  done < <(harness_changed_files "")
+fi
+exit 0

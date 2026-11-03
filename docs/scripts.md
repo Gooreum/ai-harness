@@ -82,6 +82,7 @@ scripts/harness/verify --plan        # 실행하지 않고 무엇을 할지만 �
   ✓ test CoreTracking · 통과 20 · 7s
   ✓ verify · 통과: CoreTracking · 29s
   ```
+- 결과 파일 `.harness/out/verify.json`: `passed`, `summary`. 시작할 때 먼저 `passed: false`로 적고 끝나면 결과로 바꾼다. 중간에 끊겨도 이전 실행의 통과가 남지 않는다. `--plan`은 남기지 않는다. `checks.json`의 run이 이 파일을 본다([ADR 0012](decisions/0012-run-gate.md)).
 
 ## lint
 
@@ -160,3 +161,16 @@ scripts/harness/doctor
 - 도구, 설정 파일, 지침 연결(AGENTS.md 관리 블록, `@AGENTS.md`), 공유되지 않는 설정, 플러그인 버전을 본다. 항목은 [template.md](template.md#점검-scriptsharnessdoctor)에 있다.
 - 문제(✕)가 있으면 1, 주의(!)만 있거나 문제가 없으면 0으로 끝난다. 문제마다 고치는 방법을 한 줄 붙인다.
 - 설치 직후, 팀원이 처음 프로젝트를 받았을 때, 훅이나 스킬이 동작하지 않을 때 돌린다.
+
+## passed
+
+```bash
+scripts/harness/passed verify   # .harness/out/verify.json이 통과했고 최신이면 0
+```
+
+- `checks.json`의 `run`에 쓴다([ADR 0012](decisions/0012-run-gate.md)). 검사를 돌리지 않고 결과 파일만 본다.
+- 통과 조건: 결과 파일이 있고, `passed`가 참이고, 최신이다.
+  - 이번 작업을 시작한 뒤의 결과여야 한다. 작업 시작 시각은 단계 지시 훅이 `.harness/state/task.started`에 남긴다.
+  - 바뀐 파일(verify와 같은 기준) 중 결과 파일보다 나중에 고친 것이 없어야 한다.
+  - 이 기준은 발표에 없어 ai-bouncer의 `bouncer passed`를 따랐다.
+- 실패하면 이유 한 줄(없음, 통과 못 함, 어느 파일보다 오래됨)을 출력하고 2로 끝난다.
