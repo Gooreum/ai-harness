@@ -233,8 +233,10 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `scripts/harness/test` | Execution + Validation | 테스트하고 실패만 요약한다 |
 | `scripts/harness/verify` | Execution + Validation | 바뀐 파일로 대상을 정해 빌드와 테스트를 한 번에 돌린다 |
 | `scripts/harness/lint` | Validation | 팀 컨벤션 목록을 SwiftLint로 검사하고 점수로 판정한다 |
+| `scripts/harness/wiki` | Context + Validation | 정책·결정 기록(`docs/wiki/`)을 찾고 형식을 검사한다 |
 | `scripts/harness/lib.sh` | Execution | 스크립트 공용 함수: 설정 읽기, 바뀐 파일 목록, 시뮬레이터 찾기, 생성 지문, DerivedData 경로, `xcresulttool` 결과 정리, 컨벤션 변환 |
 | `.claude/rules/harness/conventions.md` | Context | 컨벤션 목록을 열 때 읽히는 규칙: 규칙 후보는 사람이 고르고, 통과하려고 규칙을 완화하지 않는다 |
+| `.claude/rules/harness/wiki.md` | Context | 기록을 열 때 읽히는 규칙: 두 종류의 형식, 쓰는 때, 기록과 반대되는 요청은 묻기 |
 | `.harness/.gitignore` | State | `.harness/`에서 `project.json`·`conventions.json`만 커밋되게 한다 |
 
 ### plugin/ — Claude Code 플러그인 ios-harness
@@ -271,6 +273,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `build.test.sh` | build가 쓰는 공용 함수: 시뮬레이터 선택, 에러 요약 형식, 다시 생성할지 판단 |
 | `verify.test.sh` | test·verify의 공용 함수(실패 요약 등)와 verify의 실행 계획: 바뀐 파일 → 모듈 → 돌릴 테스트 |
 | `lint.test.sh` | 컨벤션 파일 검사, SwiftLint 설정 변환, 점수 판정, 주석·문자열 제외, 바뀐 파일 고르기 |
+| `wiki.test.sh` | 기록 찾기·검색 로그·형식 검사 |
 | `stage.test.sh` | 단계 지시 훅이 상태 파일이 바뀔 때만, 고른 검사의 지시만 넣는지 |
 | `hooks.test.sh` | 훅이 막을 것만 막고, 판단할 수 없으면 통과시키는지 |
 | `dev-install.test.sh` | 파일 배치, AGENTS.md 관리 블록 교체, 설정 병합, 반복 실행 |
@@ -287,6 +290,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `conventions.md` | `.harness/conventions.json` 필드 스펙과 규칙을 만드는 단계 |
 | `template.md` | template 파일이 어디에 설치되고 어떻게 갱신되는지, 기존 지침이 있는 프로젝트에 적용하는 절차 |
 | `plugin.md` | 플러그인 구성, 훅이 막는 것, 단계 지시 훅과 task 스킬, 리뷰어 동작, 프로젝트에서 켜는 방법 |
+| `wiki.md` | 정책·결정 기록의 두 종류, 형식, 찾고 쓰는 때 |
 | `checks.md` | 작업 흐름(plan/simple)과 `.harness/checks.json` 필드 스펙 |
 | `harness-log.md` | 시험장에서 관찰한 에이전트 실패와 그에 따른 수정 |
 | `decisions/0001-layers.md` | 다섯 계층과 산출물 위치(template·plugin·scripts)를 나눈 이유 |
@@ -295,6 +299,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `decisions/0004-enforcement.md` | 무엇을 훅으로, 무엇을 deny·ask로 막는지 |
 | `decisions/0005-talk-criteria.md` | 여기어때 안드로이드 팀 발표의 기준으로 이후 후보를 다시 정하고, 워크플로 엔진을 함께 쓰지 않는 이유 |
 | `decisions/0006-convention-lint.md` | 컨벤션 목록을 JSON으로 두고 SwiftLint와 점수로 판정하는 이유 |
+| `decisions/0008-wiki.md` | 정책·결정 기록을 프로젝트 안 파일과 검색 스크립트로 시작한 이유와 비교 결과 |
 | `decisions/0007-task-flow.md` | 사람이 고른 모드·검사와 단계 지시 훅으로 작업 흐름을 만들고, 강제는 미룬 이유 |
 
 ## 설치하면 대상 프로젝트는 이렇게 된다
@@ -315,7 +320,7 @@ MyApp/
 │       ├── harness/*.md           하네스 경로 규칙 (하네스가 관리)
 │       └── project/*.md           프로젝트 고유 규칙 (프로젝트가 관리)
 └── scripts/harness/
-    ├── build, test, verify, lint
+    ├── build, test, verify, lint, wiki
     └── lib.sh
 ```
 
@@ -348,6 +353,7 @@ claude plugin validate plugin
 - 단위 9 진행 중: MotoTrace에 설치해 확인한 뒤, 시험장을 ReadSharp로 옮겼다. 1~2주 운영하며 실패를 기록하고, 이 기록으로 이후 순서를 정한다.
 - 후보 11 완료: 팀 컨벤션 목록과 `lint`(SwiftLint + 점수 판정). 레이어 의존·형식 검사는 후보 20으로 넘겼다
 - 후보 12 완료: 사람이 모드·검사를 고르는 작업 흐름(`task` 스킬 + 단계 지시 훅)
-- 이후 후보: 동작·화면 검증(Maestro, 스냅샷+Figma), 레이어 의존 검사, (조건부) 검증 강제, 정책·결정 기록, 플러그인 배포, Codex 어댑터, 평가 등. 기준은 [ADR 0005](docs/decisions/0005-talk-criteria.md)에 있다
+- 후보 19 완료: 정책·결정 기록(`docs/wiki/`, `wiki` search·check)
+- 이후 후보: 동작·화면 검증(Maestro, 스냅샷+Figma), 레이어 의존 검사, (조건부) 검증 강제, 플러그인 배포, Codex 어댑터, 평가 등. 기준은 [ADR 0005](docs/decisions/0005-talk-criteria.md)에 있다
 
 자세한 내용은 [docs/roadmap.md](docs/roadmap.md)에 있다. 이 저장소에 기여하는 방법(브랜치, 커밋 규칙)은 [AGENTS.md](AGENTS.md)에 있다.

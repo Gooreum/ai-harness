@@ -370,3 +370,36 @@ lint_violations() {
             line: .line, column: .character, message: $r.description })
     | sort_by($order[.severity], .file, .line, .column)' "$2"
 }
+
+# --- 정책·결정 기록 (wiki) -------------------------------------------------------
+# 기록 형식은 하네스 저장소의 docs/wiki.md에 있다.
+
+# 머리말(첫 --- 와 다음 --- 사이)의 키($2) 값
+wiki_meta() {
+  awk -v key="$2" 'NR == 1 && $0 != "---" { exit } NR > 1 && $0 == "---" { exit }
+    NR > 1 { i = index($0, ":"); if (i && substr($0, 1, i - 1) == key) { v = substr($0, i + 1); sub(/^ +/, "", v); print v; exit } }' "$1"
+}
+wiki_kind() { local k; k="$(wiki_meta "$1" kind)"; echo "${k:-?}"; }
+wiki_title() { grep -m1 '^# ' "$1" | sed 's/^# //' || true; }
+
+# 기록($1)의 형식 문제를 한 줄에 하나씩 출력한다. 문제가 없으면 아무것도 출력하지 않는다.
+wiki_problems() {
+  local f="$1" kind tags sections s
+  if [ "$(head -n1 "$f")" != "---" ]; then
+    echo "첫 줄이 머리말(---)이 아닙니다"
+    return 0
+  fi
+  kind="$(wiki_meta "$f" kind)"
+  tags="$(wiki_meta "$f" tags)"
+  case "$kind" in
+    fact) sections="확인된 동작|확인 방법|함의|안 다룬 것" ;;
+    rule) sections="규칙|적용 범위|근거|예외" ;;
+    *) echo "kind는 fact 또는 rule이어야 합니다 (지금: ${kind:-없음})"; sections="" ;;
+  esac
+  case "$tags" in \[*[!\ ]*\]) ;; *) echo "tags가 필요합니다 (예: tags: [시트, SwiftUI])" ;; esac
+  [ -n "$(wiki_title "$f")" ] || echo "제목(# 한 줄 요약)이 없습니다"
+  local IFS='|'
+  for s in $sections; do
+    grep -qx "## $s" "$f" || echo "\"## $s\" 항목이 없습니다"
+  done
+}
