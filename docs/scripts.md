@@ -115,3 +115,27 @@ scripts/harness/wiki check [파일...]     # 기록 형식 검사
 - 기록 형식과 쓰는 때는 [wiki.md](wiki.md)에 있다.
 - search 결과는 한 줄에 `종류	경로	제목`이다. 내용은 그 파일을 열어 읽는다. 검색마다 `.harness/state/wiki-search.log`에 남긴다.
 - 종료 코드: search는 찾으면 0, 없으면 1. check는 문제가 없으면 0, 있으면 1. 인자 오류 2
+
+## e2e
+
+```bash
+scripts/harness/e2e                         # .maestro/ 바로 아래 시나리오 전부
+scripts/harness/e2e .maestro/settings-open.yaml
+scripts/harness/e2e --tag regression        # 회귀 묶음
+scripts/harness/e2e --record <파일>          # 화면 녹화 (.harness/out/e2e.mp4)
+scripts/harness/e2e --no-build              # 이미 빌드된 앱으로
+```
+
+- 앱을 빌드(`build`)해 설정의 시뮬레이터에 설치하고 Maestro 시나리오를 돌린다. 시뮬레이터가 꺼져 있으면 켠다.
+  - 설치할 앱은 이 워크트리의 DerivedData에서 `app.bundleId`가 맞는 가장 최근 시뮬레이터용 `.app`이다. 앱 스킴의 빌드 구성(Debug·Release)을 따른다.
+- 시나리오는 `appId: ${APP_ID}`로 쓴다. 스크립트가 `-e APP_ID=<app.bundleId>`를 넘긴다. 비밀 값은 `MAESTRO_`로 시작하는 환경 변수로 넘기면 Maestro가 읽는다.
+- `.maestro/` 아래 폴더(`common/` 등)는 `runFlow`로 부르는 공통 흐름이라 따로 돌지 않는다. Maestro가 폴더를 받으면 바로 아래 파일만 돌린다.
+- 작성 규칙은 template 규칙 `.claude/rules/harness/maestro.md`에 있다(id 우선, 딥링크 진입, 계정은 환경 변수, 공통 흐름, 결과 확인, 통과한 것만 저장).
+- 출력: 통과하면 한 줄, 실패하면 시나리오마다 Maestro의 실패 메시지와 산출물 위치.
+  ```
+  ✗ e2e · 실패 1 / 2 · 96s
+    .maestro/settings-open.yaml: Assertion is false: "AI 모델" is visible
+    스크린샷·로그: .harness/out/e2e/ · 전체 출력: .harness/out/e2e.log
+  ```
+- 결과 파일 `.harness/out/e2e.json`: `passed`, `tag`, `flows`(`name`·`file`·`status`·`seconds`·`tags`·`failure`). Maestro JUnit 결과(`e2e-junit.xml`)에서 만든다.
+- 종료 코드: 통과 0, 실패한 시나리오가 있거나 돌린 시나리오가 없으면 1, Maestro 없음·설정 오류·결과 없음 2
