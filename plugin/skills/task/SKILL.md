@@ -31,7 +31,7 @@ AskUserQuestion을 쓸 수 없는 세션(`claude -p`, 서브에이전트)에서�
 
 ## 3. 시작
 
-`.harness/state/task.json`을 쓴다.
+`.harness/state/task.json`을 Write로 쓴다. Bash로 쓰면 훅이 돌지 않아 단계 지시가 들어오지 않는다.
 
 ```json
 {
@@ -50,5 +50,6 @@ AskUserQuestion을 쓸 수 없는 세션(`claude -p`, 서브에이전트)에서�
 ## 이후
 
 - 단계를 마치면 `task.json`의 `stage`만 다음 단계로 바꾼다. 바꾸면 다음 단계의 지시가 들어온다.
+  - Write나 Edit로 바꾼다. Bash로 바꾸면 지시가 들어오지 않는다.
 - 단계를 건너뛰지 않는다. 마무리 보고를 마치면 `stage`를 `done`으로 바꾼다.
 - 고르지 않은 검사를 임의로 더하거나, 고른 검사를 빼지 않는다. 바꿔야 하면 사용자에게 묻는다.
