@@ -57,6 +57,7 @@ plugin/
 - 작업 주인 세션(`.harness/state/task.owner`, `stage-context.sh`가 적는다)만 막는다. done 전이면 이유를 stderr로 내고 2로 끝난다.
 - plan 단계도 막는다. 승인은 Plan 모드(ExitPlanMode)로 턴 안에서 받는다.
 - 반복 방지는 ai-bouncer를 따른다: 도구 없이 같은 이유로 재진입하면 끝내게 두고(`tool-count.sh`가 도구 수를 센다), 같은 단계에서 10번 연속이면 사용자에게 넘기게 한다. 상태는 `.harness/state/stop-gate.json`.
+- 백그라운드 서브에이전트가 돌고 있으면(Stop 입력의 `background_tasks`에 `type: "subagent"`) 기다리는 중으로 보고 막지 않는다. 끝나면 알림으로 턴이 다시 열리고 그때 다시 본다. 셸·모니터는 끝나지 않을 수 있어 넣지 않는다([ADR 0013](decisions/0013-stop-wait-subagent.md)).
 - 상태 파일이 없거나 깨졌을 때, 주인이 아닌 세션은 막지 않는다.
 
 ## 서브에이전트: ios-reviewer

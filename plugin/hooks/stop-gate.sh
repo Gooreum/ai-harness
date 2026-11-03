@@ -8,8 +8,9 @@
 #   - 직전과 같은 이유로 다시 막히려는데 그 사이 도구를 하나도 쓰지 않았으면 끝내게 둔다.
 #     막아 봐야 같은 답만 되풀이한다(ai-bouncer에서 도구 없는 반복 54건, 최대 939회 관찰).
 #   - 같은 단계에서 연속으로 10번(HARNESS_MAX_CONTINUE) 막았으면 더 막지 않고 사용자에게 넘기게 한다.
+# ai-bouncer와 다른 점(ADR 0013): 백그라운드 서브에이전트가 돌고 있으면 막지 않는다.
 #
-# - 입력은 stdin JSON만 읽는다 (session_id, cwd, stop_hook_active).
+# - 입력은 stdin JSON만 읽는다 (session_id, cwd, stop_hook_active, background_tasks).
 # - 막을 때는 이유를 stderr로 내고 2로 끝난다(슬라이드 25).
 # - 판단할 수 없으면(상태 파일 없음, JSON 오류, 주인 없음) 막지 않는다.
 set -uo pipefail
@@ -43,6 +44,12 @@ case "$stage" in
     exit 0
     ;;
 esac
+# 서브에이전트가 돌고 있으면 기다리는 중이다. 막지 않는다(ADR 0013).
+# 서브에이전트가 끝나면 그 알림으로 턴이 다시 열리고, 그때 다시 본다.
+# 셸·모니터는 끝나지 않을 수 있어서 넣지 않는다.
+waiting="$(printf '%s' "$input" | jq '[.background_tasks[]? | select(.type == "subagent")] | length' 2>/dev/null)"
+[ "${waiting:-0}" -gt 0 ] 2>/dev/null && exit 0
+
 title="$(jq -r '.title // ""' "$state" 2>/dev/null)"
 
 reason="[하네스] 작업 \"$title\"이 아직 $stage 단계라 끝낼 수 없습니다.

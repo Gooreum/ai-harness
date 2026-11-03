@@ -60,6 +60,19 @@ set_stage implement; printf '{"stage":"verify","streak":9}' > "$sd/stop-gate.jso
 assert_eq "단계가 바뀌면 횟수를 처음부터 센다" "2" "$(stop s1)"
 assert_eq "  (횟수 1)" "1" "$(jq -r .streak "$sd/stop-gate.json")"
 
+# 백그라운드 서브에이전트를 기다리는 중이면 막지 않는다 (ADR 0013)
+bg() { # background_tasks JSON
+  jq -n --arg cwd "$p" --argjson b "$1" '{session_id: "s1", cwd: $cwd, stop_hook_active: false, background_tasks: $b}' \
+    | "$hook" > /dev/null 2>&1 && echo 0 || echo $?
+}
+set_stage verify
+assert_eq "서브에이전트가 돌고 있으면 막지 않는다" "0" "$(bg '[{"id":"a1","type":"subagent","status":"running","description":"리뷰"}]')"
+assert_eq "  (차단 기록을 남기지 않는다)" "no" "$([ -f "$sd/stop-gate.json" ] && echo yes || echo no)"
+assert_eq "기다리는 작업이 없으면 막는다" "2" "$(bg '[]')"
+assert_eq "셸만 돌고 있으면 막는다" "2" "$(bg '[{"id":"b1","type":"shell","status":"running","description":"서버"}]')"
+set_stage done
+assert_eq "done이면 서브에이전트와 상관없이 막지 않는다" "0" "$(bg '[{"id":"a1","type":"subagent","status":"running","description":"리뷰"}]')"
+
 assert_eq "프로젝트 밖이면 막지 않는다" "0" "$(stop s1 "$work")"
 printf 'not json' > "$state"
 assert_eq "깨진 상태 파일은 막지 않는다" "0" "$(stop s1)"
