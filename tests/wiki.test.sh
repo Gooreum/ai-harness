@@ -77,6 +77,17 @@ assert_eq "check: 빠진 항목을 알린다" "$(printf '  docs/wiki/home/bad.md
 printf '# 머리말 없음\n' > "$p/docs/wiki/home/bad.md"
 assert_eq "check: 머리말이 없으면" "  docs/wiki/home/bad.md: 첫 줄이 머리말(---)이 아닙니다" "$(run check docs/wiki/home/bad.md 2>/dev/null || true)"
 
+rm "$p/docs/wiki/home/bad.md"
+mkdir -p "$p/docs/wiki/build"
+cp "$p/docs/wiki/home/curation-max.md" "$p/docs/wiki/build/signing.md"
+printf 'build/\n' > "$p/.gitignore"
+out="$(run check 2>&1)" && code=0 || code=$?
+assert_eq "check: git이 무시하는 기록이면 1" "1" "$code"
+assert_eq "check: 무시하는 규칙을 알린다" \
+  "$(printf '  docs/wiki/build/signing.md: git이 무시하는 경로라 커밋되지 않습니다 (.gitignore:1:build/). 폴더 이름을 바꾸거나 .gitignore를 고칩니다\n✗ wiki · 기록 3개 중 1개에 문제')" "$out"
+rm "$p/.gitignore"
+assert_eq "check: 무시하지 않으면 통과" "✓ wiki · 기록 3개" "$(run check)"
+
 rm -rf "$p/docs/wiki"
 assert_eq "기록 폴더가 없어도 check는 통과" "✓ wiki · 기록 없음" "$(run check)"
 assert_eq "기록 폴더가 없으면 search는 없음" '· wiki · "홈"에 맞는 기록 없음' "$(run search 홈 || true)"

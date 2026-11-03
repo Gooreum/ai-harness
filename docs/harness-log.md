@@ -18,6 +18,15 @@
 
 ## 기록
 
+### 2026-11-03 — 위키 기록 폴더 이름이 `.gitignore`의 `build/`에 걸려 커밋에서 빠졌다
+- 프로젝트·작업: ReadSharp(`EnglishStudy-harness`), 메모리에 흩어진 정책을 `docs/wiki/`로 옮기는 작업
+- 무슨 일이 있었나
+  - 빌드 관련 기록을 `docs/wiki/build/`에 만들었다. `wiki check`는 통과했지만 `git status`에 나오지 않았다.
+  - iOS 프로젝트 `.gitignore`의 `build/` 규칙이 경로 어디에 있든 `build` 폴더를 무시했다. 커밋 직전에 알아채 `docs/wiki/xcode/`로 옮겼다.
+- 원인: Validation — `wiki check`가 형식만 보고, 기록이 저장소에 올라가는지는 보지 않았다.
+- 조치: `wiki check`가 `git check-ignore`로 무시되는 기록을 찾아 무시한 규칙과 함께 문제로 알리고 1로 끝난다(회귀 테스트 3개).
+- 상태: 반영됨 (후보 13 마무리, 0.4.1)
+
 ### 2026-11-03 — 처음부터 끝까지 돌린 #217 작업이 verify에서 멈췄다. 통과는 말로만 알 수 있었다
 - 프로젝트·작업: ReadSharp(`EnglishStudy-harness`), 이슈 #217 문장 이동 시 번역 초안 보존. 새 세션에서 `claude -p` 3턴, plan 모드, 검사 lint·verify·e2e·review. 약 49분, 약 $3.6
 - 잘 된 것
@@ -42,6 +51,7 @@
   - 3: ReadSharp에서 따로 고친다.
   - 5: 미해결. 발표의 팀 규칙(슬라이드 84: 딥링크로 진입, 계정은 파일 밖에)에 맞춰 Maestro 규칙에 넣을지 정한다.
 - 상태: 1 반영됨 (후보 13, ADR 0012) · 2 보류 · 3·5 미해결
+- 이어서 (2026-11-03): 같은 작업을 이어 verify → finish → done까지 마쳤다. 단계를 넘길 때 훅이 lint·verify·e2e의 `passed`를 확인했다. e2e의 온보딩 실패(3)는 다시 돌리자 고친 것 없이 통과해, 시나리오의 불안정함으로 남겼다
 
 ### 2026-11-03 — 이름이 상수인 Tuist manifest에서 detect가 워크스페이스 이름을 잘못 읽었다
 - 프로젝트·작업: IntervalTimer(`IntervalTimer-harness`), 후보 15 설치
