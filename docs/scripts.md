@@ -148,3 +148,15 @@ scripts/harness/e2e --no-build              # 이미 빌드된 앱으로
   - 시험 실행의 이벤트도 실제 Firebase 프로젝트로 올라간다(디버그 표시가 붙어 DebugView에 보인다).
 - 결과 파일 `.harness/out/e2e.json`: `passed`, `tag`, `flows`(`name`·`file`·`status`·`seconds`·`tags`·`failure`, 판정했으면 `events`). Maestro JUnit 결과(`e2e-junit.xml`)에서 만든다. 행동 로그를 판정한 흐름은 `events.passed`가 거짓이면 실패로 센다.
 - 종료 코드: 통과 0, 실패한 시나리오가 있거나 돌린 시나리오가 없으면 1, Maestro 없음·설정 오류·결과 없음 2
+
+## doctor
+
+하네스가 이 프로젝트에서 돌 수 있는지 점검한다. 파일은 고치지 않는다.
+
+```bash
+scripts/harness/doctor
+```
+
+- 도구, 설정 파일, 지침 연결(AGENTS.md 관리 블록, `@AGENTS.md`), 공유되지 않는 설정, 플러그인 버전을 본다. 항목은 [template.md](template.md#점검-scriptsharnessdoctor)에 있다.
+- 문제(✕)가 있으면 1, 주의(!)만 있거나 문제가 없으면 0으로 끝난다. 문제마다 고치는 방법을 한 줄 붙인다.
+- 설치 직후, 팀원이 처음 프로젝트를 받았을 때, 훅이나 스킬이 동작하지 않을 때 돌린다.

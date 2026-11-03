@@ -11,13 +11,14 @@
   - 이 저장소를 개발하기 위한 내용은 넣지 않는다.
   - `template/AGENTS.md`, `template/CLAUDE.md`: 프로젝트에 설치될 지침. AGENTS.md는 프로젝트 영역과 하네스 관리 블록으로 나뉜다
   - `template/.claude/rules/harness/`: 상황별 규칙. `paths:`로 해당 파일을 읽을 때만 로드된다. 프로젝트 고유 규칙 자리는 `rules/project/`
-  - `template/scripts/harness/`: 프로젝트 안에서 매일 쓰는 스크립트(build·test·verify·lint·wiki·e2e)와 공용 함수 `lib.sh`. 설치되면 `scripts/harness/`가 된다.
+  - `template/scripts/harness/`: 프로젝트 안에서 매일 쓰는 스크립트(build·test·verify·lint·wiki·e2e·doctor)와 공용 함수 `lib.sh`. 설치되면 `scripts/harness/`가 된다.
   - `template/.harness/.gitignore`: 프로젝트의 `.harness/`에서 설정 파일만 커밋하게 한다.
   - `template/.claude/settings.json`: 권한 규칙(시크릿 읽기 deny, pbxproj 편집 deny, 파괴적 git 작업 ask)
 - `plugin/`: Claude Code 플러그인 `ios-harness`. 훅(생성 파일·pbxproj 편집 차단, 단계 지시), 작업 시작 스킬(`task`), 리뷰 서브에이전트(`ios-reviewer`)를 담는다. 루트의 `.claude-plugin/marketplace.json`이 이 저장소를 마켓플레이스로 만든다
 - `scripts/`: 하네스를 설치·관리하는 도구. 대상 프로젝트 경로를 인자로 받는다.
   - `scripts/detect <프로젝트 경로>`: 프로젝트 설정 파일 초안 만들기
-  - `scripts/dev-install <프로젝트 경로>`: 개발 중인 하네스를 프로젝트에 설치·갱신
+  - `scripts/init <프로젝트 경로>`: 하네스를 처음 설치
+  - `scripts/sync [--dev] <프로젝트 경로>`: 설치된 하네스를 갱신. `--dev`는 플러그인을 이 저장소 디렉터리에서 읽게 한다
 - `tests/`: 스크립트 회귀 테스트. `bash tests/run.sh`로 전부 실행한다.
 - `docs/roadmap.md`: 작업 단위와 순서, 진행 상황
 - `docs/project-config.md`: 프로젝트 설정 파일(`.harness/project.json`) 스펙
@@ -55,6 +56,6 @@
 - 스크립트는 macOS 기본 도구인 bash와 jq로 쓴다.
   - 성공하면 출력을 짧게 한다.
   - 실패하면 첫 에러의 위치부터 구체적으로 보여준다.
-  - 사람이나 에이전트가 직접 실행하는 명령(`detect`, `dev-install`, `build`·`test`·`verify`·`lint`·`wiki`·`e2e`)은 확장자를 붙이지 않는다. `source`로 불러 쓰는 파일(`lib.sh`)과 테스트·훅 스크립트에는 `.sh`를 붙인다.
+  - 사람이나 에이전트가 직접 실행하는 명령(`detect`, `init`, `sync`, `build`·`test`·`verify`·`lint`·`wiki`·`e2e`·`doctor`)은 확장자를 붙이지 않는다. `source`로 불러 쓰는 파일(`lib.sh`)과 테스트·훅 스크립트에는 `.sh`를 붙인다.
 - 훅 스크립트는 stdin으로 받은 JSON만 읽는다. 그래야 Codex에서도 재사용할 수 있다.
 - 문서는 한국어로 쓰고, 새 용어는 처음 나올 때 정의한다.

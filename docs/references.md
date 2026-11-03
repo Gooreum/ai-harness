@@ -26,7 +26,7 @@
 - 프로젝트 구성 유형별로 하네스 템플릿을 만들 수 있다. 다만 템플릿과 각 프로젝트가 점점 어긋나는 문제를 관리해야 한다.
 - 반영
   - 계층 구분과 결정적·추론적 Validation
-  - 템플릿 갱신 도구(후보 14)
+  - 템플릿 갱신 도구 `sync`와 어긋남 점검 `doctor`(후보 14)
 
 ### Birgitta Böckeler — Maintainability sensors for coding agents (2026-05)
 

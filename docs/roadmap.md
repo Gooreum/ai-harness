@@ -3,7 +3,7 @@
 여러 iOS 프로젝트에서 재사용할 범용 하네스를 작업 단위로 나눠 하나씩 쌓아간다.
 단위 하나는 세션 하나 분량이다. 커밋 1~3개로 마무리하고, 끝나면 여기 체크박스를 갱신한다.
 
-지금: 14 — 플러그인 배포와 init/sync/doctor
+지금: 16 — Codex 어댑터
 
 (위 줄은 로드맵 패널이 읽는다. 작업 단위를 바꾸면 함께 고친다.)
 
@@ -135,7 +135,12 @@
   - 다음 단계로 넘어가거나 끝내려 할 때 고른 검사의 `run`을 실행한다. run은 결과 파일(`passed`와 작업 트리 해시)만 확인한다
   - 실패하면 이유를 붙여 막고, 같은 실패가 반복되면 사람에게 넘긴다
   - 에이전트가 검증을 건너뛰는 일이 관찰될 때만 켠다 (원칙 2)
-- [ ] 14. 플러그인 배포와 init/sync/doctor
+- [x] 14. 플러그인 배포와 init/sync/doctor (ADR 0011)
+  - 플러그인은 GitHub 마켓플레이스(이 저장소)로 배포한다. init·sync가 프로젝트 `.claude/settings.json`에 마켓플레이스와 플러그인을 등록해, 커밋하면 팀원에게 설치가 권해진다(발표 슬라이드 38 "하네스도 훅도 그대로")
+  - `dev-install`을 `scripts/init`(처음 설치)과 `scripts/sync`(갱신)로 나눴다. 개발 중에는 `sync --dev`가 로컬 설정에서만 이 저장소 디렉터리로 덮어쓴다
+  - 하네스 버전은 `plugin.json`의 `version` 하나다. sync가 `.harness/harness.json`에 남기고, 프로젝트 안 `scripts/harness/doctor`가 도구·설정·지침 연결·플러그인 버전을 점검한다
+  - 진행 (2026-11-03): ReadSharp 시험장을 sync하고, 빈 설정 디렉터리(`CLAUDE_CONFIG_DIR`)로 팀원처럼 GitHub에서 마켓플레이스 추가·플러그인 설치를 했다. GitHub `main`의 플러그인(0.2.0)이 프로젝트 파일(0.3.0)보다 오래됐다고 doctor가 잡았다. `sync --dev`로 되돌린 뒤에는 폴더 버전(0.3.0)으로 통과했다
+  - 남은 것: ReadSharp·IntervalTimer는 `.claude/settings.json`을 git에서 무시해 공유가 안 된다(각 프로젝트에서 정리). 머지 뒤 GitHub 0.3.0으로 doctor 통과 확인
 - [x] 15. 두 번째 프로젝트 적용: IntervalTimer(`~/Code/IntervalTimer`, Tuist 다중 모듈. xcodeproj 앱은 시험장 ReadSharp로 대신한다)
   - 진행 (2026-11-03): `~/Code/IntervalTimer-harness` 워크트리(`chore/ios-harness`)에 설치했다. 하네스 코드는 detect 한 곳만 고쳤고, 나머지는 프로젝트 설정 파일만 달랐다(발표 슬라이드 38 "같은 훅, 저장소마다 다른 config")
     - detect가 `Project(name: projectName)`처럼 이름이 상수인 manifest에서 앞쪽 `.debug(name: "Debug")`를 이름으로 잡아 `Debug.xcworkspace`를 냈다. `Project(`·`Workspace(` 호출 뒤의 name을 읽고 상수를 풀도록 고쳤다

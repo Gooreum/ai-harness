@@ -53,20 +53,21 @@ AI 코딩 에이전트(Claude Code, Codex 등)는 iOS 프로젝트에서 자주 
 ios-ai-harness (이 저장소)                         대상 iOS 프로젝트
 ───────────────────────────                       ─────────────────────────────
 scripts/detect ─────────── 프로젝트를 훑어서 ───────▶ .harness/project.json
-scripts/dev-install ────┐
+scripts/init·sync ──────┐
                         │  복사·병합
 template/ ──────────────┴────────────────────────▶ AGENTS.md, CLAUDE.md
                                                     .claude/rules/harness/*.md
                                                     .claude/settings.json
                                                     scripts/harness/*
-                                                    .harness/.gitignore
+                                                    .harness/.gitignore, harness.json
 
-plugin/ ─────────── 플러그인으로 켬 (복사 안 함) ───▶ 훅, task 스킬, ios-reviewer
-                    (.claude/settings.local.json)
+plugin/ ─── GitHub 마켓플레이스에서 설치 (복사 안 함) ──▶ 훅, task 스킬, ios-reviewer
+            (.claude/settings.json에 등록)
 ```
 
 - `template/`의 파일은 프로젝트에 **복사**된다. 프로젝트 저장소에 커밋되므로 사람·CI·다른 에이전트도 같은 스크립트를 쓴다.
-- `plugin/`은 **복사하지 않는다.** 프로젝트가 플러그인을 켜면 Claude Code가 이 저장소에서 바로 불러온다. 여러 프로젝트에 같은 훅과 리뷰어를 적용하기 위해서다.
+- `plugin/`은 **복사하지 않는다.** 프로젝트의 `.claude/settings.json`에 이 저장소(GitHub)가 마켓플레이스로 등록돼 있어서, 팀원이 프로젝트를 열면 Claude Code가 플러그인 설치를 권한다. 여러 프로젝트에 같은 훅과 리뷰어를 적용하기 위해서다(발표 슬라이드 38).
+- 프로젝트 파일과 플러그인은 같은 버전이어야 한다. 설치한 버전은 `.harness/harness.json`에 남고, 프로젝트 안에서 `scripts/harness/doctor`가 둘을 비교한다.
 - 프로젝트마다 다른 값은 `.harness/project.json` 하나에만 있다. 그래서 스크립트와 지침은 모든 프로젝트에서 글자 하나 다르지 않다.
 
 ## 동작 흐름
@@ -74,7 +75,8 @@ plugin/ ─────────── 플러그인으로 켬 (복사 안 함
 ### 1. 설치
 
 ```bash
-scripts/dev-install ~/path/to/MyApp
+scripts/init ~/path/to/MyApp     # 처음 설치
+scripts/sync ~/path/to/MyApp     # 하네스를 고친 뒤 갱신
 ```
 
 1. `.harness/project.json`이 없으면 `scripts/detect`가 프로젝트를 훑어 초안을 만든다.
@@ -83,10 +85,12 @@ scripts/dev-install ~/path/to/MyApp
    - `scripts/harness/`, `.claude/rules/harness/`, `.harness/.gitignore`는 template과 똑같이 맞춘다. template에서 사라진 하네스 규칙은 지운다.
    - `AGENTS.md`는 하네스 관리 블록만 넣거나 바꾼다. 프로젝트가 쓴 부분은 건드리지 않는다.
    - `.claude/settings.json`에는 권한 규칙을 중복 없이 합친다. 프로젝트의 기존 설정은 유지한다.
-3. `.claude/settings.local.json`에 이 저장소를 로컬 마켓플레이스로 등록하고 플러그인 `ios-harness`를 켠다.
+3. `.claude/settings.json`에 GitHub 마켓플레이스(`Gooreum/ios-ai-harness`)를 등록하고 플러그인 `ios-harness`를 켠다. 설치한 하네스 버전은 `.harness/harness.json`에 적는다.
+   - `--dev`를 주면 `.claude/settings.local.json`에서 이 저장소 디렉터리를 마켓플레이스로 덮어쓴다. 하네스를 고치며 시험장에서 바로 확인할 때 쓴다.
 4. 바꾼 파일 목록과 사람이 직접 할 일을 출력한다. 예: "AGENTS.md 프로젝트 영역을 채운다", "project.json 값을 확인한다"
 
-여러 번 실행해도 결과가 같다. 하네스를 고친 뒤 다시 실행하면 프로젝트가 최신으로 맞춰진다.
+`init`은 이미 설치된 프로젝트를, `sync`는 설치되지 않은 프로젝트를 거절한다. 둘 다 여러 번 실행해도 결과가 같다.
+설치 뒤 프로젝트 안에서 `scripts/harness/doctor`로 도구·설정·플러그인 버전을 점검한다.
 
 ### 2. 세션 시작: 항상 읽히는 지침
 
@@ -235,15 +239,16 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `scripts/harness/lint` | Validation | 팀 컨벤션 목록을 SwiftLint로 검사하고 점수로 판정한다 |
 | `scripts/harness/e2e` | Execution + Validation | 앱을 설치하고 Maestro 시나리오를 돌려 흐름별 결과를 요약한다. 회귀 묶음, 화면 녹화, 행동 로그 판정 |
 | `scripts/harness/wiki` | Context + Validation | 정책·결정 기록(`docs/wiki/`)을 찾고 형식을 검사한다 |
+| `scripts/harness/doctor` | Validation | 하네스가 이 프로젝트에서 돌 수 있는지 점검한다: 도구, 설정 파일, 지침 연결, 플러그인 버전 |
 | `scripts/harness/lib.sh` | Execution | 스크립트 공용 함수: 설정 읽기, 바뀐 파일 목록, 시뮬레이터 찾기, 생성 지문, DerivedData 경로, `xcresulttool` 결과 정리, 컨벤션 변환 |
 | `.claude/rules/harness/conventions.md` | Context | 컨벤션 목록을 열 때 읽히는 규칙: 규칙 후보는 사람이 고르고, 통과하려고 규칙을 완화하지 않는다 |
 | `.claude/rules/harness/maestro.md` | Context | 시나리오를 열 때 읽히는 팀 작성 규칙 |
 | `.claude/rules/harness/wiki.md` | Context | 기록을 열 때 읽히는 규칙: 두 종류의 형식, 쓰는 때, 기록과 반대되는 요청은 묻기 |
-| `.harness/.gitignore` | State | `.harness/`에서 `project.json`·`conventions.json`만 커밋되게 한다 |
+| `.harness/.gitignore` | State | `.harness/`에서 설정 파일(`project.json`·`conventions.json`·`checks.json`)과 설치 기록(`harness.json`)만 커밋되게 한다 |
 
 ### plugin/ — Claude Code 플러그인 ios-harness
 
-복사하지 않고 Claude Code가 이 저장소에서 바로 불러온다. 구성은 [docs/plugin.md](docs/plugin.md)에 있다.
+복사하지 않는다. Claude Code가 GitHub 마켓플레이스(이 저장소)에서 설치한다. 구성은 [docs/plugin.md](docs/plugin.md)에 있다.
 
 | 파일 | 계층 | 역할 |
 |---|---|---|
@@ -261,7 +266,8 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | 파일 | 역할 |
 |---|---|
 | `detect` | 프로젝트를 훑어 `.harness/project.json` 초안을 만든다. `--write`로 저장, `--force`로 덮어쓰기 |
-| `dev-install` | 개발 중인 하네스를 프로젝트에 설치·갱신한다. 정식 설치·갱신 도구(init/sync/doctor)는 후보 14에서 만든다 |
+| `init` | 하네스를 처음 설치한다. 이미 설치된 프로젝트는 거절한다 |
+| `sync` | 설치된 하네스를 이 저장소의 버전으로 갱신한다. `--dev`면 플러그인을 이 저장소 디렉터리에서 읽게 한다 |
 
 ### tests/ — 스크립트 회귀 테스트
 
@@ -279,7 +285,8 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `wiki.test.sh` | 기록 찾기·검색 로그·형식 검사 |
 | `stage.test.sh` | 단계 지시 훅이 상태 파일이 바뀔 때만, 고른 검사의 지시만 넣는지 |
 | `hooks.test.sh` | 훅이 막을 것만 막고, 판단할 수 없으면 통과시키는지 |
-| `dev-install.test.sh` | 파일 배치, AGENTS.md 관리 블록 교체, 설정 병합, 반복 실행 |
+| `sync.test.sh` | init·sync의 파일 배치, AGENTS.md 관리 블록 교체, 설정 병합, 플러그인 등록, `--dev`, 반복 실행 |
+| `doctor.test.sh` | doctor가 플러그인 버전 차이·미설치·꺼짐, 지침 연결, 공유되지 않는 설정을 잡는지 |
 
 ### docs/ — 설계 문서
 
@@ -340,7 +347,7 @@ scripts/detect ~/path/to/MyApp
 ```
 
 ```bash
-scripts/dev-install ~/path/to/MyApp
+scripts/init ~/path/to/MyApp
 ```
 
 ```bash
@@ -349,7 +356,7 @@ claude plugin validate plugin
 
 - `bash tests/run.sh`: 회귀 테스트 전체. Xcode 없이 돈다.
 - `scripts/detect`: 설정 파일 초안을 출력만 한다. 파일은 쓰지 않는다.
-- `scripts/dev-install`: 실제로 설치한다. 설치한 뒤 출력된 "직접 할 일"을 처리하고, 프로젝트에서 `scripts/harness/verify`를 돌려 본다.
+- `scripts/init`: 실제로 설치한다. 설치한 뒤 출력된 "직접 할 일"을 처리하고, 프로젝트에서 `scripts/harness/doctor`와 `scripts/harness/verify`를 돌려 본다.
 - 필요한 도구: macOS 기본 bash·jq, Xcode(빌드·테스트), 해당 프로젝트의 생성기(Tuist 등)
 
 ## 진행 상황
@@ -360,7 +367,8 @@ claude plugin validate plugin
 - 후보 12 완료: 사람이 모드·검사를 고르는 작업 흐름(`task` 스킬 + 단계 지시 훅)
 - 후보 19 완료: 정책·결정 기록(`docs/wiki/`, `wiki` search·check)
 - 후보 15 완료: 두 번째 프로젝트 IntervalTimer(Tuist, 루트 manifest 하나)에 설치했다. 하네스는 detect만 고쳤고 나머지는 설정 파일만 달랐다
+- 후보 14 완료: 플러그인을 GitHub 마켓플레이스로 배포하고 `init`·`sync`·`doctor`를 만들었다
 - 후보 10 일부: Maestro E2E(`e2e`, 작성 규칙, 회귀 묶음, 녹화, 행동 로그 판정). 화면 검증과 서버 응답 조작은 남았다
-- 이후 후보: 화면 검증(스냅샷+Figma), 레이어 의존 검사, (조건부) 검증 강제, 플러그인 배포, Codex 어댑터, 평가 등. 기준은 [ADR 0005](docs/decisions/0005-talk-criteria.md)에 있다
+- 이후 후보: 화면 검증(스냅샷+Figma), 레이어 의존 검사, (조건부) 검증 강제, Codex 어댑터, 평가 등. 기준은 [ADR 0005](docs/decisions/0005-talk-criteria.md)에 있다
 
 자세한 내용은 [docs/roadmap.md](docs/roadmap.md)에 있다. 이 저장소에 기여하는 방법(브랜치, 커밋 규칙)은 [AGENTS.md](AGENTS.md)에 있다.
