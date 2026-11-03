@@ -403,3 +403,33 @@ wiki_problems() {
     grep -qx "## $s" "$f" || echo "\"## $s\" 항목이 없습니다"
   done
 }
+
+# --- E2E (Maestro) --------------------------------------------------------------
+
+# DerivedData($1)에서 번들 ID($2)가 맞는 시뮬레이터용 앱 중 가장 최근 것의 경로
+e2e_find_app() {
+  local app id
+  for app in $(ls -dt "$1"/Build/Products/*-iphonesimulator/*.app 2>/dev/null); do
+    id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist" 2>/dev/null || true)"
+    if [ "$id" = "$2" ]; then
+      echo "$app"
+      return 0
+    fi
+  done
+}
+
+# Maestro JUnit 결과($1)를 흐름별 JSON 배열로 바꾼다: name, file, status, seconds, tags, failure
+e2e_junit_to_json() {
+  awk '
+    function attr(s, k,   r) { r = k "=\""; if (!match(s, r "[^\"]*\"")) return ""; return substr(s, RSTART + length(r), RLENGTH - length(r) - 1) }
+    function flush() { if (name != "") printf "%s\t%s\t%s\t%s\t%s\t%s\n", name, file, status, secs, tags, failure; name = "" }
+    /<testcase / { flush(); name = attr($0, "name"); file = attr($0, "file"); status = attr($0, "status"); secs = attr($0, "time"); tags = ""; failure = ""; infail = 0 }
+    /<property name="tags"/ { tags = attr($0, "value") }
+    /<failure/ { infail = 1; line = $0; sub(/.*<failure[^>]*>/, "", line); if (line ~ /<\/failure>/) { sub(/<\/failure>.*/, "", line); infail = 0 } failure = line; next }
+    infail { line = $0; if (line ~ /<\/failure>/) { sub(/<\/failure>.*/, "", line); infail = 0 } failure = failure " " line }
+    END { flush() }' "$1" \
+  | jq -R -s 'split("\n") | map(select(. != "") | split("\t")
+      | { name: .[0], file: .[1], status: .[2], seconds: (.[3] | tonumber? // null),
+          tags: (if .[4] == "" then [] else .[4] | split(",") end),
+          failure: (if .[5] == "" then null else (.[5] | gsub("&quot;"; "\"") | gsub("&apos;"; "'"'"'") | gsub("&lt;"; "<") | gsub("&gt;"; ">") | gsub("&amp;"; "&") | gsub("^\\s+|\\s+$"; "")) end) })'
+}

@@ -29,6 +29,7 @@
 | 빌드만 | `scripts/harness/build` |
 | 앱 단위 테스트 / 특정 스킴 테스트 | `scripts/harness/test` / `scripts/harness/test --scheme <스킴>` |
 | 팀 컨벤션 검사 (바뀐 Swift 파일) | `scripts/harness/lint` |
+| E2E 시나리오 / 회귀 묶음 / 수정 전후 영상 | `scripts/harness/e2e <파일>` / `scripts/harness/e2e --tag regression` / `--record` |
 | 정책·결정 기록 찾기 / 형식 검사 | `scripts/harness/wiki search <단어>` / `scripts/harness/wiki check` |
 
 - 스킴, 시뮬레이터, 프로젝트 생성 명령은 `.harness/project.json`에 있고 스크립트가 이 파일을 읽는다. `xcodebuild`를 직접 구성하지 않는다.
@@ -63,6 +64,7 @@ Claude Code는 아래 규칙을 해당 파일을 읽을 때 자동으로 불러�
 | 프로젝트 파일·빌드 설정(pbxproj, xcconfig, entitlements, Info.plist, manifest) | `.claude/rules/harness/project-settings.md` |
 | Tuist manifest(`Project.swift`, `Workspace.swift`, `Tuist/`) | `.claude/rules/harness/tuist.md` |
 | 팀 컨벤션 목록(`.harness/conventions.json`) | `.claude/rules/harness/conventions.md` |
+| E2E 시나리오(`.maestro/`) | `.claude/rules/harness/maestro.md` |
 | 정책·결정 기록(`docs/wiki/`) | `.claude/rules/harness/wiki.md` |
 | 이 프로젝트에만 있는 규칙 | `.claude/rules/project/` |
 
