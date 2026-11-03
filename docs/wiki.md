@@ -48,3 +48,4 @@ scripts/harness/wiki check docs/wiki/translation/x.md
 - search는 대소문자를 무시하고 모든 단어가 들어 있는 기록을 찾는다. 찾으면 0, 없으면 1로 끝난다.
 - 검색마다 `.harness/state/wiki-search.log`에 시각·검색어·결과 수를 남긴다. 발표처럼 "검색 → 열람 → 반영"을 재려면 이 기록부터 쓴다. 열람·반영은 아직 재지 않는다.
 - check는 머리말, `kind`, `tags`, 제목, 종류별 항목을 본다. 문제가 있으면 파일마다 출력하고 1로 끝난다.
+- check는 git이 무시하는 기록도 문제로 본다. 기록은 저장소에 올려야 다음 작업에서 찾을 수 있다(발표 슬라이드 46). iOS `.gitignore`의 `build/` 같은 규칙에 폴더 이름이 걸리기 쉽다.

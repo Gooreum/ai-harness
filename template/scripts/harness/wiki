@@ -55,6 +55,10 @@ case "$cmd" in
       case "$f" in /*) path="$f" ;; *) path="$root/$f" ;; esac
       [ -f "$path" ] || { echo "  ${f}: 파일이 없습니다"; bad=$((bad + 1)); continue; }
       problems="$(wiki_problems "$path")"
+      # 기록은 저장소에 올려야 다음 작업에서 찾는다(발표 슬라이드 46). git이 무시하면 커밋되지 않는다.
+      if ignored="$(git -C "$root" check-ignore -v -- "$path" 2> /dev/null)"; then
+        problems="${problems:+$problems$'\n'}git이 무시하는 경로라 커밋되지 않습니다 ($(printf '%s' "$ignored" | cut -f1)). 폴더 이름을 바꾸거나 .gitignore를 고칩니다"
+      fi
       if [ -n "$problems" ]; then
         printf '%s\n' "$problems" | sed "s|^|  ${f#"$root"/}: |"
         bad=$((bad + 1))
