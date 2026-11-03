@@ -306,6 +306,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `wiki.md` | 정책·결정 기록의 두 종류, 형식, 찾고 쓰는 때 |
 | `checks.md` | 작업 흐름(plan/simple)과 `.harness/checks.json` 필드 스펙 |
 | `harness-log.md` | 시험장에서 관찰한 에이전트 실패와 그에 따른 수정 |
+| `problem-notes.md` | 시험장에서 만난 문제와 해결을 쉬운 비유로 정리한 노트 |
 | `decisions/0001-layers.md` | 다섯 계층과 산출물 위치(template·plugin·scripts)를 나눈 이유 |
 | `decisions/0002-rule-placement.md` | 규칙을 무엇에 붙는지(파일 종류 / 행동)에 따라 경로 규칙·AGENTS.md·스킬·권한으로 나누는 기준 |
 | `decisions/0003-agents-md-areas.md` | AGENTS.md를 프로젝트 영역과 관리 블록으로 나누고 명령 블록을 고정 문장으로 둔 이유 |
