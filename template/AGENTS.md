@@ -31,6 +31,7 @@
 | 팀 컨벤션 검사 (바뀐 Swift 파일) | `scripts/harness/lint` |
 | E2E 시나리오 / 회귀 묶음 / 수정 전후 영상 | `scripts/harness/e2e <파일>` / `scripts/harness/e2e --tag regression` / `--record` |
 | 정책·결정 기록 찾기 / 형식 검사 | `scripts/harness/wiki search <단어>` / `scripts/harness/wiki check` |
+| 하네스가 제대로 설치됐는지 점검 (도구, 설정, 플러그인 버전) | `scripts/harness/doctor` |
 
 - 스킴, 시뮬레이터, 프로젝트 생성 명령은 `.harness/project.json`에 있고 스크립트가 이 파일을 읽는다. `xcodebuild`를 직접 구성하지 않는다.
 - 코드를 고치는 작업은 `task` 스킬(ios-harness 플러그인)로 시작한다. 계획할지(plan/simple)와 돌릴 검사는 사용자가 고르고, 단계마다 할 일은 하네스가 알려 준다. 검사 목록은 `.harness/checks.json`에 있다.

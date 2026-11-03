@@ -1,0 +1,155 @@
+#!/usr/bin/env bash
+# 이 프로젝트에서 하네스가 제대로 돌 수 있는지 점검한다. 아무것도 고치지 않는다.
+# 도구, 설정 파일, 설치된 파일, 플러그인 버전을 본다. 고치는 방법을 한 줄씩 함께 보여 준다.
+set -euo pipefail
+
+here="$(cd "$(dirname "$0")" && pwd)"
+. "$here/lib.sh"
+
+case "${1:-}" in
+  -h | --help)
+    cat <<'EOF'
+사용법: scripts/harness/doctor
+
+  하네스가 이 프로젝트에서 돌 수 있는지 점검한다. 파일은 고치지 않는다.
+  ✕ 문제: 하네스의 일부가 동작하지 않는다
+  ! 주의: 동작은 하지만 팀원에게 공유되지 않거나 오래됐다
+
+  종료 코드: 문제가 없으면 0(주의만 있어도 0), 문제가 있으면 1
+EOF
+    exit 0
+    ;;
+esac
+
+harness_init
+
+problems=0
+warnings=0
+report=""
+
+problem() {
+  problems=$((problems + 1))
+  report="$report  ✕ $1"$'\n'
+  [ -z "${2:-}" ] || report="$report      → $2"$'\n'
+}
+warn() {
+  warnings=$((warnings + 1))
+  report="$report  ! $1"$'\n'
+  [ -z "${2:-}" ] || report="$report      → $2"$'\n'
+}
+in_git() { git -C "$root" rev-parse --git-dir > /dev/null 2>&1; }
+ignored() { in_git && git -C "$root" check-ignore -q "$1"; }
+
+# --- 도구 ---------------------------------------------------------------------
+
+command -v xcodebuild > /dev/null 2>&1 || problem "xcodebuild가 없다" "Xcode를 설치하고 xcode-select로 지정한다"
+generator="$(cfg .generator)"
+case "$generator" in
+  tuist | xcodegen)
+    command -v "$generator" > /dev/null 2>&1 || problem "${generator}가 없다 (generator: $generator)" "${generator}를 설치한다"
+    ;;
+esac
+if [ -d "$root/.maestro" ] && ! command -v maestro > /dev/null 2>&1; then
+  warn "maestro가 없어 e2e를 돌릴 수 없다" "curl -fsSL https://get.maestro.mobile.dev | bash"
+fi
+
+# --- 설정 파일 -------------------------------------------------------------------
+
+[ -n "$(cfg .app.scheme)" ] || problem ".harness/project.json에 app.scheme이 없다"
+# 생성기를 쓰는 프로젝트의 워크스페이스·프로젝트는 생성물이라, 아직 없어도 build가 만든다.
+if [ "$generator" != "tuist" ] && [ "$generator" != "xcodegen" ]; then
+  for key in workspace project; do
+    path="$(cfg ".$key")"
+    [ -z "$path" ] || [ -e "$root/$path" ] || problem ".harness/project.json의 $key '$path'가 없다"
+  done
+fi
+for f in checks.json conventions.json; do
+  [ ! -f "$root/.harness/$f" ] || jq empty "$root/.harness/$f" 2> /dev/null || problem ".harness/${f}가 올바른 JSON이 아니다"
+done
+if [ -z "${HARNESS_OFFLINE:-}" ] && command -v xcrun > /dev/null 2>&1; then
+  sim="$(cfg .destination.simulator)"
+  os="$(cfg .destination.os)"
+  if [ -n "$sim" ] && [ -z "$(xcrun simctl list devices available -j 2> /dev/null | pick_simulator "$sim" "${os:-latest}")" ]; then
+    problem "시뮬레이터 '$sim' (iOS ${os:-latest})가 없다" ".harness/project.json의 destination.simulator를 설치된 기기로 고친다"
+  fi
+fi
+
+# --- 설치된 파일 -----------------------------------------------------------------
+
+installed_version=""
+if [ -f "$root/.harness/harness.json" ]; then
+  installed_version="$(jq -r '.version // empty' "$root/.harness/harness.json")"
+else
+  warn "설치 기록(.harness/harness.json)이 없어 버전을 비교할 수 없다" "하네스 저장소에서 scripts/sync <이 프로젝트>"
+fi
+grep -q '<!-- harness:begin' "$root/AGENTS.md" 2> /dev/null \
+  || problem "AGENTS.md에 하네스 관리 블록이 없다" "하네스 저장소에서 scripts/sync <이 프로젝트>"
+grep -qx '@AGENTS.md' "$root/CLAUDE.md" 2> /dev/null \
+  || problem "CLAUDE.md가 AGENTS.md를 불러오지 않는다 (@AGENTS.md 줄이 없다)" "Claude Code가 하네스 지침을 읽지 않는다. CLAUDE.md에 @AGENTS.md를 넣는다"
+if [ ! -d "$root/.claude/rules/harness" ]; then
+  problem ".claude/rules/harness/가 없다" "하네스 저장소에서 scripts/sync <이 프로젝트>"
+elif ignored .claude/rules/harness/swift.md; then
+  warn ".claude/rules/가 git에서 무시돼 하네스 규칙이 커밋되지 않는다" ".gitignore를 .claude/* 와 !.claude/rules/ 형태로 바꾼다"
+fi
+if ignored .claude/settings.json; then
+  warn ".claude/settings.json이 git에서 무시돼 권한 규칙과 플러그인 등록이 팀원에게 가지 않는다" \
+    "개인 값은 .claude/settings.local.json으로 옮기고 settings.json을 커밋한다"
+fi
+
+# --- 플러그인 ------------------------------------------------------------------
+# 프로젝트 파일(스크립트·규칙)과 플러그인(훅·스킬)은 같은 버전이어야 한다. 훅이 설정 파일 형식을 읽기 때문이다.
+
+plugin_id="ios-harness@ios-ai-harness"
+enabled=""
+for f in "$root/.claude/settings.local.json" "$root/.claude/settings.json"; do
+  [ -f "$f" ] || continue
+  v="$(jq -r --arg id "$plugin_id" '.enabledPlugins[$id] // empty' "$f" 2> /dev/null || true)"
+  if [ -n "$v" ]; then
+    enabled="$v"
+    break
+  fi
+done
+if [ "$enabled" != "true" ]; then
+  problem "플러그인 ${plugin_id}가 켜져 있지 않다 (.claude/settings.json)" "하네스 저장소에서 scripts/sync <이 프로젝트>"
+elif command -v claude > /dev/null 2>&1; then
+  # 이 프로젝트에 설치된 것(projectPath)이나 사용자 전체에 설치된 것을 찾는다.
+  plugin="$(claude plugin list --json 2> /dev/null | jq -c --arg id "$plugin_id" --arg root "$root" '
+    [ .[]? | select(.id == $id and (.projectPath == $root or .scope == "user")) ]
+    | (map(select(.projectPath == $root)) + .) | first // empty' 2> /dev/null || true)"
+  if [ -z "$plugin" ]; then
+    problem "플러그인 ${plugin_id}가 이 프로젝트에 설치되지 않았다" \
+      "이 프로젝트에서 claude를 열고 마켓플레이스·플러그인 설치 안내를 받아들이거나, claude plugin install $plugin_id --scope project"
+  else
+    # 디렉터리 마켓플레이스(--dev)는 폴더를 그 자리에서 읽으므로 폴더의 버전을 본다.
+    plugin_version="$(printf '%s' "$plugin" | jq -r '.folderVersion // .version // empty')"
+    if [ "$(printf '%s' "$plugin" | jq -r '.enabled')" = "false" ]; then
+      problem "플러그인 ${plugin_id}가 설치됐지만 꺼져 있다" "claude plugin enable $plugin_id"
+    elif [ -n "$installed_version" ] && [ "$plugin_version" != "$installed_version" ]; then
+      newer="$(printf '%s\n%s\n' "$plugin_version" "$installed_version" | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)"
+      if [ "$newer" = "$installed_version" ]; then
+        problem "플러그인($plugin_version)이 프로젝트 파일($installed_version)보다 오래됐다" \
+          "claude plugin marketplace update ios-ai-harness && claude plugin update $plugin_id"
+      else
+        problem "프로젝트 파일($installed_version)이 플러그인($plugin_version)보다 오래됐다" \
+          "하네스 저장소에서 scripts/sync <이 프로젝트>"
+      fi
+    fi
+  fi
+else
+  warn "claude CLI가 없어 설치된 플러그인 버전을 확인하지 못했다"
+fi
+
+# --- 결과 ---------------------------------------------------------------------
+
+label="하네스 ${installed_version:-?}"
+if [ "$problems" -eq 0 ] && [ "$warnings" -eq 0 ]; then
+  echo "✓ doctor · 문제 없음 · $label"
+  exit 0
+fi
+if [ "$problems" -eq 0 ]; then
+  echo "✓ doctor · 주의 $warnings · $label"
+else
+  echo "✕ doctor · 문제 $problems · 주의 $warnings · $label"
+fi
+printf '%s' "$report"
+[ "$problems" -eq 0 ]
