@@ -21,10 +21,10 @@
 | 상태 | `.harness/state/task.json`, 에이전트가 `stage`를 고친다 | 발표의 state.json. 기존 `.harness/.gitignore`가 무시한다 |
 | 지시 주입 | 플러그인 PostToolUse 훅 `stage-context.sh`. 상태 파일이 바뀔 때만 동작하고 막지 않는다 | 발표 슬라이드 27. stdin JSON만 읽어 Codex에서도 쓸 수 있다 |
 | 검사 목록 | `.harness/checks.json`(`stages.<단계>.prompt`, `checks[]`의 `name`·`description`·`prompt`·`run`) | 발표의 config. 형식은 bash·jq로 읽는 JSON(ADR 0006과 같은 이유) |
-| `run` | 필드는 지금 정의하되 실행하지 않는다 | 단계를 넘길 때 막는 것은 강제 장치다. 검증을 건너뛰는 일이 관찰되면 후보 13에서 켠다 |
+| `run` | 필드는 지금 정의하되 실행하지 않는다 | 단계를 넘길 때 막는 것은 강제 장치다. 검증을 건너뛰는 일이 관찰되면 후보 13에서 켠다. → ADR 0012에서 발표대로 켰다 |
 | 마무리 | 코드에 남지 않는 정책·결정을 보고에 정리하게 한다 | 원칙 12. 기록 저장소는 후보 19 |
 
 ## 결과
 
-- 지금은 에이전트가 검증 단계를 건너뛰거나 `stage`를 바로 `done`으로 바꿔도 막지 않는다. 이런 일이 시험장에서 관찰되면 harness-log에 기록하고 후보 13을 켠다.
+- 지금은 에이전트가 검증 단계를 건너뛰거나 `stage`를 바로 `done`으로 바꿔도 막지 않는다. 이런 일이 시험장에서 관찰되면 harness-log에 기록하고 후보 13을 켠다. (2026-11-03: ADR 0012에서 run 확인을 켰다)
 - ai-bouncer를 쓰지 않기로 한 이유(ADR 0005)는 흐름을 맡는 장치가 둘이면 서로 다른 상태를 본다는 것이었다. 이 흐름을 쓰는 프로젝트에서는 다른 워크플로 엔진을 끈다(ReadSharp는 `Skill(dev-bounce)` deny).

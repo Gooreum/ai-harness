@@ -173,7 +173,7 @@ scripts/harness/test --scheme CoreTracking
 
 - 훅은 stdin으로 받은 JSON만 읽는다. 나중에 Codex에서도 같은 스크립트를 쓰기 위해서다.
 - 훅은 판단할 수 없으면(설정 파일 없음, 입력 오류) 막지 않는다. 실수를 줄이는 장치이지 보안 경계가 아니라서, 고장 난 훅이 정상 작업을 막으면 안 된다.
-- "검증을 돌렸는지 확인하는 게이트" 같은 장치는 일부러 넣지 않았다. 그런 실패가 실제로 관찰되면 그때 넣는다.
+- 검사를 통과했는지는 훅 `check-run.sh`가 확인한다. 아래 6의 run 확인이다.
 
 ### 6. 작업 흐름: task
 
@@ -182,7 +182,7 @@ scripts/harness/test --scheme CoreTracking
 - plan: 계획 → 구현 → 검증 → 마무리, simple: 구현 → 검증 → 마무리
 - 에이전트가 단계를 마치고 `.harness/state/task.json`의 `stage`를 바꾸면, 훅이 그 단계의 지시를 넣는다. 검증 단계에는 고른 검사의 지시만 들어간다.
 - 검사 목록은 프로젝트의 `.harness/checks.json`에 있다. 훅은 검사 내용을 모르고 이 파일의 글을 옮길 뿐이다([docs/checks.md](docs/checks.md), [ADR 0007](docs/decisions/0007-task-flow.md)).
-- 단계를 건너뛰는 것을 막는 장치는 아직 없다. 건너뛰는 일이 관찰되면 후보 13에서 넣는다.
+- 검증 단계를 지나 넘어가려 하면 훅 `check-run.sh`가 고른 검사의 `run`(결과 파일 확인)을 돌린다. 실패하면 넘어가지 못한다(발표 슬라이드 29, [ADR 0012](docs/decisions/0012-run-gate.md)). 끝내려 할 때는 Stop 훅 `stop-gate.sh`가 작업을 시작한 세션만 done 전에 막는다. 계획 승인은 Plan 모드로 받는다.
 
 ### 7. 리뷰: ios-reviewer
 
@@ -253,8 +253,11 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | 파일 | 계층 | 역할 |
 |---|---|---|
 | `.claude-plugin/plugin.json` | — | 플러그인 이름(`ios-harness`)과 버전 |
-| `hooks/hooks.json` | Enforcement + Context | 편집 직전에 `protect-generated.sh`, 편집 직후에 `stage-context.sh`를 실행하도록 등록 |
+| `hooks/hooks.json` | Enforcement + Context | 모든 도구 전에 `tool-count.sh`, 편집 직전에 `protect-generated.sh`·`check-run.sh`, 편집 직후에 `stage-context.sh`, 끝낼 때 `stop-gate.sh`를 실행하도록 등록 |
 | `hooks/protect-generated.sh` | Enforcement | 생성 파일·pbxproj 편집을 막는 훅 |
+| `hooks/check-run.sh` | Enforcement + Validation | 검증 단계를 넘기려 할 때 고른 검사의 `run`을 돌려 실패하면 막는 훅 |
+| `hooks/stop-gate.sh` | Enforcement | 작업 주인 세션이 done 전에 끝내지 못하게 막는 훅 (반복 방지는 ai-bouncer와 같다) |
+| `hooks/tool-count.sh` | State | 작업 주인 세션의 도구 호출 수를 세는 훅 (stop-gate.sh가 쓴다) |
 | `hooks/stage-context.sh` | Context | 작업 상태 파일(`.harness/state/task.json`)이 바뀌면 그 단계의 지시를 `.harness/checks.json`에서 꺼내 넣는 훅 |
 | `skills/task/SKILL.md` | State | 작업 시작: 계획 여부(plan/simple)와 검사를 사용자에게 묻고 상태 파일을 만든다 |
 | `agents/ios-reviewer.md` | Validation (추론적) | 읽기 전용 리뷰 서브에이전트의 지시문 |
