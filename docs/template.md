@@ -1,7 +1,7 @@
 # 템플릿
 
 `template/`의 파일이 각 프로젝트의 어디에 설치되고 어떻게 갱신되는지 정리한다.
-설치 도구는 단위 9(dev-install), 갱신 도구는 후보 14(init/sync/doctor)에서 만든다.
+설치는 `scripts/init`, 갱신은 `scripts/sync`, 점검은 프로젝트 안의 `scripts/harness/doctor`가 한다(후보 14, [ADR 0011](decisions/0011-plugin-distribution.md)).
 
 ## 설치 위치
 
@@ -13,9 +13,11 @@ template 안의 경로가 그대로 프로젝트 루트 기준 경로가 된다.
 | `CLAUDE.md` | AGENTS.md를 import하는 연결 파일 | 그대로 둔다 |
 | `.claude/rules/harness/*.md` | 하네스가 관리하는 상황별 규칙 | 통째로 바꾼다 |
 | `.claude/rules/project/` | 프로젝트 고유 규칙을 두는 자리 (`.gitkeep`만 있음) | 건드리지 않는다 |
-| `.claude/settings.json` | 권한 규칙: 시크릿 읽기 deny, pbxproj 편집 deny, 파괴적·외부 공개 git 작업 ask | 프로젝트 설정과 합친다 (단위 9) |
+| `.claude/settings.json` | 권한 규칙(시크릿 읽기 deny, pbxproj 편집 deny, 파괴적·외부 공개 git 작업 ask)과 플러그인 등록(GitHub 마켓플레이스) | 프로젝트 설정과 합친다 |
 | `scripts/harness/*` | 프로젝트 스크립트(build·test·verify·lint·wiki·e2e, lib.sh) | 통째로 바꾼다 |
-| `.harness/.gitignore` | `.harness/`에서 설정 파일만 커밋되게 함 | 통째로 바꾼다 |
+| `.harness/.gitignore` | `.harness/`에서 설정 파일과 설치 기록만 커밋되게 함 | 통째로 바꾼다 |
+
+`.harness/harness.json`(설치 기록)은 template에 없다. init·sync가 설치한 하네스 버전(`plugin.json`의 `version`)을 `{"version": "0.3.0"}` 형태로 쓴다. 커밋해서 팀원의 doctor도 같은 값과 비교하게 한다.
 
 `.harness/project.json`은 template에 없다. 설치할 때 하네스 저장소의 `scripts/detect`가 프로젝트를 보고 만들고, 이후에는 `detect --write --force`로만 다시 만든다.
 
@@ -32,21 +34,38 @@ template 안의 경로가 그대로 프로젝트 루트 기준 경로가 된다.
 - 표시와 안내는 HTML 주석이라 Claude의 컨텍스트에서는 빠진다. 파일을 열어 고칠 때는 보인다.
 - 명령 블록에는 프로젝트별 값을 채워 넣지 않는다. 스크립트가 `.harness/project.json`을 직접 읽기 때문에 명령이 모든 프로젝트에서 같다.
 
-## 설치: scripts/dev-install
+## 설치와 갱신: scripts/init, scripts/sync
 
 ```bash
-scripts/dev-install <프로젝트 경로>
+scripts/init <프로젝트 경로>          # 처음 설치. 이미 설치됐으면(harness.json이 있으면) 거절한다
+scripts/sync <프로젝트 경로>          # 갱신. 설치되지 않았으면(project.json이 없으면) 거절한다
+scripts/sync --dev <프로젝트 경로>    # 갱신하되 플러그인을 이 저장소 디렉터리에서 읽게 한다
 ```
 
 - 위 표대로 파일을 맞추고, `.harness/project.json`이 없으면 detect로 초안을 만든다.
-- 하네스 저장소를 로컬 마켓플레이스로 등록하고 플러그인을 켠다(`.claude/settings.local.json`).
+- `.claude/settings.json`에 GitHub 마켓플레이스와 플러그인을 등록한다. 이 파일을 커밋하면 팀원이 프로젝트를 열 때 Claude Code가 설치를 권한다.
+- `--dev`는 `.claude/settings.local.json`에 같은 이름의 디렉터리 마켓플레이스를 넣는다. 로컬 설정이 우선하므로 공유 설정은 그대로 두고 내 컴퓨터에서만 개발 중인 플러그인을 쓴다. `--dev` 없이 다시 실행하면 이 항목을 지운다.
 - 여러 번 실행해도 결과가 같다. 바뀐 파일과 사람이 직접 할 일을 출력한다.
+
+## 점검: scripts/harness/doctor
+
+프로젝트 안에서 누구나 돌린다. 파일은 고치지 않고, 문제마다 고치는 방법을 한 줄 붙인다.
+
+| 보는 것 | ✕ 문제 | ! 주의 |
+|---|---|---|
+| 도구 | xcodebuild, 생성기(tuist·xcodegen)가 없다 | `.maestro/`가 있는데 maestro가 없다 |
+| 설정 파일 | app.scheme이 없다, 프로젝트·워크스페이스 파일이 없다(생성기 없는 프로젝트만), checks·conventions JSON이 깨졌다, 시뮬레이터가 없다 | |
+| 설치된 파일 | AGENTS.md 관리 블록, CLAUDE.md의 `@AGENTS.md`, `.claude/rules/harness/`가 없다 | 설치 기록이 없다, 규칙이나 `settings.json`이 git에서 무시된다 |
+| 플러그인 | 켜져 있지 않다, 이 프로젝트에 설치되지 않았다, 꺼져 있다, 버전이 설치 기록과 다르다 | claude CLI가 없어 버전을 못 봤다 |
+
+- 플러그인 버전은 `claude plugin list --json`에서 이 프로젝트(`projectPath`)나 사용자 전체에 설치된 항목을 본다. `--dev`로 디렉터리에서 읽는 플러그인은 폴더의 버전(`folderVersion`)을 본다.
+- 버전이 다르면 어느 쪽이 오래됐는지에 따라 플러그인 갱신(`claude plugin update`) 또는 `sync`를 안내한다.
 
 ## 지침 파일이 이미 있는 프로젝트
 
 MotoTrace에 적용하며 정한 방식이다.
 
-1. dev-install을 실행한다. 기존 AGENTS.md는 그대로 두고 끝에 관리 블록을 붙인다. CLAUDE.md가 import 형태가 아니면 손대지 않고 알린다.
+1. init을 실행한다. 기존 AGENTS.md는 그대로 두고 끝에 관리 블록을 붙인다. CLAUDE.md가 import 형태가 아니면 손대지 않고 알린다.
 2. 기존 지침(CLAUDE.md, AGENTS.md)의 내용을 셋으로 나눈다.
    - 하네스 관리 블록과 겹치는 것(커밋 승인, 파괴적 명령, 검증 보고 등)은 지운다.
    - 특정 파일 종류에만 해당하는 프로젝트 규칙(아키텍처, 테스트 관례)은 `.claude/rules/project/`에 `paths:`를 달아 옮긴다.

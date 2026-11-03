@@ -55,19 +55,27 @@ plugin/
 
 ## 프로젝트에서 켜기
 
-지금은 개발 중이라 로컬 경로를 마켓플레이스로 쓴다. `scripts/dev-install`가 프로젝트의 `.claude/settings.local.json`에 다음을 넣는다.
+이 저장소가 GitHub 마켓플레이스다. `scripts/init`·`sync`가 프로젝트의 `.claude/settings.json`에 다음을 넣는다.
 
 ```json
 {
   "extraKnownMarketplaces": {
-    "ios-ai-harness": { "source": { "source": "directory", "path": "<이 저장소의 절대 경로>" } }
+    "ios-ai-harness": { "source": { "source": "github", "repo": "Gooreum/ios-ai-harness" } }
   },
   "enabledPlugins": { "ios-harness@ios-ai-harness": true }
 }
 ```
 
-- 로컬 디렉터리 마켓플레이스의 플러그인은 복사하지 않고 그 자리에서 불러온다. 그래서 이 저장소에서 고친 내용이 다음 세션부터 바로 반영된다.
-- 원격(GitHub) 마켓플레이스로 배포하고 템플릿 설정에 넣는 일은 후보 14에서 한다.
+- 이 파일을 커밋하면 팀원이 프로젝트를 열고 폴더를 신뢰할 때 Claude Code가 마켓플레이스 추가와 플러그인 설치를 권한다. 직접 하려면 `claude plugin marketplace add Gooreum/ios-ai-harness` 후 `claude plugin install ios-harness@ios-ai-harness --scope project`.
+- 저장소 이름은 `plugin.json`의 `repository`에서 읽는다. 다른 포크로 배포하려면 그 값을 고치거나 `HARNESS_MARKETPLACE_REPO=<owner>/<repo>`를 준다.
+- 하네스를 고치는 중에는 `scripts/sync --dev <프로젝트>`로 같은 이름의 마켓플레이스를 이 저장소 디렉터리로 덮어쓴다(`.claude/settings.local.json`). 디렉터리 마켓플레이스는 복사하지 않고 그 자리에서 읽어서, 고친 내용이 다음 세션부터 반영된다.
+
+## 버전
+
+- `plugin.json`의 `version` 하나가 하네스 버전이다. template(프로젝트 파일)과 plugin(훅·스킬)이 같은 설정 형식을 읽으므로 따로 세지 않는다.
+- template이나 plugin을 바꿔 `main`에 머지할 때 버전을 올린다. 올리지 않으면 Claude Code가 플러그인 갱신을 알아채지 못한다.
+- 프로젝트에는 sync가 설치한 버전을 `.harness/harness.json`에 남긴다. `scripts/harness/doctor`가 설치된 플러그인 버전과 비교한다.
+- 팀원 쪽 갱신: `claude plugin marketplace update ios-ai-harness && claude plugin update ios-harness@ios-ai-harness`
 
 ## 검증
 
