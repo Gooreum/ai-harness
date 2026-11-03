@@ -18,6 +18,19 @@
 
 ## 기록
 
+### 2026-11-03 — 이름이 상수인 Tuist manifest에서 detect가 워크스페이스 이름을 잘못 읽었다
+- 프로젝트·작업: IntervalTimer(`IntervalTimer-harness`), 후보 15 설치
+- 무슨 일이 있었나
+  - `Project.swift`가 `let projectName = "IntervalTimer"`를 두고 `Project(name: projectName, settings: .settings(configurations: [.debug(name: "Debug"), …]))`로 쓴다.
+  - detect는 파일에서 처음 나오는 `name: "..."`를 이름으로 읽어 `"workspace": "Debug.xcworkspace"`를 냈다. 생성한 뒤에도 스킴 목록을 확인하지 못했다.
+  - 앱 manifest가 루트에 있어(`app.path: "."`) 생성 전 앱 스킴을 `.`로 추정했다.
+- 원인: State — detect의 이름 규칙이 문자열 리터럴만 보고, 어느 호출의 인자인지는 보지 않았다.
+- 조치
+  - `Workspace(`·`Project(` 호출 뒤의 첫 `name:`을 읽고, 값이 상수면 같은 파일의 `let 상수 = "..."`에서 찾는다. 호출을 못 찾으면 예전 규칙을 쓴다.
+  - 앱 manifest가 루트에 있으면 manifest에서 읽은 이름으로 스킴을 추정한다.
+  - 회귀 테스트 3개를 더했다(`tests/detect.test.sh`).
+- 상태: 반영됨 (후보 15)
+
 ### 2026-11-03 — 앱 스킴의 테스트 액션이 Release라 기본 test가 실패한다
 - 프로젝트·작업: ReadSharp 시험장(`EnglishStudy-harness`), 단위 9 설치 확인
 - 무슨 일이 있었나
