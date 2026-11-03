@@ -433,3 +433,50 @@ e2e_junit_to_json() {
           tags: (if .[4] == "" then [] else .[4] | split(",") end),
           failure: (if .[5] == "" then null else (.[5] | gsub("&quot;"; "\"") | gsub("&apos;"; "'"'"'") | gsub("&lt;"; "<") | gsub("&gt;"; ">") | gsub("&amp;"; "&") | gsub("^\\s+|\\s+$"; "")) end) })'
 }
+
+# --- e2e 행동 로그 --------------------------------------------------------------
+
+# Firebase Analytics 디버그 로그(log stream --style ndjson, $1)에서 기록된 이벤트를 뽑는다.
+# 출력: [{name, time(ms), params}] 배열. 앱을 -FIRAnalyticsDebugEnabled로 실행해야 로그가 남는다.
+e2e_firebase_events() {
+  jq -R 'fromjson? // empty' "$1" | jq -s '
+    def ms: (.[0:19] | strptime("%Y-%m-%d %H:%M:%S") | mktime) as $s
+      | ((.[19:] | capture("^(?<f>\\.[0-9]+)?(?<z>[+-][0-9]{4})$")) // {f: null, z: "+0000"}) as $t
+      | (($t.z[0:1] | if . == "-" then -1 else 1 end) * (($t.z[1:3] | tonumber) * 3600 + ($t.z[3:5] | tonumber) * 60)) as $off
+      | (($s - $off) * 1000 + (($t.f // ".0") | ("0" + .) | tonumber * 1000) | floor);
+    [ .[] | select((.eventMessage // "") | contains("[I-ACS023072] Event logged.")) | .timestamp as $ts
+      | (.eventMessage | split("\n")) as $lines
+      | { name: ($lines[0] | capture("event params: (?<n>[^ ,]+)").n),
+          time: ($ts | ms),
+          params: ([ $lines[1:][] | capture("^\\s+(?<k>[^ =]+)( \\([^)]*\\))? = (?<v>.*);$")? | { (.k): (.v | sub("^\"(?<x>.*)\"$"; "\(.x)")) } ] | add // {}) } ]'
+}
+
+# 같은 로그($1)에서 수집 서버 업로드가 성공한 시각(ms) 배열
+e2e_firebase_uploads() {
+  jq -R 'fromjson? // empty' "$1" | jq -s '
+    [ .[] | select((.eventMessage // "") | contains("[I-ACS023044] Successful upload")) | .timestamp
+      | (.[0:19] | strptime("%Y-%m-%d %H:%M:%S") | mktime) as $s
+      | ((.[19:] | capture("^(?<f>\\.[0-9]+)?(?<z>[+-][0-9]{4})$")) // {f: null, z: "+0000"}) as $t
+      | (($t.z[0:1] | if . == "-" then -1 else 1 end) * (($t.z[1:3] | tonumber) * 3600 + ($t.z[3:5] | tonumber) * 60)) as $off
+      | (($s - $off) * 1000 + (($t.f // ".0") | ("0" + .) | tonumber * 1000) | floor) ]'
+}
+
+# Maestro 흐름 기록(commands.json, $1)에서 시작·끝 시각(ms): {start, end}
+e2e_flow_window() {
+  jq '{ start: (map(.metadata.timestamp // .timestamp) | map(select(. != null)) | min),
+        end: (map((.metadata.timestamp // .timestamp // 0) + (.metadata.duration // .duration // 0)) | max) }' "$1"
+}
+
+# 기대 이벤트($1, <흐름>.events.json)를 그 흐름 동안 기록된 이벤트($2)와 업로드 시각($3)으로 판정한다.
+# 출력: {passed, checks: [{name, params, expected, actual, ok}], uploaded}
+e2e_check_events() {
+  jq --slurpfile ev "$2" --slurpfile up "$3" '
+    ($ev[0]) as $events | ($up[0]) as $uploads
+    | [ .events[] | (.params // {} | with_entries(.value |= tostring)) as $p | (.count // 1) as $want | .name as $n
+        | [ $events[] | select(.name == $n and (.params as $have | all($p | to_entries[]; $have[.key] == .value))) ] as $hit
+        | { name: $n, params: $p, expected: $want, actual: ($hit | length), ok: (($hit | length) == $want),
+            last: ($hit | map(.time) | max) } ] as $checks
+    | ($checks | map(.last) | map(select(. != null)) | max) as $lastHit
+    | (if (if has("uploaded") then .uploaded else true end) and $lastHit != null then any($uploads[]; . >= $lastHit) else null end) as $uploaded
+    | { passed: (all($checks[]; .ok) and $uploaded != false), checks: ($checks | map(del(.last))), uploaded: $uploaded }' "$1"
+}
