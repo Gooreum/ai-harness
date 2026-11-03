@@ -58,13 +58,13 @@ scripts/harness/test --only CoreTrackingTests/LeanAngleAnalyzerTests   # 일부�
   - 테스트가 시작되기 전에 멈췄으면(테스트 쪽 빌드 실패 등) 빌드 에러를 build와 같은 형식으로 보여준다.
 - 앱에 단위 테스트 타깃이 없으면 실행하지 않고 그 사실만 출력한다.
 
-## verify
+## unit-test
 
 ```bash
-scripts/harness/verify               # 커밋하지 않은 변경을 검증
-scripts/harness/verify --base main   # main에서 갈라진 뒤의 모든 변경을 검증 (PR 전)
-scripts/harness/verify --all         # 앱과 테스트가 있는 모든 모듈
-scripts/harness/verify --plan        # 실행하지 않고 무엇을 할지만 출력
+scripts/harness/unit-test               # 커밋하지 않은 변경을 검증
+scripts/harness/unit-test --base main   # main에서 갈라진 뒤의 모든 변경을 검증 (PR 전)
+scripts/harness/unit-test --all         # 앱과 테스트가 있는 모든 모듈
+scripts/harness/unit-test --plan        # 실행하지 않고 무엇을 할지만 출력
 ```
 
 - 바뀐 파일(기본: HEAD 대비 수정 + 새 파일)을 모듈별로 묶는다.
@@ -80,9 +80,9 @@ scripts/harness/verify --plan        # 실행하지 않고 무엇을 할지만 �
   ```
   ✓ build MotoTrace · iPhone 17 Pro · 21s · 경고 1
   ✓ test CoreTracking · 통과 20 · 7s
-  ✓ verify · 통과: CoreTracking · 29s
+  ✓ unit-test · 통과: CoreTracking · 29s
   ```
-- 결과 파일 `.harness/out/verify.json`: `passed`, `summary`. 시작할 때 먼저 `passed: false`로 적고 끝나면 결과로 바꾼다. 중간에 끊겨도 이전 실행의 통과가 남지 않는다. `--plan`은 남기지 않는다. `checks.json`의 run이 이 파일을 본다([ADR 0012](decisions/0012-run-gate.md)).
+- 결과 파일 `.harness/out/unit-test.json`: `passed`, `summary`. 시작할 때 먼저 `passed: false`로 적고 끝나면 결과로 바꾼다. 중간에 끊겨도 이전 실행의 통과가 남지 않는다. `--plan`은 남기지 않는다. `checks.json`의 run이 이 파일을 본다([ADR 0012](decisions/0012-run-gate.md)).
 
 ## lint
 
@@ -96,7 +96,7 @@ scripts/harness/lint --all         # git이 추적하는 모든 Swift 파일
 - 검사는 SwiftLint가 한다. 에이전트는 규칙 초안을 만들 때만 쓰고, 통과 여부는 AI가 판단하지 않는다([ADR 0006](decisions/0006-convention-lint.md)).
   - 실행할 때마다 컨벤션 목록을 SwiftLint 설정(`.harness/out/swiftlint.yml`)으로 옮긴다. 목록과 설정이 어긋날 일이 없다.
   - 컨벤션 규칙만 켠다. 프로젝트의 `.swiftlint.yml`이나 SwiftLint 기본 규칙은 판정에 넣지 않는다.
-- 바뀐 파일은 verify와 같은 기준으로 고른다(지운 파일은 뺀다).
+- 바뀐 파일은 unit-test와 같은 기준으로 고른다(지운 파일은 뺀다).
 - 100점에서 위반마다 감점한다(기본 error 10, warning 5, info 1). `passScore`(기본 95) 이상이면 통과다.
 - 출력: 첫 줄에 점수, 이어서 위반을 심각한 것부터 위치와 함께 `HARNESS_MAX_ERRORS`개(기본 5)까지 보여 준다.
   ```
@@ -165,12 +165,12 @@ scripts/harness/doctor
 ## passed
 
 ```bash
-scripts/harness/passed verify   # .harness/out/verify.json이 통과했고 최신이면 0
+scripts/harness/passed unit-test   # .harness/out/unit-test.json이 통과했고 최신이면 0
 ```
 
 - `checks.json`의 `run`에 쓴다([ADR 0012](decisions/0012-run-gate.md)). 검사를 돌리지 않고 결과 파일만 본다.
 - 통과 조건: 결과 파일이 있고, `passed`가 참이고, 최신이다.
   - 이번 작업을 시작한 뒤의 결과여야 한다. 작업 시작 시각은 단계 지시 훅이 `.harness/state/task.started`에 남긴다.
-  - 바뀐 파일(verify와 같은 기준) 중 결과 파일보다 나중에 고친 것이 없어야 한다.
+  - 바뀐 파일(unit-test와 같은 기준) 중 결과 파일보다 나중에 고친 것이 없어야 한다.
   - 이 기준은 발표에 없어 ai-bouncer의 `bouncer passed`를 따랐다.
 - 실패하면 이유 한 줄(없음, 통과 못 함, 어느 파일보다 오래됨)을 출력하고 2로 끝난다.

@@ -39,7 +39,7 @@ AskUserQuestion을 쓸 수 없는 세션(`claude -p`, 서브에이전트)에서�
   "title": "작업을 한 줄로",
   "mode": "plan",
   "stage": "plan",
-  "checks": ["lint", "verify"]
+  "checks": ["lint", "unit-test"]
 }
 ```
 

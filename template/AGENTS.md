@@ -23,9 +23,9 @@
 
 | 할 일 | 명령 |
 |---|---|
-| 코드를 바꾼 뒤 검증 (앱 빌드 + 바뀐 모듈 테스트) | `scripts/harness/verify` |
-| 무엇을 돌릴지 미리 보기 | `scripts/harness/verify --plan` |
-| PR 전에 브랜치 전체 변경 검증 | `scripts/harness/verify --base <기본 브랜치>` |
+| 코드를 바꾼 뒤 검증 (앱 빌드 + 바뀐 모듈 테스트) | `scripts/harness/unit-test` |
+| 무엇을 돌릴지 미리 보기 | `scripts/harness/unit-test --plan` |
+| PR 전에 브랜치 전체 변경 검증 | `scripts/harness/unit-test --base <기본 브랜치>` |
 | 빌드만 | `scripts/harness/build` |
 | 앱 단위 테스트 / 특정 스킴 테스트 | `scripts/harness/test` / `scripts/harness/test --scheme <스킴>` |
 | 팀 컨벤션 검사 (바뀐 Swift 파일) | `scripts/harness/lint` |
@@ -35,7 +35,7 @@
 
 - 스킴, 시뮬레이터, 프로젝트 생성 명령은 `.harness/project.json`에 있고 스크립트가 이 파일을 읽는다. `xcodebuild`를 직접 구성하지 않는다.
 - 코드를 고치는 작업은 `task` 스킬(ios-harness 플러그인)로 시작한다. 계획할지(plan/simple)와 돌릴 검사는 사용자가 고르고, 단계마다 할 일은 하네스가 알려 준다. 검사 목록은 `.harness/checks.json`에 있다.
-- `task` 없이 작업했으면 코드를 바꾼 뒤 `verify`와 `lint`를 돌린다. 컨벤션을 지켰는지는 스스로 판단하지 말고 `lint` 결과로 확인한다.
+- `task` 없이 작업했으면 코드를 바꾼 뒤 `unit-test`와 `lint`를 돌린다. 컨벤션을 지켰는지는 스스로 판단하지 말고 `lint` 결과로 확인한다.
 - 실패하면 출력에 나온 첫 에러의 위치부터 고친다. 전체 로그와 결과 번들은 `.harness/out/`에 있다.
 - 동작·스펙을 바꾸기 전에 `scripts/harness/wiki search <단어>`로 관련 정책·결정 기록(`docs/wiki/`)을 찾아 읽는다. 기록과 다르게 바꿔야 하면 사용자에게 먼저 묻는다.
 - 결과는 실제로 실행한 명령과 출력으로 보고한다. 실행하지 못한 검증은 못 했다고 밝힌다.

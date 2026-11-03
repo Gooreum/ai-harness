@@ -94,6 +94,11 @@ deadline=$(($(date +%s) + ${HARNESS_RUN_BUDGET:-1700}))
 failures=""
 while IFS= read -r name; do
   [ -n "$name" ] || continue
+  # 고른 검사가 설정에 없으면(이름이 바뀌었거나 오타) run을 찾을 수 없다. 건너뛰면 검사 없이 통과로 보이므로 막는다.
+  if ! jq -e --arg n "$name" 'any(.checks[]?; .name == $n)' "$checks" > /dev/null 2>&1; then
+    failures="$failures- ${name}: .harness/checks.json에 없는 검사다. 고른 검사를 임의로 빼지 말고 사용자에게 알린다"$'\n'
+    continue
+  fi
   run="$(jq -r --arg n "$name" '[.checks[]? | select(.name == $n)][0].run // empty' "$checks")"
   [ -n "$run" ] || continue
   # 예산을 다 써도 남은 run은 1초로라도 돌려 시간 초과로 보고한다. 건너뛰면 통과로 보인다.

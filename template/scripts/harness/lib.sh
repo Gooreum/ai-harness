@@ -1,4 +1,4 @@
-# 하네스 스크립트 공용 함수. build·test·verify·lint가 source한다. (bash 3.2 호환)
+# 하네스 스크립트 공용 함수. build·test·unit-test·lint가 source한다. (bash 3.2 호환)
 #
 # harness_init 이후 쓸 수 있는 변수
 #   root          프로젝트 루트 (HARNESS_ROOT 또는 현재 디렉터리의 git 루트)
@@ -37,7 +37,7 @@ harness_derived_data_path() {
   echo "$HOME/Library/Developer/Xcode/DerivedData/$(basename "$1")-harness-$(printf '%s' "$1" | shasum -a 256 | cut -c1-8)"
 }
 
-# 바뀐 파일 목록(루트 기준 경로, 한 줄에 하나). verify·lint가 같은 기준을 쓴다.
+# 바뀐 파일 목록(루트 기준 경로, 한 줄에 하나). unit-test·lint가 같은 기준을 쓴다.
 # 인자가 없으면 커밋하지 않은 변경(HEAD 대비 수정 + 새 파일), $1이 있으면 그 브랜치에서 갈라진 뒤의 모든 변경.
 # 하네스 산출물(.harness/)은 뺀다. 지운 파일도 목록에 남으므로 필요하면 호출한 쪽에서 거른다.
 harness_changed_files() {

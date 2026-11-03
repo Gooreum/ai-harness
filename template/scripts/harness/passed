@@ -17,7 +17,7 @@ case "${1:-}" in
 
   .harness/out/<검사 이름>.json의 passed가 참이고, 결과가 최신이면 0으로 끝난다.
   최신이 아니라는 것은 이번 작업을 시작하기 전 결과이거나, 그 뒤에 고친 파일이 있다는 뜻이다.
-  예: checks.json의 run에 "scripts/harness/passed verify"
+  예: checks.json의 run에 "scripts/harness/passed unit-test"
 
   종료 코드: 통과 0, 아직 통과하지 못함 2
 HELP

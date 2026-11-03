@@ -14,7 +14,7 @@ template 안의 경로가 그대로 프로젝트 루트 기준 경로가 된다.
 | `.claude/rules/harness/*.md` | 하네스가 관리하는 상황별 규칙 | 통째로 바꾼다 |
 | `.claude/rules/project/` | 프로젝트 고유 규칙을 두는 자리 (`.gitkeep`만 있음) | 건드리지 않는다 |
 | `.claude/settings.json` | 권한 규칙(시크릿 읽기 deny, pbxproj 편집 deny, 파괴적·외부 공개 git 작업 ask)과 플러그인 등록(GitHub 마켓플레이스) | 프로젝트 설정과 합친다 |
-| `scripts/harness/*` | 프로젝트 스크립트(build·test·verify·lint·wiki·e2e, lib.sh) | 통째로 바꾼다 |
+| `scripts/harness/*` | 프로젝트 스크립트(build·test·unit-test·lint·wiki·e2e, lib.sh) | 통째로 바꾼다 |
 | `.harness/.gitignore` | `.harness/`에서 설정 파일과 설치 기록만 커밋되게 함 | 통째로 바꾼다 |
 
 `.harness/harness.json`(설치 기록)은 template에 없다. init·sync가 설치한 하네스 버전(`plugin.json`의 `version`)을 `{"version": "0.3.0"}` 형태로 쓴다. 커밋해서 팀원의 doctor도 같은 값과 비교하게 한다.

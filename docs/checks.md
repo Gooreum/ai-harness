@@ -25,7 +25,7 @@
 ## 상태 파일 (`.harness/state/task.json`)
 
 ```json
-{ "schemaVersion": 1, "title": "설정 화면 AI 모델 변경을 Processor로", "mode": "plan", "stage": "verify", "checks": ["lint", "verify"] }
+{ "schemaVersion": 1, "title": "설정 화면 AI 모델 변경을 Processor로", "mode": "plan", "stage": "verify", "checks": ["lint", "unit-test"] }
 ```
 
 `stage`는 모드의 단계 중 하나이거나, 끝나면 `done`이다.
@@ -41,7 +41,7 @@
   },
   "checks": [
     { "name": "lint", "description": "팀 컨벤션 검사", "prompt": "scripts/harness/lint를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed lint" },
-    { "name": "verify", "description": "앱 빌드와 단위 테스트", "prompt": "scripts/harness/verify를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed verify" }
+    { "name": "unit-test", "description": "앱 빌드와 단위 테스트", "prompt": "scripts/harness/unit-test를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed unit-test" }
   ]
 }
 ```
@@ -58,6 +58,8 @@
 | `checks[].run` | 명령, 선택 | 정말 했는지 확인하는 명령(0이면 통과). verify 단계를 지나 넘어가려 할 때 훅이 돌린다(아래 "run 확인") |
 
 - `project.json`은 프로젝트의 사실, `checks.json`은 팀이 정한 정책이라 나눈다(ADR 0005).
+- 검사 이름은 결과 파일 이름과 같게 둔다(`unit-test` → `.harness/out/unit-test.json` → `passed unit-test`). ai-bouncer의 `bouncer record <이름>`·`bouncer passed <이름>`과 같은 짝이다.
+- `verify`는 단계 이름으로만 쓴다. 빌드·단위 테스트 검사는 발표(슬라이드 38·88)대로 `unit-test`라 부른다.
 - 파일이 없어도 흐름은 동작한다. 고를 검사가 없을 뿐이다.
 
 ## run 확인 ([ADR 0012](decisions/0012-run-gate.md))
@@ -67,6 +69,7 @@
 - 에이전트가 `stage`를 verify 이전·verify에서 finish·done으로 바꾸려 하면, PreToolUse 훅 `check-run.sh`가 고른 검사의 `run`을 프로젝트 루트에서 실행한다.
 - 하나라도 0이 아니면 편집을 막는다. 실패한 검사, run, 출력 앞부분을 이유로 전한다. 에이전트는 고치고 다시 실행한 뒤 넘어간다.
 - `run`이 없는 검사(리뷰 등)는 돌리지 않는다. 고른 검사가 없으면 막지 않는다.
+- 고른 검사가 `checks.json`에 없으면(이름이 바뀌었거나 오타) 막는다. 건너뛰면 검사 없이 통과로 보이기 때문이다.
 - run은 결과 파일을 본다. `scripts/harness/passed <검사>`를 쓴다: `.harness/out/<검사>.json`의 `passed`가 참이고 결과가 최신이어야 통과다.
   - 최신이 아니라는 것은 이번 작업을 시작하기 전 결과이거나(`.harness/state/task.started`), 그 뒤에 고친 파일이 있다는 뜻이다. 기준은 ai-bouncer의 `bouncer passed`와 같다.
 - run 합계는 1700초(`HARNESS_RUN_BUDGET`)까지다. 넘으면 시간 초과로 막는다.

@@ -64,6 +64,13 @@ assert_eq "새 작업 시작(Write)은 막지 않는다" "0|" \
 assert_eq "Write로 바로 finish를 써도 막는다" "$blocked" \
   "$(call "$(write '{"title":"t","mode":"plan","stage":"finish","checks":["lint"]}')")"
 
+echo '{"passed": true}' > "$p/.harness/out/lint.json"
+printf '%s' '{"title":"t","mode":"simple","stage":"verify","checks":["lint","unit-tset"]}' > "$state"
+assert_eq "고른 검사가 설정에 없으면 막는다" "$blocked" "$(call "$(edit '"stage":"verify"' '"stage":"finish"')")"
+err="$(edit '"stage":"verify"' '"stage":"finish"' | "$hook" 2>&1 >/dev/null || true)"
+case "$err" in *'- unit-tset: .harness/checks.json에 없는 검사다'*) ok=yes ;; *) ok="$err" ;; esac
+assert_eq "  없는 검사 이름을 알린다" "yes" "$ok"
+
 printf '%s' '{"title":"t","mode":"plan","stage":"verify","checks":[]}' > "$state"
 assert_eq "고른 검사가 없으면 막지 않는다" "0|" "$(call "$(edit '"stage":"verify"' '"stage":"finish"')")"
 

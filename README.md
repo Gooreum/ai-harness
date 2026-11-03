@@ -37,7 +37,7 @@ AI 코딩 에이전트(Claude Code, Codex 등)는 iOS 프로젝트에서 자주 
 | 계층 | 하는 일 | 이 저장소에서 |
 |---|---|---|
 | Context (가이드) | 행동하기 전에 알려준다 | `AGENTS.md`, 경로 규칙 |
-| Execution (실행 도구) | 에이전트가 일을 하는 손 | `scripts/harness/build`·`test`·`verify`·`lint` |
+| Execution (실행 도구) | 에이전트가 일을 하는 손 | `scripts/harness/build`·`test`·`unit-test`·`lint` |
 | Validation (센서) | 결과가 맞는지 판정한다 | 결정적: 빌드·테스트 결과 요약 / 추론적: `ios-reviewer` 코드 리뷰 |
 | Enforcement (강제) | 모델 판단과 상관없이 막는다 | 생성 파일 편집 차단 훅, 권한 규칙 |
 | State (설정·상태) | 위 계층이 함께 쓰는 데이터 | `.harness/project.json`, 실패 기록 |
@@ -116,14 +116,14 @@ scripts/sync ~/path/to/MyApp     # 하네스를 고친 뒤 갱신
 | `Project.swift`, `Workspace.swift`, `Tuist/` | `tuist.md` |
 | 프로젝트가 정한 경로 | `.claude/rules/project/*.md` |
 
-### 4. 검증: build · test · verify
+### 4. 검증: build · test · unit-test
 
 에이전트는 `xcodebuild`를 직접 구성하지 않고 프로젝트 스크립트를 부른다. 스크립트가 `.harness/project.json`을 읽어 명령을 만든다.
 
 ```bash
-scripts/harness/verify               # 앱 빌드 + 바뀐 모듈의 테스트
-scripts/harness/verify --plan        # 무엇을 돌릴지만 출력
-scripts/harness/verify --base main   # main에서 갈라진 뒤의 변경 전체 (PR 전)
+scripts/harness/unit-test               # 앱 빌드 + 바뀐 모듈의 테스트
+scripts/harness/unit-test --plan        # 무엇을 돌릴지만 출력
+scripts/harness/unit-test --base main   # main에서 갈라진 뒤의 변경 전체 (PR 전)
 scripts/harness/build                # 빌드만
 scripts/harness/test --scheme CoreTracking
 ```
@@ -131,7 +131,7 @@ scripts/harness/test --scheme CoreTracking
 내부 동작은 다음과 같다. 자세한 내용은 [docs/scripts.md](docs/scripts.md)에 있다.
 
 1. **프로젝트 생성이 필요한지 판단**: Tuist·XcodeGen 프로젝트라면 파일 목록과 manifest로 지문(fingerprint)을 만든다. 지난번과 다를 때만 install·generate를 다시 돌린다. 소스 내용만 바뀌었으면 건너뛴다.
-2. **바뀐 파일을 모듈로 묶기**(verify): 파일마다 `Project.swift`가 있는 가장 가까운 상위 디렉터리를 모듈로 본다. 앱 디렉터리 변경은 앱 테스트로, `Tuist/`나 루트 manifest 변경은 전체 테스트로 이어진다.
+2. **바뀐 파일을 모듈로 묶기**(unit-test): 파일마다 `Project.swift`가 있는 가장 가까운 상위 디렉터리를 모듈로 본다. 앱 디렉터리 변경은 앱 테스트로, `Tuist/`나 루트 manifest 변경은 전체 테스트로 이어진다.
 3. **실행**: 앱을 먼저 빌드하고, 성공하면 바뀐 모듈의 테스트를 돌린다. `xcodebuild -quiet`에 결과 번들(`.xcresult`)을 남기게 한다.
 4. **판정과 요약**: `xcresulttool`로 결과 번들에서 에러와 실패만 뽑는다.
 
@@ -140,7 +140,7 @@ scripts/harness/test --scheme CoreTracking
 ```
 ✓ build MotoTrace · iPhone 17 Pro · 21s · 경고 1
 ✓ test CoreTracking · 통과 20 · 7s
-✓ verify · 통과: CoreTracking · 29s
+✓ unit-test · 통과: CoreTracking · 29s
 ```
 
 실패하면 첫 에러의 `파일:줄`부터 보여주고, 전체 로그와 결과 번들 경로를 붙인다.
@@ -235,7 +235,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `.claude/settings.json` | Enforcement | 권한 규칙(deny 6개, ask 20개) |
 | `scripts/harness/build` | Execution + Validation | 빌드하고 첫 에러를 요약한다 |
 | `scripts/harness/test` | Execution + Validation | 테스트하고 실패만 요약한다 |
-| `scripts/harness/verify` | Execution + Validation | 바뀐 파일로 대상을 정해 빌드와 테스트를 한 번에 돌린다 |
+| `scripts/harness/unit-test` | Execution + Validation | 바뀐 파일로 대상을 정해 빌드와 테스트를 한 번에 돌린다 |
 | `scripts/harness/lint` | Validation | 팀 컨벤션 목록을 SwiftLint로 검사하고 점수로 판정한다 |
 | `scripts/harness/e2e` | Execution + Validation | 앱을 설치하고 Maestro 시나리오를 돌려 흐름별 결과를 요약한다. 회귀 묶음, 화면 녹화, 행동 로그 판정 |
 | `scripts/harness/wiki` | Context + Validation | 정책·결정 기록(`docs/wiki/`)을 찾고 형식을 검사한다 |
@@ -282,7 +282,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `lib.sh` | `assert_eq`, `finish` 같은 테스트 도우미 |
 | `detect.test.sh` | 생성기(Tuist·XcodeGen·xcodeproj·SPM)별로 detect가 만든 초안 |
 | `build.test.sh` | build가 쓰는 공용 함수: 시뮬레이터 선택, 에러 요약 형식, 다시 생성할지 판단 |
-| `verify.test.sh` | test·verify의 공용 함수(실패 요약 등)와 verify의 실행 계획: 바뀐 파일 → 모듈 → 돌릴 테스트 |
+| `unit-test.test.sh` | test·unit-test의 공용 함수(실패 요약 등)와 unit-test의 실행 계획: 바뀐 파일 → 모듈 → 돌릴 테스트 |
 | `lint.test.sh` | 컨벤션 파일 검사, SwiftLint 설정 변환, 점수 판정, 주석·문자열 제외, 바뀐 파일 고르기 |
 | `e2e.test.sh` | Maestro JUnit 결과 읽기, 설치할 앱 찾기, 행동 로그 판정 |
 | `wiki.test.sh` | 기록 찾기·검색 로그·형식 검사 |
@@ -299,7 +299,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `principles.md` | 하네스 계층, 설계 원칙, 실수를 어느 층에서 고칠지 정한 기준표, 용어 |
 | `references.md` | 레퍼런스 조사 요약, 플랫폼 제약, 로컬 환경, 출처 |
 | `project-config.md` | `.harness/project.json` 필드 스펙과 detect가 값을 찾는 방법 |
-| `scripts.md` | build·test·verify·lint·wiki·e2e의 출력 형식, 산출물 위치, 생성 판단 |
+| `scripts.md` | build·test·unit-test·lint·wiki·e2e의 출력 형식, 산출물 위치, 생성 판단 |
 | `conventions.md` | `.harness/conventions.json` 필드 스펙과 규칙을 만드는 단계 |
 | `template.md` | template 파일이 어디에 설치되고 어떻게 갱신되는지, 기존 지침이 있는 프로젝트에 적용하는 절차 |
 | `plugin.md` | 플러그인 구성, 훅이 막는 것, 단계 지시 훅과 task 스킬, 리뷰어 동작, 프로젝트에서 켜는 방법 |
@@ -335,7 +335,7 @@ MyApp/
 │       ├── harness/*.md           하네스 경로 규칙 (하네스가 관리)
 │       └── project/*.md           프로젝트 고유 규칙 (프로젝트가 관리)
 └── scripts/harness/
-    ├── build, test, verify, lint, wiki, e2e
+    ├── build, test, unit-test, lint, wiki, e2e
     └── lib.sh
 ```
 
@@ -359,7 +359,7 @@ claude plugin validate plugin
 
 - `bash tests/run.sh`: 회귀 테스트 전체. Xcode 없이 돈다.
 - `scripts/detect`: 설정 파일 초안을 출력만 한다. 파일은 쓰지 않는다.
-- `scripts/init`: 실제로 설치한다. 설치한 뒤 출력된 "직접 할 일"을 처리하고, 프로젝트에서 `scripts/harness/doctor`와 `scripts/harness/verify`를 돌려 본다.
+- `scripts/init`: 실제로 설치한다. 설치한 뒤 출력된 "직접 할 일"을 처리하고, 프로젝트에서 `scripts/harness/doctor`와 `scripts/harness/unit-test`를 돌려 본다.
 - 필요한 도구: macOS 기본 bash·jq, Xcode(빌드·테스트), 해당 프로젝트의 생성기(Tuist 등)
 
 ## 진행 상황

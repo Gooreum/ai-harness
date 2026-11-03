@@ -7,7 +7,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 
 usage() {
   cat <<'EOF'
-사용법: scripts/harness/verify [--base 브랜치] [--all] [--plan] [--generate]
+사용법: scripts/harness/unit-test [--base 브랜치] [--all] [--plan] [--generate]
 
   바뀐 파일을 모듈별로 묶어 앱을 빌드하고, 바뀐 모듈의 테스트를 실행한다.
   단계마다 한 줄씩 결과를 출력하고, 마지막 줄에 전체 결과를 출력한다.
@@ -18,7 +18,7 @@ usage() {
   --plan         실행하지 않고 무엇을 빌드·테스트할지만 출력한다
   --generate     프로젝트를 다시 생성한 뒤 시작한다 (Tuist·XcodeGen)
 
-  결과는 .harness/out/verify.json(passed, summary)에 남는다. --plan은 남기지 않는다.
+  결과는 .harness/out/unit-test.json(passed, summary)에 남는다. --plan은 남기지 않는다.
 EOF
 }
 
@@ -33,7 +33,7 @@ while [ $# -gt 0 ]; do
     --plan) plan=1 ;;
     --generate) generate_flag="--generate" ;;
     -h|--help) usage; exit 0 ;;
-    *) echo "verify: 알 수 없는 인자: $1" >&2; usage >&2; exit 2 ;;
+    *) echo "unit-test: 알 수 없는 인자: $1" >&2; usage >&2; exit 2 ;;
   esac
   shift
 done
@@ -45,7 +45,7 @@ start=$SECONDS
 # 결과 파일. checks.json의 run이 이 파일로 통과 여부를 확인한다(발표 슬라이드 29).
 record() { # passed(true|false) 요약
   [ "$plan" = 1 ] && return 0
-  jq -n --argjson passed "$1" --arg summary "$2" '{passed: $passed, summary: $summary}' > "$out_dir/verify.json"
+  jq -n --argjson passed "$1" --arg summary "$2" '{passed: $passed, summary: $summary}' > "$out_dir/unit-test.json"
 }
 
 app_scheme="$(cfg .app.scheme)"
@@ -60,7 +60,7 @@ tests_dir="$(cfg .modules.testsDir)"
 # --- 바뀐 파일 -----------------------------------------------------------------
 
 if ! git -C "$root" rev-parse --git-dir >/dev/null 2>&1; then
-  echo "· verify · git 저장소가 아니라 변경을 알 수 없어 전체를 테스트합니다"
+  echo "· unit-test · git 저장소가 아니라 변경을 알 수 없어 전체를 테스트합니다"
   all=1
 fi
 
@@ -68,7 +68,7 @@ changed=""
 if [ "$all" = 0 ]; then
   changed="$(harness_changed_files "$base")"
   if [ -z "$changed" ]; then
-    echo "✓ verify · 바뀐 파일 없음"
+    echo "✓ unit-test · 바뀐 파일 없음"
     record true "바뀐 파일 없음"
     exit 0
   fi
@@ -150,9 +150,9 @@ fi
 
 if [ "$plan" = 1 ]; then
   if [ "$all" = 1 ]; then
-    echo "· verify 계획 · 전체"
+    echo "· unit-test 계획 · 전체"
   else
-    echo "· verify 계획 · 바뀐 파일 $(printf '%s\n' "$changed" | wc -l | tr -d ' ')개"
+    echo "· unit-test 계획 · 바뀐 파일 $(printf '%s\n' "$changed" | wc -l | tr -d ' ')개"
   fi
   echo "  build $app_scheme"
   while IFS=$'\t' read -r label scheme; do
@@ -179,7 +179,7 @@ set +e
 code=$?
 set -e
 if [ "$code" -ne 0 ]; then
-  echo "✗ verify · 빌드 실패 · $((SECONDS - start))s"
+  echo "✗ unit-test · 빌드 실패 · $((SECONDS - start))s"
   record false "빌드 실패"
   exit "$code"
 fi
@@ -210,9 +210,9 @@ if [ -n "$untested" ]; then detail="$detail · 테스트 없음:$untested"; fi
 if [ -z "$passed$failed" ]; then detail="$detail · 실행할 테스트 없음 (빌드만 확인)"; fi
 
 if [ -n "$failed" ]; then
-  echo "✗ verify · 실패:$failed$detail · ${elapsed}s"
+  echo "✗ unit-test · 실패:$failed$detail · ${elapsed}s"
   record false "실패:$failed$detail"
   exit "$first_failure"
 fi
-echo "✓ verify$detail · ${elapsed}s"
+echo "✓ unit-test$detail · ${elapsed}s"
 record true "${detail# · }"

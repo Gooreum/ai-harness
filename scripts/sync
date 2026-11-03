@@ -8,7 +8,7 @@ usage() {
 사용법: scripts/sync [--dev] <프로젝트 경로>
 
   설치된 하네스를 이 저장소의 버전으로 맞춘다. 처음 설치는 scripts/init으로 한다.
-  - scripts/harness/, .harness/.gitignore, .claude/rules/harness/는 template과 같게 맞춘다
+  - scripts/harness/, .harness/.gitignore, .claude/rules/harness/는 template과 같게 맞춘다 (template에 없는 스크립트·규칙은 지운다)
   - AGENTS.md는 하네스 관리 블록만 넣거나 바꾸고, 프로젝트 영역은 건드리지 않는다
   - .claude/settings.json에 권한 규칙을 합치고, GitHub 마켓플레이스와 플러그인을 등록한다 (기존 내용 유지)
   - .harness/harness.json에 설치한 하네스 버전을 적는다
@@ -130,11 +130,16 @@ while IFS= read -r rel_path; do
   install_file "$rel_path"
 done < "$tmp_dir/managed"
 
-# 템플릿에서 사라진 하네스 규칙은 프로젝트에서도 지운다.
-if [ -d "$target_project_dir/.claude/rules/harness" ]; then
+# 템플릿에서 사라진 하네스 규칙과 스크립트는 프로젝트에서도 지운다(이름이 바뀐 스크립트가 남지 않게).
+installed_dirs=""
+for d in .claude/rules/harness scripts/harness; do
+  [ -d "$target_project_dir/$d" ] && installed_dirs="$installed_dirs $d"
+done
+if [ -n "$installed_dirs" ]; then
   (
     cd "$target_project_dir"
-    find .claude/rules/harness -type f ! -name '.DS_Store'
+    # shellcheck disable=SC2086
+    find $installed_dirs -type f ! -name '.DS_Store'
   ) | LC_ALL=C sort > "$tmp_dir/installed-rules"
 
   while IFS= read -r rel_path; do
