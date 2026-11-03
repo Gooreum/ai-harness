@@ -17,6 +17,8 @@ usage() {
   --all          변경과 상관없이 앱과 테스트가 있는 모든 모듈을 테스트한다
   --plan         실행하지 않고 무엇을 빌드·테스트할지만 출력한다
   --generate     프로젝트를 다시 생성한 뒤 시작한다 (Tuist·XcodeGen)
+
+  결과는 .harness/out/verify.json(passed, summary)에 남는다. --plan은 남기지 않는다.
 EOF
 }
 
@@ -40,6 +42,12 @@ harness_init
 export HARNESS_ROOT="$root"
 start=$SECONDS
 
+# 결과 파일. checks.json의 run이 이 파일로 통과 여부를 확인한다(발표 슬라이드 29).
+record() { # passed(true|false) 요약
+  [ "$plan" = 1 ] && return 0
+  jq -n --argjson passed "$1" --arg summary "$2" '{passed: $passed, summary: $summary}' > "$out_dir/verify.json"
+}
+
 app_scheme="$(cfg .app.scheme)"
 app_test_scheme="$(cfg .app.testScheme)"   # 앱 테스트에 쓰는 스킴. 없으면 앱 스킴 (test와 같은 규칙)
 [ -n "$app_test_scheme" ] || app_test_scheme="$app_scheme"
@@ -61,6 +69,7 @@ if [ "$all" = 0 ]; then
   changed="$(harness_changed_files "$base")"
   if [ -z "$changed" ]; then
     echo "✓ verify · 바뀐 파일 없음"
+    record true "바뀐 파일 없음"
     exit 0
   fi
 fi
@@ -162,12 +171,16 @@ fi
 
 # --- 실행 ---------------------------------------------------------------------
 
+# 중간에 끊겨도 이전 실행의 통과가 남지 않게, 시작할 때 먼저 실패로 적는다. 결과 파일은 늘 가장 최근 실행이다.
+record false "실행 중이거나 중간에 끊겼다"
+
 set +e
 "$here/build" $generate_flag
 code=$?
 set -e
 if [ "$code" -ne 0 ]; then
   echo "✗ verify · 빌드 실패 · $((SECONDS - start))s"
+  record false "빌드 실패"
   exit "$code"
 fi
 
@@ -198,6 +211,8 @@ if [ -z "$passed$failed" ]; then detail="$detail · 실행할 테스트 없음 (
 
 if [ -n "$failed" ]; then
   echo "✗ verify · 실패:$failed$detail · ${elapsed}s"
+  record false "실패:$failed$detail"
   exit "$first_failure"
 fi
 echo "✓ verify$detail · ${elapsed}s"
+record true "${detail# · }"
