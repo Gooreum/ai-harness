@@ -4,6 +4,8 @@
 # - 입력은 stdin JSON만 읽는다 (tool_input.file_path, cwd). Codex에서도 재사용하기 위해서다.
 # - 훅은 검사 내용을 모른다. .harness/checks.json에 적힌 글을 단계에 맞춰 옮길 뿐이다(발표 슬라이드 27).
 # - 지시는 hookSpecificOutput.additionalContext로 내보내고 0으로 끝난다. 막지 않는다.
+# - 상태 파일을 고친 세션을 작업의 주인으로 .harness/state/task.owner에 적는다. Stop 훅(stop-gate.sh)은
+#   주인 세션만 막는다. 다른 세션까지 막지 않기 위해서다(ai-bouncer의 .active 세션 소유와 같다).
 # - 상태 파일이 아니거나 판단할 수 없으면 아무것도 출력하지 않는다.
 set -uo pipefail
 
@@ -33,6 +35,15 @@ emit() {
 }
 
 [ -f "$file" ] || exit 0
+session="$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null)"
+[ -z "$session" ] || printf '%s\n' "$session" > "$root/.harness/state/task.owner" 2>/dev/null || true
+# 작업을 시작한 시각. 새 작업(제목·모드가 바뀜)이면 다시 적는다. scripts/harness/passed가 이보다 오래된 결과를 거절한다
+# (ai-bouncer의 .started와 같다).
+id="$(jq -r '"\(.title // "")|\(.mode // "")"' "$file" 2>/dev/null)" || id=""
+started="$root/.harness/state/task.started"
+if [ -n "$id" ] && { [ ! -f "$started" ] || [ "$(cat "$started" 2>/dev/null)" != "$id" ]; }; then
+  printf '%s\n' "$id" > "$started" 2>/dev/null || true
+fi
 jq -e . "$file" >/dev/null 2>&1 || emit "[하네스] .harness/state/task.json이 JSON 형식이 아닙니다. 고쳐서 다시 저장하세요."
 checks="$root/.harness/checks.json"
 if [ -f "$checks" ]; then
@@ -45,7 +56,7 @@ context="$(jq -r --slurpfile conf <(if [ -n "$checks" ]; then cat "$checks"; els
   ($conf[0]) as $c
   | { plan: ["plan", "implement", "verify", "finish"], simple: ["implement", "verify", "finish"] } as $flows
   | {
-      plan: "계획만 세운다. 코드는 고치지 않는다. 바꿀 파일, 바꾸는 방법, 확인 방법을 정리해 사용자에게 보여 주고, 승인을 받은 뒤에 다음 단계로 넘어간다.",
+      plan: "계획만 세운다. 승인 전에는 코드를 고치지 않는다. 먼저 EnterPlanMode를 호출한다. 바꿀 파일, 바꾸는 방법, 확인 방법을 계획에 담고 ExitPlanMode로 사용자 승인을 받는다. 승인되면 다음 단계로 넘어간다. 거부되면 피드백을 반영해 계획을 다시 쓴다. ExitPlanMode가 에러를 내면 승인되지 않은 것이다.",
       implement: "구현한다. 계획 단계를 거쳤으면 승인받은 계획대로 한다. 검사는 다음 단계에서 한다.",
       verify: "아래 검사를 하나씩 실행하고 실제 출력으로 결과를 확인한다. 실패하면 고친 뒤 다시 실행한다. 통과했다고 말하기 전에 출력을 확인한다.",
       finish: "무엇을 바꿨는지, 실행한 검사와 그 결과를 실제 출력으로 보고한다. 이번 작업에서 정한 정책·결정 중 코드에 남지 않는 것(왜 이렇게 했는지, 하지 않기로 한 것)을 보고에 따로 정리한다."

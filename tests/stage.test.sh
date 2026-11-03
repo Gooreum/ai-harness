@@ -30,7 +30,8 @@ has() { case "$2" in *"$1"*) echo yes ;; *) echo no ;; esac; }
 
 out="$(ctx '{"title":"시트","mode":"plan","stage":"plan","checks":["lint"]}')"
 assert_eq "plan: 첫 줄에 작업·모드·단계" '[하네스] 작업 "시트" · plan 모드 · plan 단계 (1/4)' "$(printf '%s\n' "$out" | sed -n 1p)"
-assert_eq "plan: 코드는 고치지 않는다" "yes" "$(has "코드는 고치지 않는다" "$out")"
+assert_eq "plan: 승인 전에는 코드를 고치지 않는다" "yes" "$(has "승인 전에는 코드를 고치지 않는다" "$out")"
+assert_eq "plan: Plan 모드로 승인받는다" "yes" "$(has "ExitPlanMode로 사용자 승인" "$out")"
 assert_eq "plan: checks.json의 단계 지시를 붙인다" "yes" "$(has "계획에 MVI 흐름을 적는다" "$out")"
 assert_eq "plan: 다음 단계를 알려 준다" "yes" "$(has 'stage를 "implement"로' "$out")"
 assert_eq "plan: 검증 단계가 아니면 검사 목록은 없다" "no" "$(has "이번에 고른 검사" "$out")"
@@ -55,6 +56,23 @@ assert_eq "잘못된 모드" "[하네스] task.json의 mode는 plan 또는 simpl
 assert_eq "깨진 상태 파일" "yes" "$(has "JSON 형식이 아닙니다" "$(ctx 'not json')")"
 assert_eq "상대 경로는 cwd 기준" "yes" \
   "$(has "implement 단계" "$(ctx '{"mode":"simple","stage":"implement"}' .harness/state/task.json "$p")")"
+
+# 상태 파일을 고친 세션을 작업 주인으로 남긴다 (stop-gate.sh가 읽는다)
+printf '%s' '{"mode":"simple","stage":"implement"}' > "$p/.harness/state/task.json"
+jq -n --arg f "$p/.harness/state/task.json" '{session_id: "s-1", cwd: "/", tool_input: {file_path: $f}}' | "$hook" > /dev/null
+assert_eq "owner: 고친 세션을 주인으로 적는다" "s-1" "$(cat "$p/.harness/state/task.owner")"
+jq -n --arg f "$p/.harness/state/task.json" '{session_id: "s-2", cwd: "/", tool_input: {file_path: $f}}' | "$hook" > /dev/null
+assert_eq "owner: 다른 세션이 다시 저장하면 그 세션이 이어받는다" "s-2" "$(cat "$p/.harness/state/task.owner")"
+
+# 작업 시작 표시: 새 작업(제목·모드)일 때만 다시 적는다 (scripts/harness/passed가 읽는다)
+sfile="$p/.harness/state/task.started"; rm -f "$sfile"
+ctx '{"title":"A","mode":"simple","stage":"implement"}' > /dev/null
+assert_eq "started: 작업을 시작하면 적는다" "A|simple" "$(cat "$sfile")"
+touch -t 202601010000 "$sfile"
+ctx '{"title":"A","mode":"simple","stage":"verify"}' > /dev/null
+assert_eq "started: 단계만 바뀌면 그대로 둔다" "202601010000" "$(stat -f %Sm -t %Y%m%d%H%M "$sfile")"
+ctx '{"title":"B","mode":"simple","stage":"implement"}' > /dev/null
+assert_eq "started: 새 작업이면 다시 적는다" "B|simple" "$(cat "$sfile")"
 
 rm "$p/.harness/checks.json"
 out="$(ctx '{"title":"x","mode":"simple","stage":"verify","checks":["lint"]}')"
