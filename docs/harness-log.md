@@ -41,7 +41,8 @@
   - `task.json` 지문(해시)을 저장해 훅 밖에서 바뀐 것을 알아채기: 변수에 담은 경로, 스크립트 파일, Monitor·MCP 도구, 사람의 직접 편집까지 잡는다. 하지만 이런 경로는 일부러 돌아가야 생기고 관찰된 적이 없다.
   - ai-bouncer처럼 엔진(Stop 훅)이 단계를 넘기기: 에이전트가 상태 파일을 쓸 일이 없어진다. 하지만 발표 구조(에이전트가 state.json의 단계를 고쳐 적으면 PostToolUse 훅이 지시를 넣는다, 슬라이드 14·27)에서 벗어나고, 고칠 곳이 크다. ai-bouncer도 상태 파일 보호는 Edit·Write·MultiEdit·NotebookEdit에만 건다(`hooks/pre-tool.sh` "엔진 전용 파일 보호").
 - 조치: Context — task 스킬의 시작·단계 전환 안내에 "`task.json`은 Write·Edit로 쓴다. Bash로 쓰면 훅이 돌지 않는다"를 넣는다. 그래도 Bash로 쓰는 일이 다시 관찰되면 PreToolUse(Bash) 훅을 검토한다.
-- 상태: 미해결
+- 결과: IntervalTimer #7(`2e039bc4`)과 #18(`e547cd96`)에서 `task.json`을 Write·Edit로만 썼다. 단계 지시가 단계마다 들어왔다.
+- 상태: 해결
 
 ### 2026-11-04 — IntervalTimer #8: 리뷰어를 기다리는 동안 Stop 게이트가 다시 네 번 막았다
 - 프로젝트·작업: IntervalTimer, 이슈 #8 verify 단계
@@ -54,7 +55,8 @@
 - 검토하고 쓰지 않은 방법: 서브에이전트의 도구 호출(입력에 `agent_id`가 있는 호출)은 세지 않기. 메인 세션 호출에도 `agent_id`가 붙는 경우가 있으면 메인 호출까지 빠져, 두 번째 차단부터 항상 풀린다. 포그라운드 서브에이전트는 메인이 기다리는 동안 Stop이 불리지 않아 얻는 것도 없다.
 - 조치: State — Stop 게이트가 입력의 `background_tasks`에 서브에이전트(`type: "subagent"`)가 있으면 막지 않고 끝내게 둔다. 작업이 끝나면 알림으로 턴이 다시 열리고, 그때 게이트가 다시 판정한다. 셸·모니터는 끝나지 않을 수 있어 넣지 않는다. 도구 수 세기는 그대로 둔다. ai-bouncer에 없는 조건이라 [ADR 0013](decisions/0013-stop-wait-subagent.md)에 남겼다.
   - 서브에이전트를 중간에 취소·중단했을 때의 동작은 확인하지 않았다. 돌고 있는 작업이 없으면 다시 막으므로 빠져나가는 길은 없다고 본다. 문제가 관찰되면 다룬다.
-- 상태: 미해결
+- 결과: IntervalTimer #18(`e547cd96`) verify 단계에서 리뷰어가 도는 동안 Stop이 왔다(00:41:54, `background_tasks`에 `type: "subagent"`, `status: "running"`). 게이트가 막지 않았고, 작업 전체에서 차단은 0번이었다.
+- 상태: 해결
 
 ### 2026-11-03 — #218: 백그라운드 작업을 기다리는 동안 Stop 게이트가 네 번 막았다
 - 프로젝트·작업: ReadSharp(`EnglishStudy-harness`), 이슈 #218 (simple, 검사 lint·verify·e2e·review)
