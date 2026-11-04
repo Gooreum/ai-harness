@@ -39,6 +39,10 @@ assert_eq "plan: 검증 단계가 아니면 검사 목록은 없다" "no" "$(has
 out="$(ctx '{"title":"시트","mode":"plan","stage":"verify","checks":["lint","e2e"]}')"
 assert_eq "verify: 고른 검사의 prompt만 넣는다" "yes" "$(has "- lint: scripts/harness/lint를 실행해 통과시킨다" "$out")"
 assert_eq "verify: 고르지 않은 검사는 넣지 않는다" "no" "$(has "scripts/harness/unit-test" "$out")"
+out="$(ctx '{"title":"시트","mode":"plan","stage":"verify","checks":["unit-test","lint"]}')"
+assert_eq "verify: 고른 순서가 아니라 checks.json 순서로 넣는다" "- lint: scripts/harness/lint를 실행해 통과시킨다|- unit-test: scripts/harness/unit-test를 실행해 통과시킨다" \
+  "$(printf '%s\n' "$out" | grep '^- ' | paste -sd'|' -)"
+out="$(ctx '{"title":"시트","mode":"plan","stage":"verify","checks":["lint","e2e"]}')"
 assert_eq "verify: 설정에 없는 검사는 알린다" "yes" "$(has "- e2e: .harness/checks.json에 없는 검사다" "$out")"
 
 out="$(ctx '{"title":"문구","mode":"simple","stage":"implement","checks":[]}')"

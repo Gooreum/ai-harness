@@ -58,7 +58,7 @@ context="$(jq -r --slurpfile conf <(if [ -n "$checks" ]; then cat "$checks"; els
   | {
       plan: "계획만 세운다. 승인 전에는 코드를 고치지 않는다. 먼저 EnterPlanMode를 호출한다. 바꿀 파일, 바꾸는 방법, 확인 방법을 계획에 담고 ExitPlanMode로 사용자 승인을 받는다. 승인되면 다음 단계로 넘어간다. 거부되면 피드백을 반영해 계획을 다시 쓴다. ExitPlanMode가 에러를 내면 승인되지 않은 것이다.",
       implement: "구현한다. 계획 단계를 거쳤으면 승인받은 계획대로 한다. 검사는 다음 단계에서 한다.",
-      verify: "아래 검사를 하나씩 실행하고 실제 출력으로 결과를 확인한다. 실패하면 고친 뒤 다시 실행한다. 통과했다고 말하기 전에 출력을 확인한다.",
+      verify: "아래 검사를 위에서부터 차례로 하나씩 실행하고 실제 출력으로 결과를 확인한다. 실패하면 고친 뒤 다시 실행한다. 통과했다고 말하기 전에 출력을 확인한다.",
       finish: "무엇을 바꿨는지, 실행한 검사와 그 결과를 실제 출력으로 보고한다. 이번 작업에서 정한 정책·결정 중 코드에 남지 않는 것(왜 이렇게 했는지, 하지 않기로 한 것)을 보고에 따로 정리한다."
     } as $base
   | . as $t
@@ -69,7 +69,10 @@ context="$(jq -r --slurpfile conf <(if [ -n "$checks" ]; then cat "$checks"; els
     else
       ($flows[$t.mode]) as $flow
       | ($flow | index($t.stage)) as $i
-      | (($t.checks // []) | map(. as $n | (($c.checks // []) | map(select(.name == $n)) | first) // { name: $n, missing: true })) as $picked
+      # 고른 검사는 checks.json에 적힌 순서로 넣는다. 발표처럼 적힌 순서대로 차례로 돈다(슬라이드 88).
+      | ($t.checks // []) as $names
+      | ((($c.checks // []) | map(select(.name as $n | $names | index($n))))
+         + ($names | map(. as $n | select((($c.checks // []) | map(.name) | index($n)) == null) | { name: $n, missing: true }))) as $picked
       | ([ "[하네스] 작업 \"\($t.title // "")\" · \($t.mode) 모드 · \($t.stage) 단계 (\($i + 1)/\($flow | length))",
            $base[$t.stage] ]
          + (if $c.stages[$t.stage].prompt then [$c.stages[$t.stage].prompt] else [] end)
