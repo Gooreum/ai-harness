@@ -368,13 +368,14 @@ claude plugin validate plugin
 ## 진행 상황
 
 - 단위 1~8 완료: 저장소 구조, 프로젝트 설정 파일·detect, build·test·verify, 경로 규칙, AGENTS.md 템플릿, 훅·권한·플러그인, ios-reviewer
-- 단위 9 진행 중: MotoTrace에 설치해 확인한 뒤, 시험장을 ReadSharp로 옮겼다. 1~2주 운영하며 실패를 기록하고, 이 기록으로 이후 순서를 정한다.
+- 단위 9 완료: MotoTrace에 설치해 확인한 뒤 시험장을 ReadSharp로 옮겼다. 실패 기록 14개를 계층별로 분류해 이후 순서를 정했다
 - 후보 11 완료: 팀 컨벤션 목록과 `lint`(SwiftLint + 점수 판정). 레이어 의존·형식 검사는 후보 20으로 넘겼다
 - 후보 12 완료: 사람이 모드·검사를 고르는 작업 흐름(`task` 스킬 + 단계 지시 훅)
 - 후보 19 완료: 정책·결정 기록(`docs/wiki/`, `wiki` search·check)
 - 후보 15 완료: 두 번째 프로젝트 IntervalTimer(Tuist, 루트 manifest 하나)에 설치했다. 하네스는 detect만 고쳤고 나머지는 설정 파일만 달랐다
 - 후보 14 완료: 플러그인을 GitHub 마켓플레이스로 배포하고 `init`·`sync`·`doctor`를 만들었다
-- 후보 10 일부: Maestro E2E(`e2e`, 작성 규칙, 회귀 묶음, 녹화, 행동 로그 판정). 화면 검증과 서버 응답 조작은 남았다
-- 이후 후보: 화면 검증(스냅샷+Figma), 레이어 의존 검사, (조건부) 검증 강제, Codex 어댑터, 평가 등. 기준은 [ADR 0005](docs/decisions/0005-talk-criteria.md)에 있다
+- 후보 10 일부: Maestro E2E(`e2e`, 작성 규칙, 회귀 묶음, 녹화, 행동 로그 판정). 화면 검증(Figma 시안이 없어 미룸)과 서버 응답 조작은 남았다
+- 후보 13 완료: 검증 강제(`check-run.sh`, Stop 게이트)
+- 다음 순서: E2E 남은 문제 정리 → 평가 → 래칫·청소 → Codex 어댑터 → 컨벤션 센서 확장. 기준은 [ADR 0005](docs/decisions/0005-talk-criteria.md)에 있다
 
 자세한 내용은 [docs/roadmap.md](docs/roadmap.md)에 있다. 이 저장소에 기여하는 방법(브랜치, 커밋 규칙)은 [AGENTS.md](AGENTS.md)에 있다.
