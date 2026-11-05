@@ -35,6 +35,20 @@
 
 ## 기록
 
+### 2026-11-05 — IntervalTimer #13: e2e가 예전에 빌드된 앱을 설치해 바뀐 코드 없이 통과할 수 있었다
+- 프로젝트·작업: IntervalTimer 시험장, 이슈 #13 Live Activity (인터벌타이멍 탭, e2e 검사 포함)
+- 무슨 일이 있었나
+  - `app.scheme`(`IntervalTimer`)은 Release로 빌드해 `com.mingu.intervaltimer`를 만든다. 그런데 `app.bundleId`는 `com.mingu.intervaltimer.debug`였다.
+  - `e2e`는 번들 ID로 앱을 찾아서, 전날 빌드된 `Debug-iphonesimulator/IntervalTimer-Dev.app`을 설치했다. 그 앱에는 새 위젯 확장이 없었다. 에이전트가 수정 시각을 보고 알아챘고, `build --scheme IntervalTimer-Dev` 뒤 `e2e --no-build`로 돌려 통과했다. 이 내용을 프로젝트 위키(`docs/wiki/harness/e2e-needs-dev-scheme-build.md`)에 남겼다.
+  - 같은 작업에서 시스템 Java가 없어 Maestro가 끝나지 않고 멈췄다. 에이전트가 Homebrew `openjdk@17`을 `JAVA_HOME`으로 지정해 풀었다. `doctor`는 이를 잡지 못했다.
+  - 오전에 같은 브랜치에서 simple 모드 후속 작업(unit-test·review만)으로 위젯 화면을 바꿨다. 그래서 남은 영상은 바뀌기 전 화면이다. 검사를 사람이 고르는 설계대로 동작한 것이라 하네스 문제로 보지 않는다.
+- 원인: Validation — 결과를 프로그램으로 판정해도, 판정 대상이 바뀐 코드로 만든 앱인지는 확인하지 않았다. Execution — Java가 없는 환경을 미리 알리지 못했다.
+- 조치
+  - `e2e`는 빌드한 뒤 스킴의 실행 구성으로 빌드된 앱만 설치한다. 없으면 빌드된 앱의 번들 ID를 보여 주며 멈춘다.
+  - `e2e`는 Java가 없으면 돌리기 전에 멈추고, `doctor`는 `.maestro/`가 있을 때 Java가 없으면 경고한다.
+  - IntervalTimer의 `project.json`에서 스킴과 번들 ID를 같은 앱으로 맞추는 일은 시험장에서 따로 한다.
+- 상태: 반영됨 (`feature/unit-10-e2e-app-check`)
+
 ### 2026-11-04 — IntervalTimer #8: plan 모드를 처음부터 끝까지 지켰고, 테스트도 시키지 않았는데 먼저 썼다
 - 프로젝트·작업: IntervalTimer(`IntervalTimer-harness`, Tuist), 이슈 #8 SwiftData 저장 실패를 성공으로 처리함. 새 세션, plan 모드, 검사 unit-test·review. 약 20분(plan 5분, implement 3분, verify 9분)
 - 무슨 일이 있었나
