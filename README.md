@@ -156,7 +156,7 @@ scripts/harness/test --scheme CoreTracking
 - DerivedData는 `~/Library/Developer/Xcode/DerivedData/<워크트리 이름>-harness-<경로 해시>`에 둔다. 프로젝트가 `~/Desktop` 같은 macOS 보호 폴더 아래 있으면 시뮬레이터가 테스트 번들을 읽지 못해서다.
 - 종료 코드: 성공 0, 빌드·테스트 실패는 xcodebuild의 코드(보통 65), 설정·인자 오류 2
 
-컨벤션은 `scripts/harness/lint`가 검사한다. 팀이 고른 규칙 목록(`.harness/conventions.json`)을 SwiftLint 설정으로 옮겨 바뀐 Swift 파일을 검사하고, 100점에서 감점해 기준 점수로 판정한다. 지켰는지를 에이전트의 말이 아니라 검사 결과로 확인하기 위해서다([ADR 0006](docs/decisions/0006-convention-lint.md)).
+컨벤션은 `scripts/harness/lint`가 검사한다. 팀이 고른 규칙 목록(`.harness/conventions.json`)을 규칙 종류별 도구(금지 패턴은 SwiftLint, 형식은 swift-format, 모듈 의존은 `tuist graph`)로 검사하고, 100점에서 감점해 기준 점수로 판정한다. 지켰는지를 에이전트의 말이 아니라 검사 결과로 확인하기 위해서다([ADR 0006](docs/decisions/0006-convention-lint.md), [ADR 0014](docs/decisions/0014-layer-format-rules.md)).
 
 ```
 ✗ lint · 70점 (기준 95) · 파일 1개 · 위반 3개
@@ -238,7 +238,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `scripts/harness/build` | Execution + Validation | 빌드하고 첫 에러를 요약한다 |
 | `scripts/harness/test` | Execution + Validation | 테스트하고 실패만 요약한다 |
 | `scripts/harness/unit-test` | Execution + Validation | 바뀐 파일로 대상을 정해 빌드와 테스트를 한 번에 돌린다 |
-| `scripts/harness/lint` | Validation | 팀 컨벤션 목록을 SwiftLint로 검사하고 점수로 판정한다 |
+| `scripts/harness/lint` | Validation | 팀 컨벤션 목록을 SwiftLint·swift-format·tuist graph로 검사하고 점수로 판정한다 |
 | `scripts/harness/e2e` | Execution + Validation | 앱을 설치하고 Maestro 시나리오를 돌려 흐름별 결과를 요약한다. 회귀 묶음, 화면 녹화, 행동 로그 판정 |
 | `scripts/harness/wiki` | Context + Validation | 정책·결정 기록(`docs/wiki/`)을 찾고 형식을 검사한다 |
 | `scripts/harness/doctor` | Validation | 하네스가 이 프로젝트에서 돌 수 있는지 점검한다: 도구, 설정 파일, 지침 연결, 플러그인 버전 |
@@ -286,6 +286,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `build.test.sh` | build가 쓰는 공용 함수: 시뮬레이터 선택, 에러 요약 형식, 다시 생성할지 판단 |
 | `unit-test.test.sh` | test·unit-test의 공용 함수(실패 요약 등)와 unit-test의 실행 계획: 바뀐 파일 → 모듈 → 돌릴 테스트 |
 | `lint.test.sh` | 컨벤션 파일 검사, SwiftLint 설정 변환, 점수 판정, 주석·문자열 제외, 바뀐 파일 고르기 |
+| `lint-kinds.test.sh` | 규칙 종류 format(swift-format 설정·결과 거르기)과 dependency(모듈 그래프 판정, 위치, manifest가 바뀔 때만) |
 | `e2e.test.sh` | Maestro JUnit 결과 읽기, 설치할 앱 찾기, 행동 로그 판정 |
 | `wiki.test.sh` | 기록 찾기·검색 로그·형식 검사 |
 | `stage.test.sh` | 단계 지시 훅이 상태 파일이 바뀔 때만, 고른 검사의 지시만 넣는지 |
@@ -315,6 +316,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `decisions/0004-enforcement.md` | 무엇을 훅으로, 무엇을 deny·ask로 막는지 |
 | `decisions/0005-talk-criteria.md` | 여기어때 안드로이드 팀 발표의 기준으로 이후 후보를 다시 정하고, 워크플로 엔진을 함께 쓰지 않는 이유 |
 | `decisions/0006-convention-lint.md` | 컨벤션 목록을 JSON으로 두고 SwiftLint와 점수로 판정하는 이유 |
+| `decisions/0014-layer-format-rules.md` | 모듈 의존은 tuist graph로, 형식은 swift-format으로 검사하는 이유 |
 | `decisions/0009-e2e-maestro.md` | 동작 확인을 Maestro 시나리오 파일과 e2e 스크립트로 하는 이유와 첫 시나리오에서 겪은 실패 |
 | `decisions/0010-e2e-events.md` | 시나리오가 끝난 뒤 행동 로그(이벤트·횟수·값·업로드)를 판정하는 방식과 Firebase 로그를 읽는 근거 |
 | `decisions/0008-wiki.md` | 정책·결정 기록을 프로젝트 안 파일과 검색 스크립트로 시작한 이유와 비교 결과 |
@@ -369,13 +371,14 @@ claude plugin validate plugin
 
 - 단위 1~8 완료: 저장소 구조, 프로젝트 설정 파일·detect, build·test·verify, 경로 규칙, AGENTS.md 템플릿, 훅·권한·플러그인, ios-reviewer
 - 단위 9 완료: MotoTrace에 설치해 확인한 뒤 시험장을 ReadSharp로 옮겼다. 실패 기록 14개를 계층별로 분류해 이후 순서를 정했다
-- 후보 11 완료: 팀 컨벤션 목록과 `lint`(SwiftLint + 점수 판정). 레이어 의존·형식 검사는 후보 20으로 넘겼다
+- 후보 11 완료: 팀 컨벤션 목록과 `lint`(SwiftLint + 점수 판정). 레이어 의존·형식 검사는 후보 20에서 더했다(ADR 0014)
 - 후보 12 완료: 사람이 모드·검사를 고르는 작업 흐름(`task` 스킬 + 단계 지시 훅)
 - 후보 19 완료: 정책·결정 기록(`docs/wiki/`, `wiki` search·check)
 - 후보 15 완료: 두 번째 프로젝트 IntervalTimer(Tuist, 루트 manifest 하나)에 설치했다. 하네스는 detect만 고쳤고 나머지는 설정 파일만 달랐다
 - 후보 14 완료: 플러그인을 GitHub 마켓플레이스로 배포하고 `init`·`sync`·`doctor`를 만들었다
 - 후보 10 일부: Maestro E2E(`e2e`, 작성 규칙, 회귀 묶음, 녹화, 행동 로그 판정). 화면 검증(Figma 시안이 없어 미룸)과 서버 응답 조작은 남았다
 - 후보 13 완료: 검증 강제(`check-run.sh`, Stop 게이트)
-- 다음 순서: E2E 남은 문제 정리 → 평가 → 래칫·청소 → Codex 어댑터 → 컨벤션 센서 확장. 기준은 [ADR 0005](docs/decisions/0005-talk-criteria.md)에 있다
+- 후보 20 일부: 모듈 의존(`tuist graph`)·형식(swift-format) 검사. 빌드·Tuist 절차 스킬은 남았다. 후보 18은 뺐다
+- 다음 순서: Codex 어댑터 → 평가. 기준은 [ADR 0005](docs/decisions/0005-talk-criteria.md)에 있다
 
 자세한 내용은 [docs/roadmap.md](docs/roadmap.md)에 있다. 이 저장소에 기여하는 방법(브랜치, 커밋 규칙)은 [AGENTS.md](AGENTS.md)에 있다.
