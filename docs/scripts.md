@@ -158,7 +158,10 @@ scripts/harness/e2e --no-build              # 이미 빌드된 앱으로
   - 시험 실행의 이벤트도 실제 Firebase 프로젝트로 올라간다(디버그 표시가 붙어 DebugView에 보인다).
 - 서버 응답 바꾸기: `.harness/project.json`에 `e2e.network.port`가 있으면 maestro에 `NETWORK_BASE_URL=http://127.0.0.1:<포트>`를 넘긴다. 시나리오가 `launchApp`의 `"-HarnessNetworkBaseURL": "${NETWORK_BASE_URL}"`로 앱에 준다.
   - 응답은 플러그인 MCP `harness-network`가 준다([plugin.md](plugin.md)). 서버가 그 포트에 떠 있지 않으면 한 줄로 알린다(막지는 않는다).
-- 결과 파일 `.harness/out/e2e.json`: `passed`, `tag`, `flows`(`name`·`file`·`status`·`seconds`·`tags`·`failure`, 판정했으면 `events`). Maestro JUnit 결과(`e2e-junit.xml`)에서 만든다. 행동 로그를 판정한 흐름은 `events.passed`가 거짓이면 실패로 센다.
+  - 서버 응답 판정: 시나리오 옆 `<이름>.network.json`의 `expect`(`match`·`status`)마다, 그 흐름 동안 서버 기록(`.harness/state/network-requests.ndjson`)에 같은 응답이 한 번 이상 있어야 한다. 없으면 그 흐름은 실패다.
+    - 실패 출력: `  .maestro/analyze-server-error.yaml: 서버 응답 POST …/v1beta 500 응답이 없었다 — mock_set으로 응답을 걸고 돌린다 (받은 요청: POST …:generateContent 404)`
+    - 화면만으로는 "500을 받아 실패 화면이 떴다"와 "연결이 안 돼 실패 화면이 떴다"를 구분할 수 없어서다.
+- 결과 파일 `.harness/out/e2e.json`: `passed`, `tag`, `flows`(`name`·`file`·`status`·`seconds`·`tags`·`failure`, 판정했으면 `events`·`network`). Maestro JUnit 결과(`e2e-junit.xml`)에서 만든다. 행동 로그를 판정한 흐름은 `events.passed`가 거짓이면 실패로 센다.
 - 종료 코드: 통과 0, 실패한 시나리오가 있거나 돌린 시나리오가 없으면 1, Maestro 없음·설정 오류·결과 없음 2
 
 ## doctor
