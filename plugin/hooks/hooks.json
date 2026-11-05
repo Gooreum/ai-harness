@@ -40,6 +40,16 @@
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/stage-context.sh"
           }
         ]
+      },
+      {
+        "matcher": "Read|SubagentHandback",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/review-record.sh",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "Stop": [
@@ -49,6 +59,17 @@
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/stop-gate.sh",
             "timeout": 30
+          }
+        ]
+      }
+    ],
+    "SubagentStop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/review-record.sh",
+            "timeout": 10
           }
         ]
       }
