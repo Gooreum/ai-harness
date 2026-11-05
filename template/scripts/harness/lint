@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # 팀 컨벤션(.harness/conventions.json)을 검사하고 점수로 판정한다. 검사에는 AI를 쓰지 않는다.
-# 규칙 종류마다 맡는 도구가 다르다: pattern은 SwiftLint, format은 swift-format, dependency는 tuist graph.
+# 규칙 종류마다 맡는 도구가 다르다: pattern은 SwiftLint, format은 swift-format, dependency는 tuist graph·inspect.
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -12,7 +12,8 @@ usage() {
 
   .harness/conventions.json의 규칙으로 Swift 파일을 검사한다.
   금지 패턴(pattern)은 SwiftLint, 형식(format)은 swift-format(Xcode 포함)이 본다.
-  모듈 의존(dependency)은 Tuist 프로젝트에서 manifest가 바뀌었거나 --all일 때 tuist graph로 본다.
+  모듈 의존(dependency)은 Tuist 프로젝트에서 본다. 선언한 의존은 manifest가 바뀌었거나 --all일 때
+  tuist graph로, import만 한 의존은 거기에 더해 import 줄이 바뀌었을 때 tuist inspect implicit-imports로 본다.
   100점에서 위반마다 감점하고, 기준 점수(passScore) 이상이면 통과다.
   결과는 .harness/out/lint.json에 남는다.
 
@@ -112,19 +113,44 @@ if [ "$count" -gt 0 ]; then
   fi
 fi
 
-# 모듈 의존은 파일이 아니라 프로젝트 구성을 본다. manifest가 바뀌었거나 --all일 때만 그래프를 뽑는다.
+# 모듈 의존은 두 군데서 본다.
+# - 선언한 의존(tuist graph): manifest가 바뀌었거나 --all일 때
+# - import만 하고 선언하지 않은 의존(tuist inspect implicit-imports): 위의 경우와 Swift 파일의 import 줄이 바뀌었을 때
 deps_checked=0
-if conventions_has_kind "$conventions" dependency && { [ "$all" = 1 ] || lint_touches_manifest "$files"; }; then
-  graph_dir="$out_dir/graph"
-  rm -rf "$graph_dir" && mkdir -p "$graph_dir"   # tuist graph는 없는 폴더에는 쓰지 않는다
-  if ! (cd "$root" && tuist graph -f dot --no-open -o "$graph_dir" > "$out_dir/lint-graph.log" 2>&1) || [ ! -f "$graph_dir/graph.dot" ]; then
-    echo "✗ lint · tuist graph 실행 실패 (tuist install을 먼저 했는지 확인)" >&2
-    tail -n 20 "$out_dir/lint-graph.log" >&2
-    exit 2
+uncovered='[]'
+if conventions_has_kind "$conventions" dependency; then
+  manifest_changed=0; imports_changed=0
+  { [ "$all" = 1 ] || lint_touches_manifest "$files"; } && manifest_changed=1
+  { [ "$manifest_changed" = 1 ] || lint_touches_imports "$base"; } && imports_changed=1
+  echo '[]' > "$out_dir/lint-edges-declared.json"
+  echo '[]' > "$out_dir/lint-edges-implicit.json"
+  if [ "$manifest_changed" = 1 ]; then
+    graph_dir="$out_dir/graph"
+    rm -rf "$graph_dir" && mkdir -p "$graph_dir"   # tuist graph는 없는 폴더에는 쓰지 않는다
+    if ! (cd "$root" && tuist graph -f dot --no-open -o "$graph_dir" > "$out_dir/lint-graph.log" 2>&1) || [ ! -f "$graph_dir/graph.dot" ]; then
+      echo "✗ lint · tuist graph 실행 실패 (tuist install을 먼저 했는지 확인)" >&2
+      tail -n 20 "$out_dir/lint-graph.log" >&2
+      exit 2
+    fi
+    dot_edges "$graph_dir/graph.dot" > "$out_dir/lint-edges-declared.json"
+    uncovered="$(uncovered_modules "$conventions" "$graph_dir/graph.dot" "$root")"
   fi
-  dependency_violations "$conventions" "$graph_dir/graph.dot" "$root" > "$out_dir/lint-dependency.json"
-  parts+=("$out_dir/lint-dependency.json")
-  deps_checked=1
+  if [ "$imports_changed" = 1 ]; then
+    raw="$out_dir/lint-implicit-imports.txt"
+    # 숨은 의존이 있으면 0이 아닌 코드로 끝난다. 그때는 출력에서 의존을 읽는다.
+    if ! (cd "$root" && tuist inspect implicit-imports > "$raw" 2>&1) && ! grep -q 'implicitly depends on' "$raw"; then
+      echo "✗ lint · tuist inspect implicit-imports 실행 실패 (tuist install을 먼저 했는지 확인)" >&2
+      tail -n 20 "$raw" >&2
+      exit 2
+    fi
+    implicit_edges "$raw" > "$out_dir/lint-edges-implicit.json"
+  fi
+  if [ "$imports_changed" = 1 ]; then
+    jq -s 'add' "$out_dir/lint-edges-declared.json" "$out_dir/lint-edges-implicit.json" > "$out_dir/lint-edges.json"
+    dependency_violations "$conventions" "$out_dir/lint-edges.json" "$root" > "$out_dir/lint-dependency.json"
+    parts+=("$out_dir/lint-dependency.json")
+    deps_checked=1
+  fi
 fi
 
 if [ "${#parts[@]}" -gt 0 ]; then
@@ -134,9 +160,9 @@ else
 fi
 
 pass_score="$(jq -r '.passScore // 95' "$conventions")"
-jq -n --argjson v "$violations" --argjson pass "$pass_score" --argjson files "$count" '
+jq -n --argjson v "$violations" --argjson pass "$pass_score" --argjson files "$count" --argjson unc "$uncovered" '
   ([100 - ($v | map(.penalty) | add // 0), 0] | max) as $score
-  | { passed: ($score >= $pass), score: $score, passScore: $pass, files: $files, violations: $v }' > "$result"
+  | { passed: ($score >= $pass), score: $score, passScore: $pass, files: $files, violations: $v, uncoveredModules: $unc }' > "$result"
 
 score="$(jq -r .score "$result")"
 n="$(jq -r '.violations | length' "$result")"
@@ -157,5 +183,9 @@ else
   jq -r --argjson max "$max_errors" '.violations[:$max][]
     | "  \(.file):\(.line): [\(.rule)] \(.message) (−\(.penalty))"' "$result"
   [ "$n" -le "$max_errors" ] || echo "  … 외 $((n - max_errors))개 (전체: .harness/out/lint.json)"
+fi
+# 규칙이 없는 모듈은 감점하지 않고 알리기만 한다. 새 모듈을 어떻게 다룰지는 사람이 정한다.
+if [ "$(printf '%s' "$uncovered" | jq length)" -gt 0 ]; then
+  echo "  · 의존 규칙에 없는 모듈: $(printf '%s' "$uncovered" | jq -r 'join(", ")') (.harness/conventions.json의 from·forbid에 넣을지 정하세요)"
 fi
 jq -e .passed "$result" >/dev/null
