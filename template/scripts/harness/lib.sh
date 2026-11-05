@@ -23,6 +23,44 @@ harness_init() {
   derived_data="$(harness_derived_data_path "$root")"
   max_errors="${HARNESS_MAX_ERRORS:-5}"
   mkdir -p "$state_dir" "$out_dir"
+  harness_use_buildable_xcode
+}
+
+# 선택된 Xcode의 iOS 시뮬레이터 SDK에 맞는 런타임이 없으면, 런타임이 맞는 다른 Xcode를 DEVELOPER_DIR로 쓴다.
+# Xcode를 새로 받고 xcode-select를 옛 Xcode에 둔 채 옛 런타임이 지워지면 빌드가 "iOS 26.2 is not installed"로 막힌다
+# (docs/harness-log.md 2026-11-06). DEVELOPER_DIR이 이미 있으면 그대로 둔다. 후보는 HARNESS_XCODE_GLOB(기본 /Applications/Xcode*.app).
+harness_use_buildable_xcode() {
+  [ -z "${DEVELOPER_DIR:-}" ] || return 0
+  command -v xcrun >/dev/null 2>&1 || return 0
+  local runtimes selected candidates app sdk picked
+  runtimes="$(xcrun simctl list runtimes available -j 2>/dev/null \
+    | jq -r '.runtimes[]? | select(.platform == "iOS") | .version | split(".")[0:2] | join(".")' 2>/dev/null)"
+  [ -n "$runtimes" ] || return 0
+  selected="$(xcrun --sdk iphonesimulator --show-sdk-version 2>/dev/null)"
+  candidates=""
+  for app in ${HARNESS_XCODE_GLOB:-/Applications/Xcode*.app}; do
+    [ -d "$app/Contents/Developer" ] || continue
+    sdk="$(DEVELOPER_DIR="$app/Contents/Developer" xcrun --sdk iphonesimulator --show-sdk-version 2>/dev/null)" || continue
+    candidates="$candidates$app/Contents/Developer $sdk"$'\n'
+  done
+  picked="$(pick_xcode "$selected" "$runtimes" "$candidates")"
+  [ -n "$picked" ] || return 0
+  export DEVELOPER_DIR="$picked"
+  echo "harness: 선택된 Xcode(iOS SDK $selected)에 맞는 시뮬레이터 런타임이 없어 ${picked%/Contents/Developer}을 씁니다" >&2
+}
+
+# 선택된 SDK 버전($1)의 주.부 버전이 설치된 런타임 목록($2, 줄마다 "26.4")에 있으면 빈 값.
+# 없으면 후보($3, 줄마다 "<Developer 경로> <SDK 버전>") 중 런타임이 있고 SDK가 가장 높은 것의 경로.
+pick_xcode() {
+  local selected_mm
+  selected_mm="$(printf '%s' "$1" | cut -d. -f1-2)"
+  if [ -n "$selected_mm" ] && printf '%s\n' "$2" | grep -qx "$selected_mm"; then
+    return 0
+  fi
+  printf '%s' "$3" | while read -r path sdk; do
+    [ -n "$path" ] || continue
+    printf '%s\n' "$2" | grep -qx "$(printf '%s' "$sdk" | cut -d. -f1-2)" && printf '%s %s\n' "$sdk" "$path"
+  done | sort -t. -k1,1nr -k2,2nr | head -1 | cut -d' ' -f2-
 }
 
 # 워크트리($1)의 DerivedData 경로. HARNESS_DERIVED_DATA가 있으면 그 값을 쓴다.

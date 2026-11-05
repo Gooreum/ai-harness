@@ -19,6 +19,13 @@ assert_eq "simulator: OS 버전 지정" "OLD" "$(printf '%s' "$simctl" | pick_si
 assert_eq "simulator: 주 버전만 지정" "NEW" "$(printf '%s' "$simctl" | pick_simulator "iPhone 17 Pro" 26)"
 assert_eq "simulator: 없는 이름은 빈 값" "" "$(printf '%s' "$simctl" | pick_simulator "iPhone 99" latest)"
 
+# --- pick_xcode -----------------------------------------------------------------
+cands="/A/Developer 26.2"$'\n'"/B/Developer 26.4"$'\n'"/C/Developer 26.5.1"$'\n'
+assert_eq "xcode: 선택된 SDK에 런타임이 있으면 그대로" "" "$(pick_xcode 26.2 "26.2"$'\n'"26.4" "$cands")"
+assert_eq "xcode: 없으면 런타임이 있는 Xcode" "/B/Developer" "$(pick_xcode 26.2 26.4 "$cands")"
+assert_eq "xcode: 여럿이면 SDK가 높은 쪽" "/C/Developer" "$(pick_xcode 26.2 "26.4"$'\n'"26.5" "$cands")"
+assert_eq "xcode: 맞는 후보가 없으면 빈 값" "" "$(pick_xcode 26.2 27.0 "$cands")"
+
 # --- format_issues -----------------------------------------------------------
 root_dir="/Users/me/App"
 korean_url="$(jq -rn --arg p "$root_dir/한글 폴더/B.swift" '"file://" + ($p | @uri)')"
