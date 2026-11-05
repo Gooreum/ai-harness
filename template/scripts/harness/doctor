@@ -52,6 +52,9 @@ esac
 if [ -d "$root/.maestro" ] && ! command -v maestro > /dev/null 2>&1; then
   warn "maestro가 없어 e2e를 돌릴 수 없다" "curl -fsSL https://get.maestro.mobile.dev | bash"
 fi
+if [ -d "$root/.maestro" ] && ! e2e_java_ok; then
+  warn "Maestro가 쓸 Java가 없어 e2e를 돌릴 수 없다" "brew install openjdk@17 후 JAVA_HOME 지정"
+fi
 
 # --- 설정 파일 -------------------------------------------------------------------
 

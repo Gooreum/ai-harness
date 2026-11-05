@@ -406,16 +406,47 @@ wiki_problems() {
 
 # --- E2E (Maestro) --------------------------------------------------------------
 
-# DerivedData($1)에서 번들 ID($2)가 맞는 시뮬레이터용 앱 중 가장 최근 것의 경로
+# DerivedData($1)에서 번들 ID($2)가 맞는 시뮬레이터용 앱 중 가장 최근 것의 경로.
+# 빌드 구성($3, 예: Debug)을 주면 그 구성으로 빌드된 앱만 찾는다.
 e2e_find_app() {
   local app id
-  for app in $(ls -dt "$1"/Build/Products/*-iphonesimulator/*.app 2>/dev/null); do
+  for app in $(ls -dt "$1"/Build/Products/${3:-*}-iphonesimulator/*.app 2>/dev/null); do
     id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist" 2>/dev/null || true)"
     if [ "$id" = "$2" ]; then
       echo "$app"
       return 0
     fi
   done
+}
+
+# DerivedData($1)에서 빌드 구성($2)으로 빌드된 시뮬레이터용 앱들의 번들 ID (쉼표로 구분)
+e2e_built_ids() {
+  local app ids=""
+  for app in $(ls -dt "$1"/Build/Products/$2-iphonesimulator/*.app 2>/dev/null); do
+    ids="$ids${ids:+, }$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist" 2>/dev/null || echo '?')"
+  done
+  echo "${ids:-없음}"
+}
+
+# 스킴($1)의 실행(Run) 빌드 구성. xcodebuild build는 이 구성으로 빌드한다.
+# 공유된 스킴 파일이 없으면(Xcode가 자동으로 만든 스킴) 빈 문자열.
+scheme_run_config() {
+  local f
+  f="$(find "$root" -maxdepth 4 -path "$root/.harness" -prune -o -path "*/xcshareddata/xcschemes/$1.xcscheme" -print 2>/dev/null | head -1)"
+  [ -n "$f" ] || return 0
+  # 속성이 여러 줄에 걸쳐 있어 <LaunchAction 뒤에 처음 나오는 buildConfiguration을 읽는다.
+  awk '/<LaunchAction/ { on = 1 } on && match($0, /buildConfiguration *= *"[^"]*"/) {
+    v = substr($0, RSTART, RLENGTH); sub(/^[^"]*"/, "", v); sub(/"$/, "", v); print v; exit }' "$f"
+}
+
+# Maestro가 쓸 Java가 있는지. Maestro는 JAVA_HOME이 있으면 그 java를, 없으면 PATH의 java를 쓴다.
+# macOS의 /usr/bin/java는 JDK가 없어도 있는 껍데기라 실행해 봐야 안다.
+e2e_java_ok() {
+  if [ -n "${JAVA_HOME:-}" ]; then
+    [ -x "$JAVA_HOME/bin/java" ]
+  else
+    java -version > /dev/null 2>&1
+  fi
 }
 
 # Maestro JUnit 결과($1)를 흐름별 JSON 배열로 바꾼다: name, file, status, seconds, tags, failure
