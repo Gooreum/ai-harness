@@ -1,6 +1,6 @@
 # 0014. 모듈 의존은 tuist graph로, 형식은 swift-format으로 검사한다
 
-- 상태: 채택 (2026-11-05)
+- 상태: 채택 (2026-11-05). 구조 검사의 전제는 ADR 0015에서 고쳤다
 - 관련: ADR 0006(컨벤션 목록과 SwiftLint), 로드맵 후보 20, `docs/conventions.md`
 
 ## 배경
@@ -20,7 +20,7 @@
 | 항목 | 결정 | 이유 |
 |---|---|---|
 | 규칙 종류 | `conventions.json`의 규칙에 `kind`(`pattern`·`format`·`dependency`)를 둔다. 기본은 `pattern` | 발표처럼 목록은 하나로 두고 도구만 나눈다. 기존 파일은 그대로 읽힌다 |
-| 구조 검사 (Konsist 대응) | `dependency`: `tuist graph -f dot`의 직접 의존에 `from`·`forbid` 모듈 이름 패턴을 대어 본다 | iOS 모듈은 컴파일 단위라, 선언하지 않은 모듈의 import는 컴파일러가 막는다. 남는 위험은 금지된 의존을 manifest에 선언하는 것이라 모듈 그래프를 본다. 발표와 다르다 |
+| 구조 검사 (Konsist 대응) | `dependency`: `tuist graph -f dot`의 직접 의존에 `from`·`forbid` 모듈 이름 패턴을 대어 본다 | iOS 모듈은 컴파일 단위라, 선언하지 않은 모듈의 import는 컴파일러가 막는다. 남는 위험은 금지된 의존을 manifest에 선언하는 것이라 모듈 그래프를 본다. 발표와 다르다. **틀린 전제였다: 다른 모듈 때문에 먼저 빌드된 모듈은 선언 없이 import해도 빌드된다. import도 보게 고쳤다(ADR 0015)** |
 | 구조 검사를 돌리는 때 | manifest(`Project.swift`·`Workspace.swift`·`Package.swift`·`Tuist/`)가 바뀌었거나 `--all`일 때만 | 그래프는 manifest가 바뀔 때만 바뀐다. 뽑는 데 시간이 든다(IntervalTimer 6~22초) |
 | 단일 모듈 앱 | `dependency`를 쓰면 2로 끝나고 `pattern`의 `included`와 금지 정규식을 쓰라고 알린다 | 모듈이 하나면 모듈 그래프로 레이어를 나눌 수 없다. 폴더 경로 규칙은 이미 `pattern`으로 쓸 수 있다 |
 | 형식 검사 (ktlint 대응) | `format`: Xcode 16 이상에 들어 있는 swift-format으로 고른 규칙만 켠다 | 설계 원칙대로 따로 설치하지 않는다(SwiftFormat은 brew 설치가 필요하다). 발표와 도구가 다르다 |
