@@ -321,21 +321,33 @@ conventions_check() {
   jq -e . "$1" >/dev/null 2>&1 || harness_die "$1: JSON 형식이 아닙니다"
   problem="$(jq -r '
     def bad($i; $msg): "rules[\($i)]: \($msg)";
+    def globs: type == "array" and length > 0 and all(.[]; type == "string" and . != "");
     if .schemaVersion != 1 then "schemaVersion은 1이어야 합니다"
     elif (.rules | type) != "array" then "rules는 배열이어야 합니다"
     elif (.passScore != null) and ((.passScore | type) != "number" or .passScore < 0 or .passScore > 100) then "passScore는 0~100 숫자여야 합니다"
     else
-      ([.rules | to_entries[] | .key as $i | .value as $r |
+      ([.rules | to_entries[] | .key as $i | .value as $r | ($r.kind // "pattern") as $k |
         if ($r.id | type) != "string" or ($r.id | test("^[a-z0-9_.]+$") | not) then bad($i; "id는 영문 소문자·숫자·_·.만 씁니다")
+        elif ($k | IN("pattern", "dependency", "format") | not) then bad($i; "\($r.id): kind는 pattern·dependency·format 중 하나입니다")
         elif ($r.severity | IN("error", "warning", "info") | not) then bad($i; "\($r.id): severity는 error·warning·info 중 하나입니다")
-        elif ($r.regex | type) != "string" or $r.regex == "" then bad($i; "\($r.id): regex가 필요합니다")
         elif ($r.description | type) != "string" or $r.description == "" then bad($i; "\($r.id): description이 필요합니다")
         elif ($r.penalty != null) and (($r.penalty | type) != "number" or $r.penalty < 0) then bad($i; "\($r.id): penalty는 0 이상 숫자입니다")
+        elif $k == "pattern" and (($r.regex | type) != "string" or $r.regex == "") then bad($i; "\($r.id): regex가 필요합니다")
+        elif $k == "dependency" and (($r.from | type) != "string" or $r.from == "") then bad($i; "\($r.id): from(모듈 이름 패턴)이 필요합니다")
+        elif $k == "dependency" and (($r.forbid // null) | globs | not) then bad($i; "\($r.id): forbid(금지할 모듈 이름 패턴 배열)가 필요합니다")
+        elif $k == "format" and (($r.formatRule | type) != "string" or $r.formatRule == "") then bad($i; "\($r.id): formatRule(swift-format 규칙 이름)이 필요합니다")
+        elif $k == "format" and ($r.formatOptions != null) and (($r.formatOptions | type) != "object") then bad($i; "\($r.id): formatOptions는 객체입니다")
         else empty end] | first)
       // ([.rules[].id] | group_by(.) | map(select(length > 1) | .[0]) | first | if . then "id가 겹칩니다: \(.)" else empty end)
+      // ([.rules[] | select(.kind == "format") | .formatRule] | group_by(.) | map(select(length > 1) | .[0]) | first | if . then "formatRule이 겹칩니다: \(.)" else empty end)
       // empty
     end' "$1")"
   [ -z "$problem" ] || harness_die ".harness/conventions.json: $problem"
+}
+
+# 컨벤션 파일($1)에 그 종류($2)의 규칙이 있는지.
+conventions_has_kind() {
+  jq -e --arg k "$2" 'any(.rules[]; (.kind // "pattern") == $k)' "$1" >/dev/null
 }
 
 # 컨벤션 파일($1)을 SwiftLint 설정으로 옮긴다. JSON은 YAML이기도 해서 SwiftLint가 그대로 읽는다.
@@ -343,13 +355,86 @@ conventions_check() {
 conventions_to_swiftlint() {
   jq '{
     only_rules: ["custom_rules"],
-    custom_rules: (.rules | map({ key: .id, value: (
+    custom_rules: (.rules | map(select((.kind // "pattern") == "pattern")) | map({ key: .id, value: (
       { name: .id, regex: .regex, message: .description,
         severity: (if .severity == "error" then "error" else "warning" end) }
       + (if .matchKinds then { match_kinds: .matchKinds } else {} end)
       + (if .included then { included: .included } else {} end)
       + (if .excluded then { excluded: .excluded } else {} end)) }) | from_entries)
   }' "$1"
+}
+
+# swift-format이 규칙 설정과 상관없이 늘 내는 형식 지적 이름. 고르지 않으면 lint가 걸러낸다.
+swiftformat_layout_rules='["Indentation","LineLength","Spacing","TrailingComma","TrailingWhitespace","RemoveLine","AddLines","EndOfLineComment"]'
+
+# 컨벤션 파일($1)의 format 규칙을 swift-format 설정으로 옮긴다. $2는 swift-format 기본 설정(dump-configuration).
+# 모든 규칙을 끄고 고른 규칙만 켠다. formatOptions(lineLength·indentation 등)는 설정 위에 덮는다.
+# 없는 규칙 이름이면 그 이름을 stderr에 쓰고 1로 끝난다.
+conventions_to_swiftformat() {
+  local unknown
+  unknown="$(jq -r --slurpfile base "$2" --argjson layout "$swiftformat_layout_rules" '
+    [.rules[] | select(.kind == "format") | .formatRule
+      | select(. as $n | ($base[0].rules | has($n)) or ($layout | index($n)) | not)] | first // empty' "$1")"
+  if [ -n "$unknown" ]; then echo "$unknown" >&2; return 1; fi
+  jq --slurpfile base "$2" '
+    [.rules[] | select(.kind == "format")] as $f
+    | reduce ($f[] | .formatOptions // {}) as $o ($base[0]; . * $o)
+    | .rules |= with_entries(.value = false)
+    | reduce ($f[] | .formatRule) as $n (.; if .rules | has($n) then .rules[$n] = true else . end)' "$1"
+}
+
+# 컨벤션 파일($1)의 format 규칙에 걸린 swift-format 출력($2)만 위반 목록으로 바꾼다. 경로는 루트($3) 기준.
+swiftformat_violations() {
+  local real prefixes
+  real="$(cd "$3" && pwd -P)"
+  prefixes="$(jq -cn --arg a "$3" --arg b "$real" '[$a, $b, ($b | sub("^/private/"; "/"))] | unique | map(. + "/")')"
+  sed -nE 's/^(.+):([0-9]+):([0-9]+): (warning|error|note): \[([A-Za-z]+)\] (.*)$/\1	\2	\3	\5	\6/p' "$2" \
+    | jq -R -s --slurpfile conv "$1" --argjson prefixes "$prefixes" '
+      ($conv[0].rules | map(select(.kind == "format")) | map({ key: .formatRule, value: . }) | from_entries) as $rules
+      | { error: 10, warning: 5, info: 1 } as $default
+      | split("\n") | map(select(. != "") | split("\t")
+          | select($rules[.[3]]) | $rules[.[3]] as $r | .[0] as $f
+          | { rule: $r.id, severity: $r.severity, penalty: ($r.penalty // $default[$r.severity]),
+              file: (reduce $prefixes[] as $p ($f; if startswith($p) then .[($p | length):] else . end)),
+              line: (.[1] | tonumber), column: (.[2] | tonumber),
+              message: "\($r.description) (\(.[4]))" })'
+}
+
+# 컨벤션 파일($1)의 dependency 규칙을 모듈 그래프(tuist graph dot, $2)의 직접 의존에 대어 위반 목록을 만든다.
+# 모듈 이름 패턴은 *만 와일드카드다. 위반 위치는 루트($3) 아래 manifest에서 from 모듈을 선언한 줄이다.
+dependency_violations() {
+  local edges v
+  edges="$(sed -nE 's/^[[:space:]]*"?([^" ]+)"?[[:space:]]*->[[:space:]]*"?([^" \[]+)"?.*$/\1	\2/p' "$2" \
+    | jq -R -s 'split("\n") | map(select(. != "") | split("\t") | { from: .[0], to: .[1] })')"
+  v="$(jq --argjson edges "$edges" '
+    def glob: "^" + (split("*") | map(gsub("(?<c>[.?+^$()\\[\\]{}|\\\\])"; "\\\(.c)")) | join(".*")) + "$";
+    { error: 10, warning: 5, info: 1 } as $default
+    | [.rules[] | select(.kind == "dependency") as $r
+        | ($r.from | glob) as $from | ($r.forbid | map(glob)) as $forbid
+        | $edges[] | select((.from | test($from)) and (.to as $t | any($forbid[]; . as $g | $t | test($g))))
+        | { rule: $r.id, severity: $r.severity, penalty: ($r.penalty // $default[$r.severity]),
+            from: .from, to: .to, message: "\($r.description) (\(.from) → \(.to))" }]' "$1")"
+  # 위치: from 모듈을 선언한 manifest 줄. 못 찾으면 Project.swift 1줄.
+  # .target(name: "X")처럼 이름만 있는 줄은 선언이 아니라 의존 목록이라 건너뛴다.
+  printf '%s' "$v" | jq -c '.[]' | while IFS= read -r item; do
+    # (파이프 안 서브셸이라 변수가 밖으로 새지 않는다)
+    from="$(printf '%s' "$item" | jq -r .from)"
+    loc="$(cd "$3" && grep -rnE --include=Project.swift "name: *\"$from\"" . 2>/dev/null \
+      | grep -v '/\.harness/\|/Derived/\|/\.build/' | grep -vE "\.(target|project|external|package)\( *name: *\"$from\" *\)" | head -1)"
+    if [ -n "$loc" ]; then file="${loc%%:*}"; file="${file#./}"; line="$(printf '%s' "$loc" | cut -d: -f2)"
+    else file="Project.swift"; line=1; fi
+    printf '%s' "$item" | jq -c --arg f "$file" --argjson l "$line" '{ rule, severity, penalty, file: $f, line: $l, column: 1, message }'
+  done | jq -s '.'
+}
+
+# 위반 목록들을 합쳐 심각한 것부터, 같은 심각도는 파일·줄 순서로 정렬한다.
+lint_merge_violations() {
+  jq -s '{ error: 0, warning: 1, info: 2 } as $order | add // [] | sort_by($order[.severity], .file, .line, .column)' "$@"
+}
+
+# Tuist manifest(모듈 구성)가 목록($1, 줄마다 경로)에 있는지.
+lint_touches_manifest() {
+  printf '%s\n' "$1" | grep -qE '(^|/)(Project|Workspace|Package|Tuist)\.swift$|^Tuist/'
 }
 
 # swiftlint JSON 결과($2)를 위반 목록으로 바꾼다. 심각도·감점은 컨벤션 파일($1)에서 가져오고,
