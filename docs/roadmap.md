@@ -115,11 +115,11 @@
 남은 일의 순서 (2026-11-04):
 1. 후보 10의 E2E 정리: 부하에서 온보딩을 못 찾는 문제(공통 시작 흐름의 대기), Maestro 규칙에 클립보드 금지. harness-log의 미해결 두 개다
    - 진행 (2026-11-04): 클립보드 금지 규칙을 넣었다. 검사를 `checks.json` 순서대로 돌게 했다(슬라이드 88). 온보딩은 60초 대기를 넣었고 효과는 실제 작업에서 지켜본다(harness-log #218)
-2. 후보 17 평가
-3. 후보 18 래칫·청소 자동화
-4. 후보 16 Codex 어댑터
-5. 후보 20
-- 17·18·16·20은 발표에 없다. 순서는 하네스를 쓰며 필요가 보인 순서다(평가가 있어야 래칫·청소의 효과를 잰다).
+2. 후보 18 래칫·청소 자동화
+3. 후보 16 Codex 어댑터
+4. 후보 20
+5. 후보 17 평가
+- 17·18·16·20은 발표에 없다. 순서는 하네스를 쓰며 필요가 보인 순서다. 평가(17)는 사용자가 맨 마지막으로 정했다(2026-11-05). 그래서 18의 효과는 평가 전까지 시험장에서 관찰한 것으로 판단한다.
 - 후보 10의 화면 검증은 미룬다. 시험장 두 곳 모두 Figma 시안이 없어서다. 시안이 있는 프로젝트가 생기면 다시 본다. 다시 볼 때는 `~/Code/hankuk`(한개국어, Expo)의 `figma-parity` 스킬과 `design/audit/`를 먼저 참고한다. 서버 응답 조작도 지금처럼 나중이다.
 
 - [ ] 10. 동작·화면 확인
@@ -155,7 +155,8 @@
   - `dev-install`을 `scripts/init`(처음 설치)과 `scripts/sync`(갱신)로 나눴다. 개발 중에는 `sync --dev`가 로컬 설정에서만 이 저장소 디렉터리로 덮어쓴다
   - 하네스 버전은 `plugin.json`의 `version` 하나다. sync가 `.harness/harness.json`에 남기고, 프로젝트 안 `scripts/harness/doctor`가 도구·설정·지침 연결·플러그인 버전을 점검한다
   - 진행 (2026-11-03): ReadSharp 시험장을 sync하고, 빈 설정 디렉터리(`CLAUDE_CONFIG_DIR`)로 팀원처럼 GitHub에서 마켓플레이스 추가·플러그인 설치를 했다. GitHub `main`의 플러그인(0.2.0)이 프로젝트 파일(0.3.0)보다 오래됐다고 doctor가 잡았다. `sync --dev`로 되돌린 뒤에는 폴더 버전(0.3.0)으로 통과했다
-  - 남은 것: ReadSharp·IntervalTimer는 `.claude/settings.json`을 git에서 무시해 공유가 안 된다(각 프로젝트에서 정리). 머지 뒤 GitHub 0.3.0으로 doctor 통과 확인
+  - 남은 것: 머지 뒤 GitHub 0.3.0으로 doctor 통과 확인
+  - 진행 (2026-11-05): ReadSharp·IntervalTimer에서 `.claude/settings.json`의 git 무시를 풀고 커밋했다(ReadSharp #227, IntervalTimer #24). 두 곳 다 ai-bouncer 설치가 넣은 무시 줄이 원인이었다
 - [x] 15. 두 번째 프로젝트 적용: IntervalTimer(`~/Code/IntervalTimer`, Tuist 다중 모듈. xcodeproj 앱은 시험장 ReadSharp로 대신한다)
   - 진행 (2026-11-03): `~/Code/IntervalTimer-harness` 워크트리(`chore/ios-harness`)에 설치했다. 하네스 코드는 detect 한 곳만 고쳤고, 나머지는 프로젝트 설정 파일만 달랐다(발표 슬라이드 38 "같은 훅, 저장소마다 다른 config")
     - detect가 `Project(name: projectName)`처럼 이름이 상수인 manifest에서 앞쪽 `.debug(name: "Debug")`를 이름으로 잡아 `Debug.xcworkspace`를 냈다. `Project(`·`Workspace(` 호출 뒤의 name을 읽고 상수를 풀도록 고쳤다
