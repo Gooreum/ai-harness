@@ -63,7 +63,7 @@ template/ ──────────────┴────────�
                                                     scripts/harness/*
                                                     .harness/.gitignore, harness.json
 
-plugin/ ─── GitHub 마켓플레이스에서 설치 (복사 안 함) ──▶ 훅, task 스킬, ios-reviewer
+plugin/ ─── GitHub 마켓플레이스에서 설치 (복사 안 함) ──▶ 훅, task 스킬, ios-reviewer, 가짜 응답 MCP
             (.claude/settings.json에 등록)
 ```
 
@@ -263,6 +263,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `hooks/stage-context.sh` | Context | 작업 상태 파일(`.harness/state/task.json`)이 바뀌면 그 단계의 지시를 `.harness/checks.json`에서 꺼내 넣는 훅 |
 | `hooks/review-record.sh` | Validation | ios-reviewer가 Read로 연 파일과 보고서의 차단 수로 `.harness/out/review.json`을 남기는 훅. `passed review`가 이 파일을 본다 |
 | `skills/task/SKILL.md` | State | 작업 시작: 계획 여부(plan/simple)와 검사를 사용자에게 묻고 상태 파일을 만든다 |
+| `.mcp.json`, `mcp/network.py` | Validation 보조 | 가짜 응답 서버 MCP `harness-network`. AI가 건 지연·400·500·빈 응답을 실제 서버 대신 앱에 돌려준다. `e2e.network.port`를 적은 프로젝트에서만 켜진다 |
 | `agents/ios-reviewer.md` | Validation (추론적) | 읽기 전용 리뷰 서브에이전트의 지시문 |
 
 ### scripts/ — 하네스를 설치하는 도구
@@ -290,6 +291,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `lint.test.sh` | 컨벤션 파일 검사, SwiftLint 설정 변환, 점수 판정, 주석·문자열 제외, 바뀐 파일 고르기 |
 | `lint-kinds.test.sh` | 규칙 종류 format(swift-format 설정·결과 거르기)과 dependency(모듈 그래프·숨은 import 판정, 위치, 언제 도는지, 규칙에 없는 모듈 알림) |
 | `e2e.test.sh` | Maestro JUnit 결과 읽기, 설치할 앱 찾기, 행동 로그 판정 |
+| `network-mcp.test.sh` | 가짜 응답 MCP: 켠 프로젝트에서만 도구, 상태·지연·본문 응답, 구체적인 match 우선, 프로젝트끼리 독립 |
 | `wiki.test.sh` | 기록 찾기·검색 로그·형식 검사 |
 | `stage.test.sh` | 단계 지시 훅이 상태 파일이 바뀔 때만, 고른 검사의 지시만 넣는지 |
 | `hooks.test.sh` | 훅이 막을 것만 막고, 판단할 수 없으면 통과시키는지 |
@@ -323,6 +325,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `decisions/0016-review-record.md` | 리뷰를 했는지 리뷰어의 말이 아니라 훅 기록으로 확인하는 이유 |
 | `decisions/0009-e2e-maestro.md` | 동작 확인을 Maestro 시나리오 파일과 e2e 스크립트로 하는 이유와 첫 시나리오에서 겪은 실패 |
 | `decisions/0010-e2e-events.md` | 시나리오가 끝난 뒤 행동 로그(이벤트·횟수·값·업로드)를 판정하는 방식과 Firebase 로그를 읽는 근거 |
+| `decisions/0017-network-mock.md` | 서버 응답 조작을 프록시 대신 실제 서버를 대신하는 가짜 응답 MCP로 만든 이유 |
 | `decisions/0008-wiki.md` | 정책·결정 기록을 프로젝트 안 파일과 검색 스크립트로 시작한 이유와 비교 결과 |
 | `decisions/0007-task-flow.md` | 사람이 고른 모드·검사와 단계 지시 훅으로 작업 흐름을 만들고, 강제는 미룬 이유 |
 
@@ -380,7 +383,7 @@ claude plugin validate plugin
 - 후보 19 완료: 정책·결정 기록(`docs/wiki/`, `wiki` search·check)
 - 후보 15 완료: 두 번째 프로젝트 IntervalTimer(Tuist, 루트 manifest 하나)에 설치했다. 하네스는 detect만 고쳤고 나머지는 설정 파일만 달랐다
 - 후보 14 완료: 플러그인을 GitHub 마켓플레이스로 배포하고 `init`·`sync`·`doctor`를 만들었다
-- 후보 10 일부: Maestro E2E(`e2e`, 작성 규칙, 회귀 묶음, 녹화, 행동 로그 판정). 화면 검증(Figma 시안이 없어 미룸)과 서버 응답 조작은 남았다
+- 후보 10 일부: Maestro E2E(`e2e`, 작성 규칙, 회귀 묶음, 녹화, 행동 로그 판정). 서버 응답 조작(가짜 응답 MCP). 화면 검증은 Figma 시안이 없어 미룸
 - 후보 13 완료: 검증 강제(`check-run.sh`, Stop 게이트)
 - 후보 20: 모듈 의존(`tuist graph`·`tuist inspect implicit-imports`)·형식(swift-format) 검사. 빌드·Tuist 절차 스킬과 후보 18은 뺐다
 - 다음: 평가. Codex 어댑터는 뺐다. 기준은 [ADR 0005](docs/decisions/0005-talk-criteria.md)에 있다

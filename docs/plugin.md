@@ -11,6 +11,9 @@ plugin/
 ├── .claude-plugin/plugin.json      플러그인 정보(이름 ios-harness, 버전)
 ├── agents/
 │   └── ios-reviewer.md             읽기 전용 리뷰 서브에이전트 (ios-harness:ios-reviewer)
+├── .mcp.json                       MCP 서버 등록: harness-network
+├── mcp/
+│   └── network.py                  가짜 응답 서버 (MCP + HTTP, python3)
 ├── skills/
 │   └── task/SKILL.md               작업 시작: 모드·검사를 사용자에게 묻고 상태 파일을 만든다 (ios-harness:task)
 └── hooks/
@@ -119,3 +122,18 @@ claude plugin validate ./plugin   # 플러그인 정보
 claude plugin validate .          # 마켓플레이스
 bash tests/run.sh                 # 훅 판단 회귀 테스트 포함
 ```
+
+## MCP: harness-network (가짜 응답 서버)
+
+실제 서버로 만들기 어려운 응답(지연, 400·500, 빈 응답)을 실제 서버 대신 돌려준다(발표 슬라이드 85, [ADR 0017](decisions/0017-network-mock.md)).
+
+- 한 프로세스가 두 일을 한다. AI의 MCP 도구 호출(stdio)을 받고, `127.0.0.1:<포트>`에서 앱 요청에 응답한다. 실제 서버로 넘기지 않는다.
+- 앱은 `-HarnessNetworkBaseURL` 실행 인자를 받으면 `https://<호스트>/<경로>`를 `<주소>/<호스트>/<경로>`로 보낸다. 이 코드는 앱마다 직접 넣는다.
+- 도구: `mock_set`(match·status·delay·body·headers), `mock_list`, `mock_clear`, `requests`(앱이 보낸 요청과 맞은 응답).
+- 응답 고르기: 메서드가 맞고 주소가 `match`로 시작하는 것 중 가장 긴 것. 없으면 404와 "걸린 응답이 없다".
+- 켠 프로젝트에서만 동작한다. `.harness/project.json`에 `e2e.network.port`가 없으면 도구를 내놓지 않고 HTTP 서버도 띄우지 않는다.
+- 프로젝트마다 독립이다.
+  - 응답은 그 프로젝트의 `.harness/state/network.json`, 받은 요청은 `network-requests.ndjson`(최근 200개)에 둔다.
+  - 포트는 프로젝트마다 다르게 준다.
+  - 같은 프로젝트를 두 세션이 열면 뒤 세션은 포트를 못 잡지만, 앞 서버가 요청마다 파일을 읽어 같은 응답을 준다.
+- 프로젝트 고유의 MCP는 그 프로젝트가 직접 만든다. 하네스는 어느 프로젝트에나 쓰이는 이 서버만 담는다.

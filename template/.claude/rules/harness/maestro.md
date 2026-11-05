@@ -32,6 +32,17 @@ paths:
 - `.harness/project.json`의 `e2e.events`가 `firebase`여야 판정한다. 앱 실행에 `arguments: { "-FIRAnalyticsDebugEnabled": true }`를 넣는다. 공통 흐름의 `launchApp`에 두면 된다.
 - 이벤트 이름과 값은 앱 코드의 로깅 정의에서 가져온다. 기대 값을 지어내지 않는다.
 
+## 서버 응답 바꾸기
+
+- 500·400 에러, 느린 응답, 빈 응답처럼 실제 서버로 만들기 어려운 상황은 가짜 응답 서버(MCP `harness-network`)로 만든다. `.harness/project.json`에 `e2e.network.port`가 있을 때만 도구가 보인다.
+- 가짜 응답은 MCP 도구 `mock_set`으로 건다. **프로젝트 코드나 `.maestro/`에 목 데이터 파일을 만들지 않는다.**
+  - `match`는 `[메서드] 호스트/경로` 앞부분이다. 주소를 추측하지 말고, 앱을 한 번 돌린 뒤 `requests`로 앱이 보낸 주소를 보고 고른다.
+  - 끝나면 `mock_clear`로 지운다. 걸어 둔 응답은 `.harness/state/network.json`에 남는다.
+- 시나리오는 앱 실행에 서버 주소를 넘긴다: `launchApp`의 `arguments: { "-HarnessNetworkBaseURL": "${NETWORK_BASE_URL}" }`. 값은 `e2e`가 넣는다.
+- 앱은 이 인자가 있고 값이 `http://127.0.0.1:`로 시작할 때만 `https://<호스트>/<경로>` 요청을 `<인자 주소>/<호스트>/<경로>`로 보내야 한다. 이 코드가 없으면 사용자에게 어디에 넣을지 알린다.
+- 화면에서 결과를 확인한다: 에러 문구, 다시 시도 버튼, 로딩 표시를 `assertVisible`로 본다.
+- 응답 조건은 MCP 세션 동안만 있다. 회귀 묶음(`tags: [regression]`)에는 넣지 않는다.
+
 ## 수정 전후 영상
 
 - QA 티켓을 고칠 때는 고치기 전과 후에 `scripts/harness/e2e --record <파일>`로 돌려 `.harness/out/e2e.mp4`를 남긴다. PR에 두 영상을 붙인다.
