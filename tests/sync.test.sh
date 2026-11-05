@@ -10,7 +10,7 @@ template="$here/../template"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
-export HARNESS_OFFLINE=1 HARNESS_SIMULATOR="iPhone Test"
+export HARNESS_OFFLINE=1
 
 # 최소 xcodeproj 프로젝트 (detect가 초안을 만들 수 있게)
 new_project() {

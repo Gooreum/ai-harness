@@ -25,10 +25,6 @@
     "bundleId": "com.woong.MotoTrace",
     "unitTestTargets": ["MotoTraceTests"]
   },
-  "destination": {
-    "simulator": "iPhone 17 Pro",
-    "os": "latest"
-  },
   "modules": {
     "manifest": "Project.swift",
     "scheme": "{dir}",
@@ -52,8 +48,8 @@
 | `app.path` | 경로 또는 `null` | 앱 manifest가 있는 디렉터리(Tuist). 이 안의 파일은 앱의 변경으로 본다 |
 | `app.bundleId` | 문자열 또는 `null` | Debug 구성의 앱 번들 ID. 시뮬레이터에서 앱을 실행할 때 쓴다 |
 | `app.unitTestTargets` | 문자열 배열 | 앱이 바뀌었을 때 돌릴 단위 테스트 타깃. UI 테스트는 넣지 않는다 |
-| `destination.simulator` | 문자열 | 빌드·테스트에 쓸 시뮬레이터 기기 이름. 없거나 설치돼 있지 않으면 최신 런타임의 iPhone을 쓴다 |
-| `destination.os` | `latest` 또는 버전 | 시뮬레이터 OS 버전 |
+| `destination.simulator` | 문자열, 선택 | 특정 기기가 꼭 필요할 때만 적는다. 없으면 실행할 때마다 설치된 최신 iPhone(최신 iOS 런타임, 번호가 가장 큰 Pro)을 쓴다. 적은 기기가 설치돼 있지 않아도 최신 iPhone을 쓰고 알린다. `detect`는 적지 않는다: 이름을 적어 두면 Xcode가 바뀔 때 모든 프로젝트가 깨진다 |
+| `destination.os` | `latest` 또는 버전, 선택 | `destination.simulator`를 적었을 때의 OS 버전. 기본 `latest` |
 | `modules` | 객체 또는 `null` | 모듈을 찾는 규칙. 모듈 구조가 없으면 `null`이다 |
 | `modules.manifest` | 파일 이름 | 이 파일이 있는 디렉터리를 모듈 하나로 본다 |
 | `modules.scheme` | 규칙 문자열 | 모듈 테스트를 돌릴 스킴 이름. `{dir}`은 모듈 디렉터리 이름이다 |
@@ -92,4 +88,4 @@ scripts/detect --write ~/path/to/app   # <프로젝트>/.harness/project.json에
     - 앱 스킴의 테스트 액션 구성이 Debug가 아니면 `app.testScheme`을 찾는다.
     - 테스트 액션이 Debug이고 첫 단위 테스트 타깃을 담은 스킴이어야 한다. 단위 테스트 타깃과 이름이 같은 스킴을 먼저 보고, 나머지는 이름순으로 본다.
 - Tuist 프로젝트를 아직 생성하지 않았으면 스킴과 번들 ID를 확인할 수 없다. 이 경우 추정값을 쓰거나 `null`로 두고, 경고를 출력한다.
-- `HARNESS_OFFLINE=1`을 주면 xcodebuild·simctl을 부르지 않고 파일만 본다(테스트용). 이때 시뮬레이터 이름은 `HARNESS_SIMULATOR`에서 읽는다.
+- `HARNESS_OFFLINE=1`을 주면 xcodebuild·simctl을 부르지 않고 파일만 본다(테스트용).

@@ -54,7 +54,7 @@ scripts/sync --dev <프로젝트 경로>    # 갱신하되 플러그인을 이 �
 | 보는 것 | ✕ 문제 | ! 주의 |
 |---|---|---|
 | 도구 | xcodebuild, 생성기(tuist·xcodegen)가 없다 | `.maestro/`가 있는데 maestro가 없다 |
-| 설정 파일 | app.scheme이 없다, 프로젝트·워크스페이스 파일이 없다(생성기 없는 프로젝트만), checks·conventions JSON이 깨졌다, 시뮬레이터가 없다 | |
+| 설정 파일 | app.scheme이 없다, 프로젝트·워크스페이스 파일이 없다(생성기 없는 프로젝트만), checks·conventions JSON이 깨졌다 | 설정에 적은 시뮬레이터가 없다(최신 iPhone을 대신 쓴다) |
 | 설치된 파일 | AGENTS.md 관리 블록, CLAUDE.md의 `@AGENTS.md`, `.claude/rules/harness/`가 없다 | 설치 기록이 없다, 규칙이나 `settings.json`이 git에서 무시된다 |
 | 플러그인 | 켜져 있지 않다, 이 프로젝트에 설치되지 않았다, 꺼져 있다, 버전이 설치 기록과 다르다 | claude CLI가 없어 버전을 못 봤다 |
 
