@@ -13,6 +13,7 @@ usage() {
   파일을 주지 않으면 .maestro/ 바로 아래의 시나리오를 모두 돌린다(하위 폴더는 runFlow로 부르는 공통 흐름).
 
   --tag 태그     이 태그가 붙은 시나리오만 (예: --tag regression)
+                 tags: [network](가짜 응답 서버가 필요한 시나리오)는 파일을 직접 주거나 --tag network일 때만 돈다
   --no-build     빌드하지 않고 이미 빌드된 앱을 설치한다
   --record       시뮬레이터 화면을 .harness/out/e2e.mp4로 녹화한다 (PR에 수정 전후 영상 첨부용)
 
@@ -29,6 +30,7 @@ EOF
 }
 
 tag=""
+all_flows=0
 build=1
 record=0
 flows=()
@@ -55,6 +57,7 @@ case "$events_source" in ""|firebase) ;; *) harness_die "e2e.events는 firebase�
 if [ ${#flows[@]} -eq 0 ]; then
   [ -d "$root/.maestro" ] || harness_die ".maestro/에 시나리오가 없습니다. 작성 규칙은 .claude/rules/harness/maestro.md에 있습니다"
   flows=("$root/.maestro")
+  all_flows=1
 fi
 result="$out_dir/e2e.json"
 rm -f "$result"
@@ -89,6 +92,10 @@ artifacts="$out_dir/e2e"
 rm -rf "$junit" "$artifacts"
 args=(--device "$udid" test -e "APP_ID=$bundle_id" --format JUNIT --output "$junit" --test-output-dir "$artifacts" --no-ansi)
 [ -z "$tag" ] || args+=(--include-tags "$tag")
+# 가짜 응답 서버가 필요한 시나리오(tags: [network])는 사용자가 원할 때만 돈다: 파일을 직접 주거나 --tag network.
+if [ "$all_flows" = 1 ] && [ "$tag" != network ]; then
+  args+=(--exclude-tags network)
+fi
 
 # 가짜 응답 서버(플러그인 MCP harness-network)의 주소. 시나리오는 launchApp.arguments의
 # "-HarnessNetworkBaseURL": ${NETWORK_BASE_URL}로 앱에 넘긴다. 서버는 Claude Code 세션이 띄운다.
