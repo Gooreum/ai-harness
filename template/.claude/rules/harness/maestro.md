@@ -34,7 +34,7 @@ paths:
 
 ## 서버 응답 바꾸기
 
-- 500·400 에러, 느린 응답, 빈 응답처럼 실제 서버로 만들기 어려운 상황은 가짜 응답 서버(MCP `harness-network`)로 만든다. `.harness/project.json`에 `e2e.network.port`가 있을 때만 도구가 보인다.
+- **사용자가 서버 응답 테스트(에러, 지연, 빈 응답)를 요청했을 때만** 가짜 응답 서버(MCP `harness-network`)를 쓴다. 스스로 판단해 쓰지 않는다. `.harness/project.json`에 `e2e.network.port`가 있을 때만 도구가 보인다.
 - 가짜 응답은 MCP 도구 `mock_set`으로 건다. **프로젝트 코드나 `.maestro/`에 목 데이터 파일을 만들지 않는다.**
   - `match`는 `[메서드] 호스트/경로` 앞부분이다. 주소를 추측하지 말고, 앱을 한 번 돌린 뒤 `requests`로 앱이 보낸 주소를 보고 고른다.
   - 끝나면 `mock_clear`로 지운다. 걸어 둔 응답은 `.harness/state/network.json`에 남는다.
@@ -46,7 +46,7 @@ paths:
   { "expect": [ { "match": "POST api.example.com/v1/items", "status": 500 } ] }
   ```
   응답을 걸지 않았거나 서버가 꺼져 있어도 앱의 실패 화면은 똑같이 뜬다. `e2e`는 서버 기록에 이 응답이 그 흐름 동안 한 번 이상 있어야 통과시킨다.
-- 응답 조건은 MCP 세션 동안만 있다. 회귀 묶음(`tags: [regression]`)에는 넣지 않는다.
+- 이런 시나리오에는 `tags: [network]`를 붙인다. `e2e`를 인자 없이 돌리거나 `--tag regression`일 때는 빠지고, 파일을 직접 주거나 `--tag network`일 때만 돈다. 응답 조건이 MCP 세션 동안만 있어서다. `regression` 태그는 붙이지 않는다.
 
 ## 수정 전후 영상
 

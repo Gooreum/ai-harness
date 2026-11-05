@@ -17,7 +17,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 SERVER_NAME = "harness-network"
-VERSION = "0.9.1"
+VERSION = "0.9.2"
 MAX_REQUESTS = 200
 METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS")
 
