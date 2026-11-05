@@ -57,6 +57,32 @@ touch -t 202601010000 "$dd/Build/Products/Debug-iphonesimulator/App.app"
 touch -t 202602010000 "$dd/Build/Products/Release-iphonesimulator/App.app"
 assert_eq "app: 번들 ID가 맞는 것 중 가장 최근 빌드" "$dd/Build/Products/Release-iphonesimulator/App.app" "$(e2e_find_app "$dd" com.example.app)"
 assert_eq "app: 없으면 빈 문자열" "" "$(e2e_find_app "$dd" com.example.none)"
+assert_eq "app: 빌드 구성을 주면 그 구성의 앱만" "$dd/Build/Products/Debug-iphonesimulator/App.app" "$(e2e_find_app "$dd" com.example.app Debug)"
+assert_eq "app: 그 구성에 번들 ID가 맞는 앱이 없으면 빈 문자열" "" "$(e2e_find_app "$dd" com.example.other Release)"
+assert_eq "built_ids: 구성의 앱 번들 ID 목록" "com.example.app" "$(e2e_built_ids "$dd" Release)"
+assert_eq "built_ids: 앱이 없으면 없음" "없음" "$(e2e_built_ids "$dd" Staging)"
+
+# --- scheme_run_config ---------------------------------------------------------
+root="$work/proj"
+mkdir -p "$root/App.xcodeproj/xcshareddata/xcschemes" "$root/.harness/x/xcshareddata/xcschemes"
+cat > "$root/App.xcodeproj/xcshareddata/xcschemes/App.xcscheme" <<'XML'
+<Scheme>
+   <TestAction
+      buildConfiguration = "Debug">
+   </TestAction>
+   <LaunchAction
+      buildConfiguration = "Release"
+      launchStyle = "0">
+   </LaunchAction>
+</Scheme>
+XML
+assert_eq "scheme: 여러 줄 LaunchAction의 빌드 구성" "Release" "$(scheme_run_config App)"
+assert_eq "scheme: 스킴 파일이 없으면 빈 문자열" "" "$(scheme_run_config Nope)"
+
+# --- e2e_java_ok ---------------------------------------------------------------
+mkdir -p "$work/jdk/bin"; printf '#!/bin/sh\n' > "$work/jdk/bin/java"; chmod +x "$work/jdk/bin/java"
+assert_eq "java: JAVA_HOME에 java가 있으면 성공" "0" "$(JAVA_HOME="$work/jdk" e2e_java_ok; echo $?)"
+assert_eq "java: JAVA_HOME에 java가 없으면 실패" "1" "$(JAVA_HOME="$work/none" e2e_java_ok; echo $?)"
 
 # --- 행동 로그: Firebase 디버그 로그(ndjson) -------------------------------------
 cat > "$work/events.ndjson" <<'LOG'
