@@ -156,6 +156,8 @@ scripts/harness/e2e --no-build              # 이미 빌드된 앱으로
     - `uploaded`: 마지막으로 맞은 이벤트 뒤에 수집 서버 업로드가 성공(`Successful upload`)했는지 본다. 없으면 `true`. 스크립트는 Maestro가 끝난 뒤 업로드를 최대 20초 기다린다.
   - 실패 출력: `  .maestro/profile-empty.yaml: 행동 로그 tab_select 1회 (기대 2회), onboarding_complete 1회 (기대 0회)`
   - 시험 실행의 이벤트도 실제 Firebase 프로젝트로 올라간다(디버그 표시가 붙어 DebugView에 보인다).
+- 서버 응답 바꾸기: `.harness/project.json`에 `e2e.network.port`가 있으면 maestro에 `NETWORK_BASE_URL=http://127.0.0.1:<포트>`를 넘긴다. 시나리오가 `launchApp`의 `"-HarnessNetworkBaseURL": "${NETWORK_BASE_URL}"`로 앱에 준다.
+  - 응답은 플러그인 MCP `harness-network`가 준다([plugin.md](plugin.md)). 서버가 그 포트에 떠 있지 않으면 한 줄로 알린다(막지는 않는다).
 - 결과 파일 `.harness/out/e2e.json`: `passed`, `tag`, `flows`(`name`·`file`·`status`·`seconds`·`tags`·`failure`, 판정했으면 `events`). Maestro JUnit 결과(`e2e-junit.xml`)에서 만든다. 행동 로그를 판정한 흐름은 `events.passed`가 거짓이면 실패로 센다.
 - 종료 코드: 통과 0, 실패한 시나리오가 있거나 돌린 시나리오가 없으면 1, Maestro 없음·설정 오류·결과 없음 2
 
