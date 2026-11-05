@@ -150,6 +150,7 @@
   - [x] 끝내려 할 때 Stop 훅 `stop-gate.sh`가 작업 주인 세션을 done 전에 막는다. plan 단계 승인은 Plan 모드로 받는다(발표 슬라이드 17, ai-bouncer)
   - [x] 발표에 없는 세션 구분·도구 없는 반복 방지·10번 연속 시 사용자에게 넘기기·run 시간 제한은 ai-bouncer를 따랐다
   - 결과가 최신인지는 작업 트리 해시 대신 ai-bouncer의 `bouncer passed`처럼 시각으로 본다(`scripts/harness/passed`)
+  - 진행 (2026-11-05): `build`도 결과 파일 `build.json`을 남겨 `run`으로 확인한다. 전에는 `build`만 고른 작업에서 빌드했는지 확인하지 않았다
   - 진행 (2026-11-05): 리뷰도 `run`으로 확인한다(ADR 0016). 리뷰어가 연 파일과 보고서의 차단 수를 훅(`review-record.sh`)이 `review.json`으로 남긴다. IntervalTimer에서 실제 리뷰로 통과, 리뷰 뒤 수정 시 실패를 확인했다
   - 진행 (2026-11-03): ReadSharp #217을 이어서 verify → finish → done까지 마쳤다. 넘어갈 때마다 훅이 lint·verify·e2e의 `passed`를 확인했고, 마무리에서 결정 기록(`docs/wiki/translation/draft-across-sentences.md`)을 남겼다. 기록을 쓰다 `build/` 폴더가 git에서 무시돼 빠지는 일이 있어 `wiki check`가 무시되는 기록을 문제로 잡게 했다
 - [x] 14. 플러그인 배포와 init/sync/doctor (ADR 0011)

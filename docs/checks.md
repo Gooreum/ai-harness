@@ -40,6 +40,7 @@
     "finish": { "prompt": "이번에 정한 정책·결정과 알게 된 사실을 docs/wiki/에 기록한다(비슷한 기록이 있으면 고친다). 쓴 뒤 scripts/harness/wiki check를 돌린다" }
   },
   "checks": [
+    { "name": "build", "description": "앱 빌드만", "prompt": "scripts/harness/build를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed build" },
     { "name": "lint", "description": "팀 컨벤션 검사", "prompt": "scripts/harness/lint를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed lint" },
     { "name": "unit-test", "description": "앱 빌드와 단위 테스트", "prompt": "scripts/harness/unit-test를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed unit-test" },
     { "name": "review", "description": "ios-reviewer 코드 리뷰", "prompt": "ios-harness:ios-reviewer 서브에이전트에 변경 검토를 맡기고 차단 항목을 고친다. 고친 뒤에는 다시 맡긴다", "run": "scripts/harness/passed review" }
