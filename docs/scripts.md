@@ -93,9 +93,11 @@ scripts/harness/lint --all         # git이 추적하는 모든 Swift 파일
 ```
 
 - 팀 컨벤션 목록 `.harness/conventions.json`([conventions.md](conventions.md))의 규칙으로 검사한다. 파일이 없으면 건너뛰고 0으로 끝난다.
-- 검사는 SwiftLint가 한다. 에이전트는 규칙 초안을 만들 때만 쓰고, 통과 여부는 AI가 판단하지 않는다([ADR 0006](decisions/0006-convention-lint.md)).
-  - 실행할 때마다 컨벤션 목록을 SwiftLint 설정(`.harness/out/swiftlint.yml`)으로 옮긴다. 목록과 설정이 어긋날 일이 없다.
-  - 컨벤션 규칙만 켠다. 프로젝트의 `.swiftlint.yml`이나 SwiftLint 기본 규칙은 판정에 넣지 않는다.
+- 검사는 규칙 종류(`kind`)마다 도구가 한다. 에이전트는 규칙 초안을 만들 때만 쓰고, 통과 여부는 AI가 판단하지 않는다([ADR 0006](decisions/0006-convention-lint.md), [ADR 0014](decisions/0014-layer-format-rules.md)).
+  - `pattern`: SwiftLint. 실행할 때마다 컨벤션 목록을 SwiftLint 설정(`.harness/out/swiftlint.yml`)으로 옮긴다. 컨벤션 규칙만 켜고, 프로젝트의 `.swiftlint.yml`이나 SwiftLint 기본 규칙은 판정에 넣지 않는다.
+  - `format`: Xcode에 들어 있는 swift-format. 기본 설정에서 모든 규칙을 끄고 고른 규칙만 켠 설정(`.harness/out/swift-format.json`)으로 돌린다. 들여쓰기·줄 길이 같은 지적은 설정으로 끌 수 없어, 고르지 않은 것은 결과에서 걸러낸다.
+  - `dependency`: `tuist graph -f dot`으로 모듈 그래프(`.harness/out/graph/graph.dot`)를 뽑아 직접 의존만 본다. 시간이 걸려서(IntervalTimer 22초) manifest(`Project.swift`·`Workspace.swift`·`Package.swift`·`Tuist/`)가 바뀌었거나 `--all`일 때만 돈다. Tuist 프로젝트가 아니면 2로 끝난다.
+  - 그 종류의 규칙이 있을 때만 그 도구가 필요하다.
 - 바뀐 파일은 unit-test와 같은 기준으로 고른다(지운 파일은 뺀다).
 - 100점에서 위반마다 감점한다(기본 error 10, warning 5, info 1). `passScore`(기본 95) 이상이면 통과다.
 - 출력: 첫 줄에 점수, 이어서 위반을 심각한 것부터 위치와 함께 `HARNESS_MAX_ERRORS`개(기본 5)까지 보여 준다.
@@ -104,7 +106,7 @@ scripts/harness/lint --all         # git이 추적하는 모든 Swift 파일
     EnglishStudy/Features/Settings/View/LintProbeView.swift:2: [imports.no_mobile_core_services] MobileCoreServices 대신 UniformTypeIdentifiers를 쓴다 (−10)
   ```
 - 결과 파일 `.harness/out/lint.json`: `passed`, `score`, `passScore`, `files`(검사한 파일 수), `violations`(`rule`·`severity`·`penalty`·`file`·`line`·`column`·`message`). 바뀐 파일이 없어도 남긴다.
-- 종료 코드: 통과 0, 기준 미달 1, 설정 오류·SwiftLint 없음·SwiftLint 실행 실패 2
+- 종료 코드: 통과 0, 기준 미달 1, 설정 오류·도구 없음·도구 실행 실패 2
 
 ## wiki
 
