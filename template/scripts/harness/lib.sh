@@ -658,6 +658,25 @@ e2e_flow_window() {
         end: (map((.metadata.timestamp // .timestamp // 0) + (.metadata.duration // .duration // 0)) | max) }' "$1"
 }
 
+# 기대 서버 응답($1, <흐름>.network.json)을 가짜 응답 서버의 요청 기록($2, ndjson)에서 그 흐름 구간([$3, $4) ms)으로 판정한다.
+# 기대마다 match(mock_set에 쓴 그대로)와 status가 같은 응답이 한 번 이상 있어야 한다.
+# 출력: {passed, checks: [{match, status, actual, ok}], requests: ["메서드 경로 상태"]}
+e2e_check_network() {
+  local reqs='[]'
+  if [ -f "$2" ]; then
+    reqs="$(jq -s --argjson s "$3" --argjson e "$4" '[.[] | select((.ts // 0) >= $s and (.ts // 0) < $e)]' "$2")"
+  fi
+  jq --argjson r "$reqs" '
+    if (.expect | type) != "array" or (.expect | length) == 0 then
+      {passed: false, checks: [], requests: [], error: "network.json에 expect 목록이 없습니다"}
+    else
+      [ .expect[] | .match as $m | (.status // 200) as $st
+        | ([ $r[] | select(.match == $m and .status == $st) ] | length) as $n
+        | {match: $m, status: $st, actual: $n, ok: ($n > 0)} ] as $c
+      | {passed: all($c[]; .ok), checks: $c, requests: [ $r[] | "\(.method) \(.path) \(.status)" ]}
+    end' "$1"
+}
+
 # 기대 이벤트($1, <흐름>.events.json)를 그 흐름 동안 기록된 이벤트($2)와 업로드 시각($3)으로 판정한다.
 # 출력: {passed, checks: [{name, params, expected, actual, ok}], uploaded}
 e2e_check_events() {

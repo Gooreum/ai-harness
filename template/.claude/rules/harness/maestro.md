@@ -41,6 +41,11 @@ paths:
 - 시나리오는 앱 실행에 서버 주소를 넘긴다: `launchApp`의 `arguments: { "-HarnessNetworkBaseURL": "${NETWORK_BASE_URL}" }`. 값은 `e2e`가 넣는다.
 - 앱은 이 인자가 있고 값이 `http://127.0.0.1:`로 시작할 때만 `https://<호스트>/<경로>` 요청을 `<인자 주소>/<호스트>/<경로>`로 보내야 한다. 이 코드가 없으면 사용자에게 어디에 넣을지 알린다.
 - 화면에서 결과를 확인한다: 에러 문구, 다시 시도 버튼, 로딩 표시를 `assertVisible`로 본다.
+- 시나리오 옆에 `<이름>.network.json`으로 받아야 할 응답을 적는다. `match`는 `mock_set`에 쓴 그대로다.
+  ```json
+  { "expect": [ { "match": "POST api.example.com/v1/items", "status": 500 } ] }
+  ```
+  응답을 걸지 않았거나 서버가 꺼져 있어도 앱의 실패 화면은 똑같이 뜬다. `e2e`는 서버 기록에 이 응답이 그 흐름 동안 한 번 이상 있어야 통과시킨다.
 - 응답 조건은 MCP 세션 동안만 있다. 회귀 묶음(`tags: [regression]`)에는 넣지 않는다.
 
 ## 수정 전후 영상

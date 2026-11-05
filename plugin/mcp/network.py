@@ -17,7 +17,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 SERVER_NAME = "harness-network"
-VERSION = "0.9.0"
+VERSION = "0.9.1"
 MAX_REQUESTS = 200
 METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS")
 
@@ -125,6 +125,7 @@ class Handler(BaseHTTPRequestHandler):
         mock = find_mock(self.command, target)
         record_request({
             "time": time.strftime("%Y-%m-%dT%H:%M:%S"),
+            "ts": int(time.time() * 1000),  # e2e가 흐름 구간(ms)으로 나눌 때 쓴다
             "method": self.command,
             "path": target,
             "match": mock["match"] if mock else None,

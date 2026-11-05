@@ -145,6 +145,14 @@ fi
 
 flows_json="$(e2e_junit_to_json "$junit")"
 
+# 흐름마다 시작 시각(ms). 행동 로그·서버 응답 판정이 "그 흐름이 시작해서 다음 흐름이 시작하기 전까지"로 나눌 때 쓴다.
+windows="[]"
+while IFS=$'\t' read -r name file; do
+  cmds="$(ls "$artifacts"/*/"$name"/commands.json 2>/dev/null | head -n 1)"
+  [ -n "$cmds" ] || continue
+  windows="$(jq --arg n "$name" --argjson w "$(e2e_flow_window "$cmds")" '. + [$w + {name: $n}]' <<<"$windows")"
+done < <(jq -r '.[] | [.name, .file] | @tsv' <<<"$flows_json")
+
 # --- 행동 로그 판정 -------------------------------------------------------------
 
 # 흐름마다 <이름>.events.json이 있으면, 그 흐름이 시작해서 다음 흐름이 시작하기 전까지 나간 이벤트로 판정한다.
@@ -153,12 +161,6 @@ if [ -n "$streamer" ]; then
   uploads_all="$out_dir/e2e-uploads.json"
   e2e_firebase_events "$events_log" > "$events_all"
   e2e_firebase_uploads "$events_log" > "$uploads_all"
-  windows="[]"
-  while IFS=$'\t' read -r name file; do
-    cmds="$(ls "$artifacts"/*/"$name"/commands.json 2>/dev/null | head -n 1)"
-    [ -n "$cmds" ] || continue
-    windows="$(jq --arg n "$name" --argjson w "$(e2e_flow_window "$cmds")" '. + [$w + {name: $n}]' <<<"$windows")"
-  done < <(jq -r '.[] | [.name, .file] | @tsv' <<<"$flows_json")
   while IFS=$'\t' read -r name file; do
     expect="$root/${file%.yaml}.events.json"
     [ -f "$expect" ] || continue
@@ -184,16 +186,40 @@ else
   done < <(jq -r '.[].file' <<<"$flows_json")
 fi
 
+# --- 서버 응답 판정 -------------------------------------------------------------
+
+# 흐름마다 <이름>.network.json이 있으면, 그 흐름 동안 가짜 응답 서버가 기대한 응답을 정말 줬는지 서버 기록으로 판정한다.
+# 응답을 걸지 않았거나 서버가 꺼져 있어도 앱의 실패 화면은 똑같이 떠서, 화면만으로는 구분할 수 없다.
+network_log="$root/.harness/state/network-requests.ndjson"
+while IFS=$'\t' read -r name file; do
+  expect="$root/${file%.yaml}.network.json"
+  [ -f "$expect" ] || continue
+  if [ -z "$network_port" ]; then
+    echo "· e2e · ${file%.yaml}.network.json이 있지만 project.json에 e2e.network.port가 없어 서버 응답은 판정하지 않습니다" >&2
+    continue
+  fi
+  from="$(jq --arg n "$name" '(map(select(.name == $n))[0].start) // empty' <<<"$windows")"
+  if [ -z "$from" ]; then
+    verdict='{"passed":false,"checks":[],"error":"흐름 기록(commands.json)이 없어 판정하지 못했습니다"}'
+  else
+    to="$(jq --argjson s "$from" '[.[].start | select(. > $s)] | min // 9e15' <<<"$windows")"
+    verdict="$(e2e_check_network "$expect" "$network_log" "$from" "$to")"
+  fi
+  flows_json="$(jq --arg n "$name" --argjson v "$verdict" 'map(if .name == $n then . + {network: $v} else . end)' <<<"$flows_json")"
+done < <(jq -r '.[] | [.name, .file] | @tsv' <<<"$flows_json")
+
 jq --arg tag "$tag" --argjson code "$code" \
-  '{ passed: ($code == 0 and (map(select(.status != "SUCCESS" or .events.passed == false)) | length) == 0),
+  '{ passed: ($code == 0 and (map(select(.status != "SUCCESS" or .events.passed == false or .network.passed == false)) | length) == 0),
      tag: (if $tag == "" then null else $tag end), flows: . }' <<<"$flows_json" > "$result"
 
 total="$(jq '.flows | length' "$result")"
-failed="$(jq '[.flows[] | select(.status != "SUCCESS" or .events.passed == false)] | length' "$result")"
+failed="$(jq '[.flows[] | select(.status != "SUCCESS" or .events.passed == false or .network.passed == false)] | length' "$result")"
 video=""
 [ "$record" = 0 ] || video=" · 영상 .harness/out/e2e.mp4"
 checked="$(jq '[.flows[] | select(.events != null)] | length' "$result")"
 [ "$checked" -eq 0 ] || video=" · 행동 로그 $checked$video"
+checked="$(jq '[.flows[] | select(.network != null)] | length' "$result")"
+[ "$checked" -eq 0 ] || video=" · 서버 응답 $checked$video"
 if [ "$total" -eq 0 ]; then
   echo "✗ e2e · 돌린 시나리오가 없습니다${tag:+ (태그 $tag)} · ${elapsed}s"
   exit 1
@@ -203,8 +229,10 @@ if jq -e .passed "$result" >/dev/null; then
   exit 0
 fi
 echo "✗ e2e · 실패 $failed / $total${tag:+ · 태그 $tag} · ${elapsed}s$video"
-jq -r --argjson max "$max_errors" '[.flows[] | select(.status != "SUCCESS" or .events.passed == false)][:$max][]
+jq -r --argjson max "$max_errors" '[.flows[] | select(.status != "SUCCESS" or .events.passed == false or .network.passed == false)][:$max][]
   | if .status != "SUCCESS" then "  \(.file): \(.failure // .status)"
+    elif .network.passed == false then "  \(.file): 서버 응답 " + (.network.error // ([.network.checks[] | select(.ok | not)
+        | "\(.match) \(.status) 응답이 없었다"] | join(", ")) + " — mock_set으로 응답을 걸고 돌린다 (받은 요청: \(.network.requests | join(", ") | if . == "" then "없음" else . end))")
     else "  \(.file): 행동 로그 " + (.events.error // ([.events.checks[] | select(.ok | not)
         | "\(.name)\(if .params == {} then "" else (.params | tostring) end) \(.actual)회 (기대 \(.expected)회)"]
         + (if .events.uploaded == false then ["수집 서버 업로드 확인 안 됨"] else [] end) | join(", "))) end' "$result"
