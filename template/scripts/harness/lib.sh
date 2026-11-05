@@ -334,7 +334,9 @@ conventions_check() {
         elif ($r.penalty != null) and (($r.penalty | type) != "number" or $r.penalty < 0) then bad($i; "\($r.id): penalty는 0 이상 숫자입니다")
         elif $k == "pattern" and (($r.regex | type) != "string" or $r.regex == "") then bad($i; "\($r.id): regex가 필요합니다")
         elif $k == "dependency" and (($r.from | type) != "string" or $r.from == "") then bad($i; "\($r.id): from(모듈 이름 패턴)이 필요합니다")
-        elif $k == "dependency" and (($r.forbid // null) | globs | not) then bad($i; "\($r.id): forbid(금지할 모듈 이름 패턴 배열)가 필요합니다")
+        elif $k == "dependency" and ($r.undeclared != null) and ($r.undeclared | type) != "boolean" then bad($i; "\($r.id): undeclared는 true·false입니다")
+        elif $k == "dependency" and ($r.undeclared == true) and ($r.forbid != null) then bad($i; "\($r.id): undeclared 규칙에는 forbid를 쓰지 않습니다. 규칙을 나누세요")
+        elif $k == "dependency" and ($r.undeclared != true) and (($r.forbid // null) | globs | not) then bad($i; "\($r.id): forbid(금지할 모듈 이름 패턴 배열)나 undeclared: true가 필요합니다")
         elif $k == "format" and (($r.formatRule | type) != "string" or $r.formatRule == "") then bad($i; "\($r.id): formatRule(swift-format 규칙 이름)이 필요합니다")
         elif $k == "format" and ($r.formatOptions != null) and (($r.formatOptions | type) != "object") then bad($i; "\($r.id): formatOptions는 객체입니다")
         else empty end] | first)
@@ -400,28 +402,92 @@ swiftformat_violations() {
               message: "\($r.description) (\(.[4]))" })'
 }
 
-# 컨벤션 파일($1)의 dependency 규칙을 모듈 그래프(tuist graph dot, $2)의 직접 의존에 대어 위반 목록을 만든다.
+# tuist graph dot($1)의 직접 의존을 [{from, to}]로 바꾼다.
+dot_edges() {
+  sed -nE 's/^[[:space:]]*"?([^" ]+)"?[[:space:]]*->[[:space:]]*"?([^" \[]+)"?.*$/\1	\2/p' "$1" \
+    | jq -R -s 'split("\n") | map(select(. != "") | split("\t") | { from: .[0], to: .[1] })'
+}
+
+# tuist inspect implicit-imports 출력($1)을 [{from, to, implicit: true}]로 바꾼다.
+# 출력 형식: "   - App implicitly depends on: DesignSystem, Models"
+implicit_edges() {
+  sed -nE 's/^[[:space:]]*-[[:space:]]+([^ ]+) implicitly depends on:[[:space:]]*(.*)$/\1	\2/p' "$1" \
+    | jq -R -s 'split("\n") | map(select(. != "") | split("\t") | .[0] as $f
+        | .[1] | split(",") | map(gsub("^\\s+|\\s+$"; "") | select(. != "") | { from: $f, to: ., implicit: true })) | add // []'
+}
+
+# 루트($1) 아래 Project.swift에서 선언한 모듈 이름. .target(name: "X") 같은 의존 목록 줄은 뺀다.
+manifest_module_names() {
+  (cd "$1" && grep -rhE --include=Project.swift 'name: *"[^"]+"' . 2>/dev/null) \
+    | grep -vE '\.(target|project|external|package)\( *name: *"[^"]+" *\)' \
+    | sed -nE 's/.*name: *"([^"]+)".*/\1/p' | LC_ALL=C sort -u | jq -R -s 'split("\n") | map(select(. != ""))'
+}
+
+# 그래프($2)의 내부 모듈 중 dependency 규칙($1)의 from·forbid 패턴 어디에도 맞지 않는 것.
+# 내부 모듈은 manifest($3 루트)에서 선언한 이름이고, 테스트 타깃(*Tests)은 뺀다. 패턴 "*"는 덮은 것으로 치지 않는다.
+uncovered_modules() {
+  local names nodes
+  names="$(manifest_module_names "$3")"
+  nodes="$(dot_edges "$2" | jq -c '[.[] | .from, .to]')"
+  nodes="$(sed -nE 's/^[[:space:]]*"?([^" >-]+)"?[[:space:]]*\[.*$/\1/p' "$2" | jq -R -s --argjson e "$nodes" 'split("\n") | map(select(. != "")) + $e | unique')"
+  jq -c --argjson names "$names" --argjson nodes "$nodes" '
+    def glob: "^" + (split("*") | map(gsub("(?<c>[.?+^$()\\[\\]{}|\\\\])"; "\\\(.c)")) | join(".*")) + "$";
+    [.rules[] | select(.kind == "dependency") | .from, (.forbid // [])[] | select(. != "*") | glob] as $pats
+    | $nodes | map(select(. as $n | ($names | index($n)) and ($n | test("Tests$") | not)
+        and (any($pats[]; . as $g | $n | test($g)) | not)))' "$1"
+}
+
+# 루트($1) 아래 manifest에서 모듈($2)을 선언한 첫 줄을 "경로:줄"로 낸다. 없으면 빈 문자열.
+# name: "X" 또는 name: 상수(let 상수 = "X")를 찾는다. 이름만 있는 의존 목록 줄(.target(name: "X"))과
+# 스킴·프로젝트·워크스페이스 이름(.scheme(·Project(·Workspace( 줄이나 바로 다음 줄)은 모듈 선언이 아니라 건너뛴다.
+manifest_decl_line() {
+  (cd "$1" && find . -name Project.swift -not -path './.harness/*' -not -path '*/Derived/*' -not -path '*/.build/*' \
+    | LC_ALL=C sort | while IFS= read -r f; do
+      awk -v want="$2" -v file="${f#./}" '
+        { lines[NR] = $0 }
+        $0 ~ "let +[A-Za-z_][A-Za-z0-9_]* *(: *String)? *= *\"" want "\"" {
+          c = $0; sub(/^.*let +/, "", c); sub(/[ :=].*$/, "", c); consts[c] = 1 }
+        END {
+          for (i = 1; i <= NR; i++) {
+            l = lines[i]
+            if (l ~ /\.(target|project|external|package)\( *name: *"[^"]+" *\)/) continue
+            if (i > 1 && lines[i-1] ~ /(\.scheme|Project|Workspace)\( *$/) continue
+            if (l ~ /(\.scheme|Project|Workspace)\(/) continue
+            ok = (l ~ "name: *\"" want "\"")
+            if (!ok) for (c in consts) if (l ~ "name: *" c "([^A-Za-z0-9_]|$)") ok = 1
+            if (ok) { print file ":" i; exit }
+          }
+        }' "$f"
+    done | head -1)
+}
+
+# 컨벤션 파일($1)의 dependency 규칙을 의존 목록($2, [{from, to, implicit?}] JSON 파일)에 대어 위반 목록을 만든다.
+# forbid 규칙은 선언한 의존과 import만 한 의존(implicit) 둘 다 본다.
+# undeclared 규칙은 import만 하고 의존 목록에 적지 않은 것을 잡는다. 같은 의존이 forbid에 걸리면 두 번 잡지 않는다.
 # 모듈 이름 패턴은 *만 와일드카드다. 위반 위치는 루트($3) 아래 manifest에서 from 모듈을 선언한 줄이다.
 dependency_violations() {
-  local edges v
-  edges="$(sed -nE 's/^[[:space:]]*"?([^" ]+)"?[[:space:]]*->[[:space:]]*"?([^" \[]+)"?.*$/\1	\2/p' "$2" \
-    | jq -R -s 'split("\n") | map(select(. != "") | split("\t") | { from: .[0], to: .[1] })')"
-  v="$(jq --argjson edges "$edges" '
+  local v
+  v="$(jq --slurpfile edges "$2" '
     def glob: "^" + (split("*") | map(gsub("(?<c>[.?+^$()\\[\\]{}|\\\\])"; "\\\(.c)")) | join(".*")) + "$";
+    def how: if .implicit then "import만 있고 의존 목록에 없음: " else "" end;
     { error: 10, warning: 5, info: 1 } as $default
-    | [.rules[] | select(.kind == "dependency") as $r
+    | $edges[0] as $edges
+    | [.rules[] | select(.kind == "dependency" and .undeclared != true) as $r
         | ($r.from | glob) as $from | ($r.forbid | map(glob)) as $forbid
         | $edges[] | select((.from | test($from)) and (.to as $t | any($forbid[]; . as $g | $t | test($g))))
         | { rule: $r.id, severity: $r.severity, penalty: ($r.penalty // $default[$r.severity]),
-            from: .from, to: .to, message: "\($r.description) (\(.from) → \(.to))" }]' "$1")"
+            from: .from, to: .to, message: "\($r.description) (\(how)\(.from) → \(.to))" }] as $forbidden
+    | $forbidden + [.rules[] | select(.kind == "dependency" and .undeclared == true) as $r
+        | ($r.from | glob) as $from
+        | $edges[] | select(.implicit and (.from | test($from))) | . as $e
+        | select([$forbidden[] | select(.from == $e.from and .to == $e.to)] | length == 0)
+        | { rule: $r.id, severity: $r.severity, penalty: ($r.penalty // $default[$r.severity]),
+            from: .from, to: .to, message: "\($r.description) (\(how)\(.from) → \(.to))" }]' "$1")"
   # 위치: from 모듈을 선언한 manifest 줄. 못 찾으면 Project.swift 1줄.
-  # .target(name: "X")처럼 이름만 있는 줄은 선언이 아니라 의존 목록이라 건너뛴다.
   printf '%s' "$v" | jq -c '.[]' | while IFS= read -r item; do
     # (파이프 안 서브셸이라 변수가 밖으로 새지 않는다)
-    from="$(printf '%s' "$item" | jq -r .from)"
-    loc="$(cd "$3" && grep -rnE --include=Project.swift "name: *\"$from\"" . 2>/dev/null \
-      | grep -v '/\.harness/\|/Derived/\|/\.build/' | grep -vE "\.(target|project|external|package)\( *name: *\"$from\" *\)" | head -1)"
-    if [ -n "$loc" ]; then file="${loc%%:*}"; file="${file#./}"; line="$(printf '%s' "$loc" | cut -d: -f2)"
+    loc="$(manifest_decl_line "$3" "$(printf '%s' "$item" | jq -r .from)")"
+    if [ -n "$loc" ]; then file="${loc%%:*}"; line="${loc##*:}"
     else file="Project.swift"; line=1; fi
     printf '%s' "$item" | jq -c --arg f "$file" --argjson l "$line" '{ rule, severity, penalty, file: $f, line: $l, column: 1, message }'
   done | jq -s '.'
@@ -430,6 +496,15 @@ dependency_violations() {
 # 위반 목록들을 합쳐 심각한 것부터, 같은 심각도는 파일·줄 순서로 정렬한다.
 lint_merge_violations() {
   jq -s '{ error: 0, warning: 1, info: 2 } as $order | add // [] | sort_by($order[.severity], .file, .line, .column)' "$@"
+}
+
+# 바뀐 Swift 파일에서 import 줄이 늘거나 줄었는지. 기준($1)이 있으면 갈라진 지점부터, 없으면 HEAD 대비와 새 파일을 본다.
+lint_touches_imports() {
+  local base="${1:-}" from="HEAD" imp='[[:space:]]*(@testable[[:space:]]+|@_exported[[:space:]]+)?import[[:space:]]'
+  if [ -n "$base" ]; then from="$(git -C "$root" merge-base "$base" HEAD 2>/dev/null)" || return 1; fi
+  (cd "$root" && git diff -U0 "$from" -- '*.swift' 2>/dev/null | grep -qE "^[+-]$imp") && return 0
+  (cd "$root" && git ls-files -o --exclude-standard -- '*.swift' | while IFS= read -r f; do
+    grep -qE "^$imp" "$f" && exit 0; done; exit 1)
 }
 
 # Tuist manifest(모듈 구성)가 목록($1, 줄마다 경로)에 있는지.
