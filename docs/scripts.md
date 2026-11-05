@@ -38,6 +38,7 @@ scripts/harness/build --generate         # 프로젝트를 다시 생성한 뒤 
 - 실패: 첫 에러부터 최대 5개를 `경로:줄:열: 메시지`로 보여주고, 로그와 결과 번들 경로를 붙인다.
   - 최대 개수는 `HARNESS_MAX_ERRORS`로 바꾼다.
   - 결과 번들에 에러가 없는 실패(인자 오류, 스크립트 단계 실패)는 로그의 에러 줄을 보여준다.
+- 결과 파일 `.harness/out/build.json`: `passed`, `summary`. 프로젝트 생성이 실패해도 `passed: false`로 남긴다. `checks.json`의 `run`에 `scripts/harness/passed build`로 쓴다.
 
 ## test
 

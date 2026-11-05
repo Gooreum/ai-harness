@@ -15,7 +15,7 @@ usage() {
   --scheme 스킴   앱 대신 이 스킴을 빌드한다
   --generate      변경이 없어도 프로젝트를 다시 생성한다 (Tuist·XcodeGen)
 
-산출물 (.harness/out/): build.log(원본 로그), build.xcresult(결과 번들)
+산출물 (.harness/out/): build.log(원본 로그), build.xcresult(결과 번들), build.json(passed, summary)
 EOF
 }
 
@@ -37,8 +37,17 @@ harness_destination
 scheme="${scheme:-$(cfg .app.scheme)}"
 [ -n "$scheme" ] || harness_die "설정에 app.scheme이 없습니다"
 
+# 결과 파일 .harness/out/build.json(passed, summary). checks.json의 run(scripts/harness/passed build)이 본다.
+record() { # passed summary
+  jq -n --argjson passed "$1" --arg summary "$2" '{passed: $passed, summary: $summary}' > "$out_dir/build.json"
+}
+rm -f "$out_dir/build.json"
+
 start=$SECONDS
-harness_ensure_generated "$force_generate" || exit 1
+if ! harness_ensure_generated "$force_generate"; then
+  record false "프로젝트 생성 실패"
+  exit 1
+fi
 
 log="$out_dir/build.log"
 result="$out_dir/build.xcresult"
@@ -63,10 +72,12 @@ if [ "$generated_now" = 1 ]; then note=" (generate 포함)"; fi
 
 if [ "$code" -eq 0 ]; then
   echo "✓ build $scheme · $destination_label · ${elapsed}s$note · 경고 $warnings"
+  record true "build $scheme 통과 · 경고 $warnings"
   exit 0
 fi
 
 echo "✗ build $scheme 실패 · 에러 $errors · 경고 $warnings · ${elapsed}s$note"
+record false "build $scheme 실패 · 에러 $errors"
 harness_print_build_errors "$json" "$log"
 harness_print_artifacts "$log" "$result"
 exit "$code"
