@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "harness-network": {
+      "command": "python3",
+      "args": ["${CLAUDE_PLUGIN_ROOT}/mcp/network.py"]
+    }
+  }
+}

@@ -56,6 +56,10 @@ if [ -d "$root/.maestro" ] && ! e2e_java_ok; then
   warn "Maestro가 쓸 Java가 없어 e2e를 돌릴 수 없다" "brew install openjdk@17 후 JAVA_HOME 지정"
 fi
 
+if [ -n "$(cfg .e2e.network.port)" ] && ! command -v python3 > /dev/null 2>&1; then
+  warn "python3가 없어 가짜 응답 서버(harness-network MCP)가 뜨지 않는다" "xcode-select --install"
+fi
+
 # --- 설정 파일 -------------------------------------------------------------------
 
 [ -n "$(cfg .app.scheme)" ] || problem ".harness/project.json에 app.scheme이 없다"
