@@ -290,7 +290,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `unit-test.test.sh` | test·unit-test의 공용 함수(실패 요약 등)와 unit-test의 실행 계획: 바뀐 파일 → 모듈 → 돌릴 테스트 |
 | `lint.test.sh` | 컨벤션 파일 검사, SwiftLint 설정 변환, 점수 판정, 주석·문자열 제외, 바뀐 파일 고르기 |
 | `lint-kinds.test.sh` | 규칙 종류 format(swift-format 설정·결과 거르기)과 dependency(모듈 그래프·숨은 import 판정, 위치, 언제 도는지, 규칙에 없는 모듈 알림) |
-| `e2e.test.sh` | Maestro JUnit 결과 읽기, 설치할 앱 찾기, 행동 로그 판정 |
+| `e2e.test.sh` | Maestro JUnit 결과 읽기, 설치할 앱 찾기, 행동 로그 판정, 서버 응답 판정 |
 | `network-mcp.test.sh` | 가짜 응답 MCP: 켠 프로젝트에서만 도구, 상태·지연·본문 응답, 구체적인 match 우선, 프로젝트끼리 독립 |
 | `wiki.test.sh` | 기록 찾기·검색 로그·형식 검사 |
 | `stage.test.sh` | 단계 지시 훅이 상태 파일이 바뀔 때만, 고른 검사의 지시만 넣는지 |

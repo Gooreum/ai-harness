@@ -126,6 +126,21 @@ cat > "$work/commands.json" <<'JSON'
 JSON
 assert_eq "window: 첫 명령 시작부터 마지막 명령 끝까지" '{"start":1000,"end":2300}' "$(e2e_flow_window "$work/commands.json" | jq -c .)"
 
+# --- e2e_check_network: 가짜 응답 서버 기록으로 판정 -------------------------------
+cat > "$work/req.ndjson" <<'LOG'
+{"ts": 1000, "method": "POST", "path": "api.x.com/v1/gen", "match": "POST api.x.com/v1", "status": 500}
+{"ts": 2000, "method": "POST", "path": "api.x.com/v1/gen", "match": null, "status": 404}
+{"ts": 5000, "method": "POST", "path": "api.x.com/v1/gen", "match": "POST api.x.com/v1", "status": 500}
+LOG
+echo '{"expect":[{"match":"POST api.x.com/v1","status":500}]}' > "$work/n.json"
+assert_eq "network: 구간 안에 기대 응답이 있으면 통과" "true|1" "$(e2e_check_network "$work/n.json" "$work/req.ndjson" 0 1500 | jq -r '"\(.passed)|\(.checks[0].actual)"')"
+assert_eq "network: 응답이 안 걸려 404만 있으면 실패" "false|POST api.x.com/v1/gen 404" "$(e2e_check_network "$work/n.json" "$work/req.ndjson" 1500 3000 | jq -r '"\(.passed)|\(.requests | join(","))"')"
+assert_eq "network: 서버 기록이 없으면 실패" "false" "$(e2e_check_network "$work/n.json" "$work/none.ndjson" 0 9000 | jq .passed)"
+echo '{"expect":[{"match":"POST api.x.com/v1","status":503}]}' > "$work/n2.json"
+assert_eq "network: 상태 코드가 다르면 실패" "false" "$(e2e_check_network "$work/n2.json" "$work/req.ndjson" 0 9000 | jq .passed)"
+echo '{}' > "$work/n3.json"
+assert_eq "network: expect가 없으면 실패" "false|network.json에 expect 목록이 없습니다" "$(e2e_check_network "$work/n3.json" "$work/req.ndjson" 0 9000 | jq -r '"\(.passed)|\(.error)"')"
+
 # --- 인자 ----------------------------------------------------------------------
 out="$("$e2e" --bogus 2>&1)" && code=0 || code=$?
 assert_eq "e2e: 알 수 없는 인자는 2" "2" "$code"
