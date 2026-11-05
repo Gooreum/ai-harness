@@ -22,7 +22,7 @@
   - 그래서 파일을 추가·삭제·이동하거나 manifest를 바꾸면 자동으로 다시 생성된다. 소스 내용만 바뀌었을 때는 건너뛴다.
   - 생성된 프로젝트 파일이 없으면 항상 생성한다. `--generate`를 주면 무조건 다시 생성한다.
   - Tuist가 생성 뒤 Xcode를 여는 동작은 `TUIST_GENERATE_OPEN=false`로 끈다.
-- **시뮬레이터**: 설정의 기기 이름과 OS로 UDID를 찾는다. 없으면 설치된 iPhone 목록을 보여주고 멈춘다.
+- **시뮬레이터**: 설정의 기기 이름과 OS로 UDID를 찾는다. 없으면 멈추지 않고 가장 최신 iOS 런타임의 iPhone(이름이 " Pro"로 끝나는 것 우선)을 쓰고 한 줄 알린다. Xcode가 바뀌어 옛 런타임과 기기가 사라져도 설정을 고치지 않아도 된다. iPhone 시뮬레이터가 하나도 없을 때만 멈춘다.
 - **Xcode 선택**: 선택된 Xcode(`xcode-select`)의 iOS 시뮬레이터 SDK에 맞는 런타임이 설치돼 있지 않으면, `/Applications/Xcode*.app` 중 런타임이 맞는 Xcode(SDK가 가장 높은 것)를 `DEVELOPER_DIR`로 쓰고 한 줄 알린다.
   - 새 Xcode를 받고 옛 런타임이 지워졌는데 `xcode-select`가 옛 Xcode에 남아 있으면 빌드가 "iOS 26.2 is not installed"로 막혔다(harness-log 2026-11-06). 사람이 시스템 설정을 바꾸지 않아도 되게 했다.
   - `DEVELOPER_DIR`이 이미 있으면 그대로 쓴다. 후보 위치는 `HARNESS_XCODE_GLOB`로 바꿀 수 있다.

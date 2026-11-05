@@ -39,8 +39,11 @@
 - 프로젝트·작업: IntervalTimer #10 재작업 e2e, ReadSharp `doctor`
 - 무슨 일이 있었나: Xcode 26.4.1이 설치되고 iOS 26.2 시뮬레이터 런타임이 지워졌는데 `xcode-select`는 Xcode 26.3(SDK 26.2)을 가리켰다. `build`가 "iOS 26.2 is not installed"로 실패했고, 설정의 iPhone 16 Pro도 사라져 `doctor`가 시뮬레이터 없음을 냈다. 에이전트는 실행할 때만 `DEVELOPER_DIR`을 지정해 넘어갔고, 사람에게 `sudo xcode-select`를 하라고 했다.
 - 원인: Execution. 스크립트가 선택된 Xcode만 썼고, 설치된 런타임과 맞는지 보지 않았다.
-- 조치: `lib.sh`의 `harness_init`이 선택된 Xcode의 SDK에 맞는 런타임이 없으면 런타임이 맞는 다른 Xcode를 `DEVELOPER_DIR`로 쓴다(`pick_xcode`, 테스트 4개). 시험장 시뮬레이터는 iPhone 17 Pro로 바꿨다(ReadSharp #237, IntervalTimer #31).
-- 상태: 반영됨 (0.9.5)
+- 조치
+  - `lib.sh`의 `harness_init`이 선택된 Xcode의 SDK에 맞는 런타임이 없으면 런타임이 맞는 다른 Xcode를 `DEVELOPER_DIR`로 쓴다(`pick_xcode`, 0.9.5).
+  - 설정의 시뮬레이터가 없으면 멈추지 않고 최신 런타임의 iPhone을 쓴다(`pick_fallback_simulator`, 0.9.6). `doctor`는 문제 대신 주의로 알린다. 사용자 말: "니가 xcode 구체 버전까지 알거 있어?" 사람도 하네스도 Xcode·기기 버전을 적어 둘 필요가 없게 했다.
+  - 시험장 시뮬레이터 이름은 iPhone 17 Pro로 바꿔 두었다(ReadSharp #237, IntervalTimer #31).
+- 상태: 반영됨 (0.9.5, 0.9.6)
 
 ### 2026-11-06 — IntervalTimer #10: e2e 영상과 시나리오에 이번 기능(리뷰 요청 창)이 없었고, 리뷰는 기존 흐름 영향을 보지 않았다
 - 프로젝트·작업: IntervalTimer #10 "운동 완료 후 만족 시점에 앱스토어 리뷰 요청"(plan, 검사 unit-test·lint·review·e2e)

@@ -52,7 +52,7 @@
 | `app.path` | 경로 또는 `null` | 앱 manifest가 있는 디렉터리(Tuist). 이 안의 파일은 앱의 변경으로 본다 |
 | `app.bundleId` | 문자열 또는 `null` | Debug 구성의 앱 번들 ID. 시뮬레이터에서 앱을 실행할 때 쓴다 |
 | `app.unitTestTargets` | 문자열 배열 | 앱이 바뀌었을 때 돌릴 단위 테스트 타깃. UI 테스트는 넣지 않는다 |
-| `destination.simulator` | 문자열 | 빌드·테스트에 쓸 시뮬레이터 기기 이름 |
+| `destination.simulator` | 문자열 | 빌드·테스트에 쓸 시뮬레이터 기기 이름. 없거나 설치돼 있지 않으면 최신 런타임의 iPhone을 쓴다 |
 | `destination.os` | `latest` 또는 버전 | 시뮬레이터 OS 버전 |
 | `modules` | 객체 또는 `null` | 모듈을 찾는 규칙. 모듈 구조가 없으면 `null`이다 |
 | `modules.manifest` | 파일 이름 | 이 파일이 있는 디렉터리를 모듈 하나로 본다 |

@@ -77,7 +77,7 @@ if [ -z "${HARNESS_OFFLINE:-}" ] && command -v xcrun > /dev/null 2>&1; then
   sim="$(cfg .destination.simulator)"
   os="$(cfg .destination.os)"
   if [ -n "$sim" ] && [ -z "$(xcrun simctl list devices available -j 2> /dev/null | pick_simulator "$sim" "${os:-latest}")" ]; then
-    problem "시뮬레이터 '$sim' (iOS ${os:-latest})가 없다" ".harness/project.json의 destination.simulator를 설치된 기기로 고친다"
+    warn "시뮬레이터 '$sim' (iOS ${os:-latest})가 없어 최신 런타임의 iPhone을 대신 쓴다" "그 기기를 꼭 써야 하면 Xcode > Settings > Components에서 런타임을 설치한다"
   fi
 fi
 
