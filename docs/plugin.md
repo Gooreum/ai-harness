@@ -14,12 +14,13 @@ plugin/
 ├── skills/
 │   └── task/SKILL.md               작업 시작: 모드·검사를 사용자에게 묻고 상태 파일을 만든다 (ios-harness:task)
 └── hooks/
-    ├── hooks.json                  훅 등록: 모든 도구 전 tool-count.sh, 편집 전 protect-generated.sh·check-run.sh, 편집 후 stage-context.sh, 끝낼 때 stop-gate.sh
+    ├── hooks.json                  훅 등록: 모든 도구 전 tool-count.sh, 편집 전 protect-generated.sh·check-run.sh, 편집 후 stage-context.sh, Read·SubagentHandback 후와 서브에이전트가 끝날 때 review-record.sh, 끝낼 때 stop-gate.sh
     ├── protect-generated.sh        생성 파일·pbxproj 편집 차단
     ├── check-run.sh                검증 단계를 넘기려 할 때 고른 검사의 run을 돌려, 실패하면 막는다
     ├── stop-gate.sh                작업 주인 세션이 done 전에 끝내지 못하게 막는다
     ├── tool-count.sh               작업 주인 세션의 도구 호출 수를 센다 (stop-gate.sh의 반복 방지용)
-    └── stage-context.sh            작업 상태 파일이 바뀌면 그 단계의 지시를 넣는다
+    ├── stage-context.sh            작업 상태 파일이 바뀌면 그 단계의 지시를 넣는다
+    └── review-record.sh            ios-reviewer가 연 파일과 보고서의 차단 수로 리뷰 결과 파일을 남긴다
 ```
 
 ## 훅: protect-generated.sh
@@ -72,7 +73,19 @@ plugin/
 - 출력
   - 발견이 없으면 한 줄만 쓴다.
   - 발견이 있으면 `[차단|권장|참고] 경로:줄 — 문제`, 근거, 제안을 세 줄로 쓰고 마지막에 요약 줄을 붙인다.
-  - 마지막에 "열어 본 파일·규칙"을 적는다. 검토 순서를 지켰는지 확인하기 위해서다.
+  - 마지막에 "열어 본 파일·규칙"을 적는다. 사람이 읽기 위한 줄이고, 판정에는 쓰지 않는다.
+
+## 훅: review-record.sh ([ADR 0016](decisions/0016-review-record.md))
+
+리뷰어를 실제로 불렀는지, 바뀐 파일을 다 열었는지를 리뷰어의 말이 아니라 훅 입력으로 확인한다.
+
+- PostToolUse(Read): 입력에 `agent_id`가 있고 `agent_type`이 `ios-reviewer`(플러그인에서는 `ios-harness:ios-reviewer`)면 연 파일을 `.harness/state/review-<agent_id>.reads`에 적는다. 메인 세션과 다른 서브에이전트의 Read는 적지 않는다.
+- PostToolUse(SubagentHandback): 백그라운드로 돈 리뷰어는 보고서를 이 도구로 넘긴다. 그 `message`를 `.harness/state/review-<agent_id>.report`에 둔다.
+- SubagentStop: 그 리뷰어가 끝나면 `.harness/out/review.json`을 쓴다. 보고서는 `last_assistant_message`에서 읽고, 요약 줄이 없으면 위에서 둔 것을 쓴다.
+  - `passed`: 바뀐 파일(unit-test와 같은 기준, 지운 파일·이미지 같은 바이너리 제외)을 모두 열었고, 보고서의 `요약 · 차단 N`이 0이거나 `발견 없음`
+  - `missing`(열지 않은 바뀐 파일), `blocking`(차단 수), `read`, `changed`, `summary`
+- `checks.json`의 `review`에 `"run": "scripts/harness/passed review"`를 두면 검증 단계를 넘길 때 확인된다. 리뷰 뒤에 파일을 고치면 결과가 오래된 것이 되어 리뷰를 다시 맡겨야 한다.
+- 이 훅이 증명하는 것은 "불렀고, 바뀐 파일을 열었고, 차단이 0이라고 보고했다"까지다. 리뷰를 잘했는지는 증명하지 않는다(로드맵 후보 17).
 - 언제 쓰나: PR을 만들기 전, 또는 사용자가 리뷰를 요청할 때. 프로젝트 AGENTS.md의 관리 블록에 안내가 있다.
 
 ## 프로젝트에서 켜기

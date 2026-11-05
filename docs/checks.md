@@ -41,7 +41,8 @@
   },
   "checks": [
     { "name": "lint", "description": "팀 컨벤션 검사", "prompt": "scripts/harness/lint를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed lint" },
-    { "name": "unit-test", "description": "앱 빌드와 단위 테스트", "prompt": "scripts/harness/unit-test를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed unit-test" }
+    { "name": "unit-test", "description": "앱 빌드와 단위 테스트", "prompt": "scripts/harness/unit-test를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed unit-test" },
+    { "name": "review", "description": "ios-reviewer 코드 리뷰", "prompt": "ios-harness:ios-reviewer 서브에이전트에 변경 검토를 맡기고 차단 항목을 고친다. 고친 뒤에는 다시 맡긴다", "run": "scripts/harness/passed review" }
   ]
 }
 ```
@@ -69,7 +70,8 @@
 
 - 에이전트가 `stage`를 verify 이전·verify에서 finish·done으로 바꾸려 하면, PreToolUse 훅 `check-run.sh`가 고른 검사의 `run`을 프로젝트 루트에서 실행한다.
 - 하나라도 0이 아니면 편집을 막는다. 실패한 검사, run, 출력 앞부분을 이유로 전한다. 에이전트는 고치고 다시 실행한 뒤 넘어간다.
-- `run`이 없는 검사(리뷰 등)는 돌리지 않는다. 고른 검사가 없으면 막지 않는다.
+- `run`이 없는 검사는 돌리지 않는다. 고른 검사가 없으면 막지 않는다.
+- 리뷰의 결과 파일 `.harness/out/review.json`은 리뷰어가 아니라 플러그인 훅 `review-record.sh`가 쓴다. 리뷰어가 바뀐 파일을 Read로 다 열었고 차단이 0이어야 통과다([plugin.md](plugin.md), [ADR 0016](decisions/0016-review-record.md)).
 - 고른 검사가 `checks.json`에 없으면(이름이 바뀌었거나 오타) 막는다. 건너뛰면 검사 없이 통과로 보이기 때문이다.
 - run은 결과 파일을 본다. `scripts/harness/passed <검사>`를 쓴다: `.harness/out/<검사>.json`의 `passed`가 참이고 결과가 최신이어야 통과다.
   - 최신이 아니라는 것은 이번 작업을 시작하기 전 결과이거나(`.harness/state/task.started`), 그 뒤에 고친 파일이 있다는 뜻이다. 기준은 ai-bouncer의 `bouncer passed`와 같다.

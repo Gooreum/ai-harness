@@ -255,12 +255,13 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | 파일 | 계층 | 역할 |
 |---|---|---|
 | `.claude-plugin/plugin.json` | — | 플러그인 이름(`ios-harness`)과 버전 |
-| `hooks/hooks.json` | Enforcement + Context | 모든 도구 전에 `tool-count.sh`, 편집 직전에 `protect-generated.sh`·`check-run.sh`, 편집 직후에 `stage-context.sh`, 끝낼 때 `stop-gate.sh`를 실행하도록 등록 |
+| `hooks/hooks.json` | Enforcement + Context | 모든 도구 전에 `tool-count.sh`, 편집 직전에 `protect-generated.sh`·`check-run.sh`, 편집 직후에 `stage-context.sh`, Read 직후·서브에이전트가 끝날 때 `review-record.sh`, 끝낼 때 `stop-gate.sh`를 실행하도록 등록 |
 | `hooks/protect-generated.sh` | Enforcement | 생성 파일·pbxproj 편집을 막는 훅 |
 | `hooks/check-run.sh` | Enforcement + Validation | 검증 단계를 넘기려 할 때 고른 검사의 `run`을 돌려 실패하면 막는 훅 |
 | `hooks/stop-gate.sh` | Enforcement | 작업 주인 세션이 done 전에 끝내지 못하게 막는 훅 (반복 방지는 ai-bouncer와 같다. 백그라운드 서브에이전트를 기다리는 동안은 막지 않는다) |
 | `hooks/tool-count.sh` | State | 작업 주인 세션의 도구 호출 수를 세는 훅 (stop-gate.sh가 쓴다) |
 | `hooks/stage-context.sh` | Context | 작업 상태 파일(`.harness/state/task.json`)이 바뀌면 그 단계의 지시를 `.harness/checks.json`에서 꺼내 넣는 훅 |
+| `hooks/review-record.sh` | Validation | ios-reviewer가 Read로 연 파일과 보고서의 차단 수로 `.harness/out/review.json`을 남기는 훅. `passed review`가 이 파일을 본다 |
 | `skills/task/SKILL.md` | State | 작업 시작: 계획 여부(plan/simple)와 검사를 사용자에게 묻고 상태 파일을 만든다 |
 | `agents/ios-reviewer.md` | Validation (추론적) | 읽기 전용 리뷰 서브에이전트의 지시문 |
 
@@ -284,6 +285,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `lib.sh` | `assert_eq`, `finish` 같은 테스트 도우미 |
 | `detect.test.sh` | 생성기(Tuist·XcodeGen·xcodeproj·SPM)별로 detect가 만든 초안 |
 | `build.test.sh` | build가 쓰는 공용 함수: 시뮬레이터 선택, 에러 요약 형식, 다시 생성할지 판단 |
+| `review-record.test.sh` | 리뷰 기록 훅: ios-reviewer의 Read만 적기, 안 연 파일·차단 수로 판정, `passed review`의 최신 판정 |
 | `unit-test.test.sh` | test·unit-test의 공용 함수(실패 요약 등)와 unit-test의 실행 계획: 바뀐 파일 → 모듈 → 돌릴 테스트 |
 | `lint.test.sh` | 컨벤션 파일 검사, SwiftLint 설정 변환, 점수 판정, 주석·문자열 제외, 바뀐 파일 고르기 |
 | `lint-kinds.test.sh` | 규칙 종류 format(swift-format 설정·결과 거르기)과 dependency(모듈 그래프·숨은 import 판정, 위치, 언제 도는지, 규칙에 없는 모듈 알림) |
@@ -318,6 +320,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `decisions/0006-convention-lint.md` | 컨벤션 목록을 JSON으로 두고 SwiftLint와 점수로 판정하는 이유 |
 | `decisions/0014-layer-format-rules.md` | 모듈 의존은 tuist graph로, 형식은 swift-format으로 검사하는 이유 |
 | `decisions/0015-implicit-imports.md` | 의존 목록에 없는 import도 모듈 의존 검사에 넣는 이유 |
+| `decisions/0016-review-record.md` | 리뷰를 했는지 리뷰어의 말이 아니라 훅 기록으로 확인하는 이유 |
 | `decisions/0009-e2e-maestro.md` | 동작 확인을 Maestro 시나리오 파일과 e2e 스크립트로 하는 이유와 첫 시나리오에서 겪은 실패 |
 | `decisions/0010-e2e-events.md` | 시나리오가 끝난 뒤 행동 로그(이벤트·횟수·값·업로드)를 판정하는 방식과 Firebase 로그를 읽는 근거 |
 | `decisions/0008-wiki.md` | 정책·결정 기록을 프로젝트 안 파일과 검색 스크립트로 시작한 이유와 비교 결과 |
