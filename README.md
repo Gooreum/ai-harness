@@ -386,6 +386,6 @@ claude plugin validate plugin
 - 후보 10 일부: Maestro E2E(`e2e`, 작성 규칙, 회귀 묶음, 녹화, 행동 로그 판정). 서버 응답 조작(가짜 응답 MCP). 화면 검증은 Figma 시안이 없어 미룸
 - 후보 13 완료: 검증 강제(`check-run.sh`, Stop 게이트)
 - 후보 20: 모듈 의존(`tuist graph`·`tuist inspect implicit-imports`)·형식(swift-format) 검사. 빌드·Tuist 절차 스킬과 후보 18은 뺐다
-- 다음: 평가. Codex 어댑터는 뺐다. 기준은 [ADR 0005](docs/decisions/0005-talk-criteria.md)에 있다
+- 남은 단위 없음: 평가·Codex 어댑터는 뺐다. 화면 검증은 Figma 시안이 생기면 한다. 기준은 [ADR 0005](docs/decisions/0005-talk-criteria.md)에 있다
 
 자세한 내용은 [docs/roadmap.md](docs/roadmap.md)에 있다. 이 저장소에 기여하는 방법(브랜치, 커밋 규칙)은 [AGENTS.md](AGENTS.md)에 있다.
