@@ -7,7 +7,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
-export HARNESS_OFFLINE=1 HARNESS_SIMULATOR="iPhone Test"
+export HARNESS_OFFLINE=1
 version="$(jq -r .version "$here/../plugin/.claude-plugin/plugin.json")"
 
 p="$work/app"

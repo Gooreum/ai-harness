@@ -121,23 +121,26 @@ pick_simulator() {
     | sort_by(.ver | split(".") | map(tonumber)) | last | .udid // empty'
 }
 
-# 적은 기기가 없을 때 쓸 시뮬레이터: 가장 최신 iOS 런타임의 iPhone 중 이름이 " Pro"로 끝나는 것, 없으면 첫 iPhone.
+# 설치된 시뮬레이터 중 가장 최신 iOS 런타임의 iPhone: 번호가 가장 큰 "iPhone N Pro", 없으면 이름순 첫 iPhone.
 # 출력은 "<udid> <이름>". 없으면 빈 값.
-pick_fallback_simulator() {
+pick_latest_iphone() {
   jq -r '
     [ .devices | to_entries[]
       | select(.key | test("SimRuntime\\.iOS-[0-9]+-[0-9]+"))
       | (.key | capture("iOS-(?<a>[0-9]+)-(?<b>[0-9]+)") | [(.a|tonumber), (.b|tonumber)]) as $ver
-      | .value[] | select(.name | startswith("iPhone")) | { udid, name, ver: $ver, pro: (.name | endswith(" Pro")) } ]
+      | .value[] | select(.name | startswith("iPhone")) | { udid, name, ver: $ver } ]
     | (map(.ver) | max) as $v | map(select(.ver == $v)) as $latest
-    | (($latest | map(select(.pro)) | sort_by(.name) | first) // ($latest | sort_by(.name) | first))
+    | (($latest | map(select(.name | test("^iPhone [0-9]+ Pro$")))
+        | sort_by(.name | capture("(?<n>[0-9]+)").n | tonumber) | last)
+       // ($latest | sort_by(.name) | first))
     | if . then "\(.udid) \(.name)" else empty end'
 }
 
-# 설정의 시뮬레이터로 -destination 값을 만든다.
-# Xcode가 바뀌어 적은 기기·OS가 없어지면 멈추지 않고 최신 런타임의 iPhone을 쓰고 한 줄 알린다(harness-log 2026-11-06).
+# 빌드·테스트에 쓸 시뮬레이터로 -destination 값을 만든다.
+# 기본은 설치된 최신 iPhone이다. 기기 이름·버전을 설정에 적어 두지 않는다(Xcode가 바뀌면 사라진다, harness-log 2026-11-06).
+# 설정에 destination.simulator가 있으면 그 기기를 쓰고, 설치돼 있지 않으면 최신 iPhone을 쓰고 한 줄 알린다.
 harness_destination() {
-  local name os json udid fallback
+  local name os json udid latest
   name="$(cfg .destination.simulator)"
   os="$(cfg .destination.os)"
   os="${os:-latest}"
@@ -145,11 +148,11 @@ harness_destination() {
   udid=""
   [ -z "$name" ] || udid="$(printf '%s' "$json" | pick_simulator "$name" "$os")"
   if [ -z "$udid" ]; then
-    fallback="$(printf '%s' "$json" | pick_fallback_simulator)"
-    [ -n "$fallback" ] || harness_die "사용할 수 있는 iPhone 시뮬레이터가 없습니다. Xcode > Settings > Components에서 iOS 시뮬레이터를 설치하세요"
-    udid="${fallback%% *}"
-    [ -z "$name" ] || echo "harness: 시뮬레이터 '$name' (iOS $os)가 없어 ${fallback#* }을 씁니다" >&2
-    name="${fallback#* }"
+    latest="$(printf '%s' "$json" | pick_latest_iphone)"
+    [ -n "$latest" ] || harness_die "사용할 수 있는 iPhone 시뮬레이터가 없습니다. Xcode > Settings > Components에서 iOS 시뮬레이터를 설치하세요"
+    udid="${latest%% *}"
+    [ -z "$name" ] || echo "harness: 설정의 시뮬레이터 '$name' (iOS $os)가 없어 ${latest#* }을 씁니다" >&2
+    name="${latest#* }"
   fi
   destination="id=$udid"
   destination_label="$name"

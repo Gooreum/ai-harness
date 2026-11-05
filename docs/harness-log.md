@@ -41,9 +41,10 @@
 - 원인: Execution. 스크립트가 선택된 Xcode만 썼고, 설치된 런타임과 맞는지 보지 않았다.
 - 조치
   - `lib.sh`의 `harness_init`이 선택된 Xcode의 SDK에 맞는 런타임이 없으면 런타임이 맞는 다른 Xcode를 `DEVELOPER_DIR`로 쓴다(`pick_xcode`, 0.9.5).
-  - 설정의 시뮬레이터가 없으면 멈추지 않고 최신 런타임의 iPhone을 쓴다(`pick_fallback_simulator`, 0.9.6). `doctor`는 문제 대신 주의로 알린다. 사용자 말: "니가 xcode 구체 버전까지 알거 있어?" 사람도 하네스도 Xcode·기기 버전을 적어 둘 필요가 없게 했다.
+  - 설정의 시뮬레이터가 없으면 멈추지 않고 최신 런타임의 iPhone을 쓴다(0.9.6). `doctor`는 문제 대신 주의로 알린다.
+  - 근본 원인은 `detect`가 설치 시점의 최신 iPhone 이름을 `project.json`에 적어 커밋한 것이다. 그 저장소를 받는 모든 사람과 모든 Xcode가 그 기기로 고정된다. 사용자 말: "하네스가 그런 구체적인걸 왜 알고 있어야 하는데", "다른 사람들도 받으면 디폴트 값으로 들어가는거 아냐". `detect`가 시뮬레이터를 적지 않고, 실행할 때마다 설치된 최신 iPhone을 고르게 했다(`pick_latest_iphone`, 0.9.7). 시험장 설정에서도 지웠다.
   - 시험장 시뮬레이터 이름은 iPhone 17 Pro로 바꿔 두었다(ReadSharp #237, IntervalTimer #31).
-- 상태: 반영됨 (0.9.5, 0.9.6)
+- 상태: 반영됨 (0.9.5, 0.9.6, 0.9.7)
 
 ### 2026-11-06 — IntervalTimer #10: e2e 영상과 시나리오에 이번 기능(리뷰 요청 창)이 없었고, 리뷰는 기존 흐름 영향을 보지 않았다
 - 프로젝트·작업: IntervalTimer #10 "운동 완료 후 만족 시점에 앱스토어 리뷰 요청"(plan, 검사 unit-test·lint·review·e2e)

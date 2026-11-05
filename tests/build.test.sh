@@ -19,13 +19,13 @@ assert_eq "simulator: OS 버전 지정" "OLD" "$(printf '%s' "$simctl" | pick_si
 assert_eq "simulator: 주 버전만 지정" "NEW" "$(printf '%s' "$simctl" | pick_simulator "iPhone 17 Pro" 26)"
 assert_eq "simulator: 없는 이름은 빈 값" "" "$(printf '%s' "$simctl" | pick_simulator "iPhone 99" latest)"
 
-# --- pick_fallback_simulator --------------------------------------------------------
+# --- pick_latest_iphone ----------------------------------------------------------
 fb='{"devices":{
   "com.apple.CoreSimulator.SimRuntime.iOS-26-2":[{"name":"iPhone 16 Pro","udid":"OLD"}],
   "com.apple.CoreSimulator.SimRuntime.iOS-26-4":[{"name":"iPhone 17","udid":"P"},{"name":"iPhone 17 Pro Max","udid":"M"},{"name":"iPhone 17 Pro","udid":"PRO"},{"name":"iPad Pro","udid":"IPAD"}]}}'
-assert_eq "fallback: 최신 런타임의 iPhone Pro" "PRO iPhone 17 Pro" "$(printf '%s' "$fb" | pick_fallback_simulator)"
-assert_eq "fallback: Pro가 없으면 첫 iPhone" "P iPhone 17" "$(printf '%s' '{"devices":{"com.apple.CoreSimulator.SimRuntime.iOS-26-4":[{"name":"iPhone 17","udid":"P"}]}}' | pick_fallback_simulator)"
-assert_eq "fallback: iPhone이 없으면 빈 값" "" "$(printf '%s' '{"devices":{"com.apple.CoreSimulator.SimRuntime.iOS-26-4":[{"name":"iPad Pro","udid":"I"}]}}' | pick_fallback_simulator)"
+assert_eq "latest: 최신 런타임의 번호가 가장 큰 Pro" "PRO iPhone 17 Pro" "$(printf '%s' "$fb" | pick_latest_iphone)"
+assert_eq "latest: Pro가 없으면 첫 iPhone" "P iPhone 17" "$(printf '%s' '{"devices":{"com.apple.CoreSimulator.SimRuntime.iOS-26-4":[{"name":"iPhone 17","udid":"P"}]}}' | pick_latest_iphone)"
+assert_eq "latest: iPhone이 없으면 빈 값" "" "$(printf '%s' '{"devices":{"com.apple.CoreSimulator.SimRuntime.iOS-26-4":[{"name":"iPad Pro","udid":"I"}]}}' | pick_latest_iphone)"
 
 # --- pick_xcode -----------------------------------------------------------------
 cands="/A/Developer 26.2"$'\n'"/B/Developer 26.4"$'\n'"/C/Developer 26.5.1"$'\n'

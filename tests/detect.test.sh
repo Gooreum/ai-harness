@@ -9,7 +9,6 @@ work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
 export HARNESS_OFFLINE=1
-export HARNESS_SIMULATOR="iPhone Test"
 
 run_detect() { "$detect" "$@" 2>/dev/null; }
 field() { printf '%s' "$1" | jq -c "$2"; }
@@ -59,7 +58,7 @@ assert_eq "tuist: 앱 경로" '"App"' "$(field "$out" .app.path)"
 assert_eq "tuist: 생성 전에는 앱 디렉터리 이름으로 스킴 추정" '"App"' "$(field "$out" .app.scheme)"
 assert_eq "tuist: 생성 전에는 번들 ID 없음" 'null' "$(field "$out" .app.bundleId)"
 assert_eq "tuist: 모듈 규칙" '{"manifest":"Project.swift","scheme":"{dir}","testsDir":"Tests"}' "$(field "$out" .modules)"
-assert_eq "tuist: 시뮬레이터는 HARNESS_SIMULATOR" '"iPhone Test"' "$(field "$out" .destination.simulator)"
+assert_eq "tuist: 시뮬레이터는 적지 않는다" 'null' "$(field "$out" .destination)"
 
 # --- Tuist (Tuist/Config.swift + Makefile install) ----------------------------
 p="$work/tuist-config"

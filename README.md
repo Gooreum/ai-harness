@@ -23,7 +23,7 @@ AI 코딩 에이전트(Claude Code, Codex 등)는 iOS 프로젝트에서 자주 
 | 용어 | 뜻 |
 |---|---|
 | 대상 프로젝트 | 하네스를 설치해서 쓰는 iOS 앱 저장소. 예: MotoTrace |
-| 프로젝트 설정 파일 | 대상 프로젝트의 `.harness/project.json`. 스킴, 시뮬레이터, 생성 명령처럼 프로젝트마다 다른 값을 모아 둔 JSON |
+| 프로젝트 설정 파일 | 대상 프로젝트의 `.harness/project.json`. 스킴, 생성 명령처럼 프로젝트마다 다른 값을 모아 둔 JSON. 시뮬레이터는 적지 않고 실행할 때 설치된 최신 iPhone을 고른다 |
 | AGENTS.md | 에이전트가 세션을 시작할 때 읽는 지침 파일. Claude Code는 `CLAUDE.md`가 `@AGENTS.md`로 불러와야 읽는다 |
 | 경로 규칙 | `.claude/rules/` 아래의 마크다운 규칙. 머리말의 `paths:`와 맞는 파일을 에이전트가 읽을 때만 컨텍스트에 들어온다. 예: `.swift` 파일을 열면 `swift.md`가 함께 들어온다 |
 | 훅 | 에이전트가 도구를 쓰기 직전·직후에 Claude Code가 실행하는 스크립트. 여기서는 파일 편집 직전에 실행돼 금지된 파일이면 막는다 |
@@ -82,7 +82,7 @@ scripts/sync ~/path/to/MyApp     # 하네스를 고친 뒤 갱신
 ```
 
 1. `.harness/project.json`이 없으면 `scripts/detect`가 프로젝트를 훑어 초안을 만든다.
-   - 생성기 종류(Tuist / XcodeGen / xcodeproj / SPM), 워크스페이스, 앱 스킴, bundle ID, 단위 테스트 타깃, 시뮬레이터, 모듈 구조를 찾는다.
+   - 생성기 종류(Tuist / XcodeGen / xcodeproj / SPM), 워크스페이스, 앱 스킴, bundle ID, 단위 테스트 타깃, 모듈 구조를 찾는다. 시뮬레이터는 적지 않는다(커밋되면 다른 사람과 다른 Xcode에서도 그 기기로 고정된다).
 2. `template/`의 파일을 프로젝트에 맞춘다.
    - `scripts/harness/`, `.claude/rules/harness/`, `.harness/.gitignore`는 template과 똑같이 맞춘다. template에서 사라진 하네스 규칙은 지운다.
    - `AGENTS.md`는 하네스 관리 블록만 넣거나 바꾼다. 프로젝트가 쓴 부분은 건드리지 않는다.
