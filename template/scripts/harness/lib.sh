@@ -75,18 +75,45 @@ harness_derived_data_path() {
   echo "$HOME/Library/Developer/Xcode/DerivedData/$(basename "$1")-harness-$(printf '%s' "$1" | shasum -a 256 | cut -c1-8)"
 }
 
-# 바뀐 파일 목록(루트 기준 경로, 한 줄에 하나). unit-test·lint가 같은 기준을 쓴다.
-# 인자가 없으면 커밋하지 않은 변경(HEAD 대비 수정 + 새 파일), $1이 있으면 그 브랜치에서 갈라진 뒤의 모든 변경.
+# 진행 중인 작업(task.json의 stage가 done이 아님)을 시작한 커밋. 없으면 빈 값.
+# 시작 커밋은 단계 훅(stage-context.sh)이 새 작업을 시작할 때 .harness/state/task.base에 적는다(ai-bouncer의 base_sha).
+harness_task_base() {
+  local stage sha
+  [ -f "$state_dir/task.json" ] && [ -f "$state_dir/task.base" ] || return 0
+  stage="$(jq -r '.stage // ""' "$state_dir/task.json" 2>/dev/null)" || return 0
+  [ -n "$stage" ] && [ "$stage" != done ] || return 0
+  sha="$(cat "$state_dir/task.base")"
+  git -C "$root" cat-file -e "$sha^{commit}" 2>/dev/null && printf '%s\n' "$sha"
+  return 0
+}
+
+# 파일($1)의 수정 시각(초)
+harness_mtime() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null; }
+
+# 바뀐 파일 목록(루트 기준 경로, 한 줄에 하나). unit-test·lint·passed가 같은 기준을 쓴다.
+# $1이 있으면 그 브랜치에서 갈라진 뒤의 모든 변경.
+# 없으면, 작업 중이면 작업을 시작한 커밋 이후의 변경(작업 중에 커밋해도 빠지지 않는다)과, 추적 안 된 파일 중
+# 작업을 시작한 뒤에 고친 것. 작업 중이 아니면 커밋하지 않은 변경(HEAD 대비 수정 + 새 파일).
 # 하네스 산출물(.harness/)은 뺀다. 지운 파일도 목록에 남으므로 필요하면 호출한 쪽에서 거른다.
 harness_changed_files() {
-  local base="${1:-}" merge_base=""
+  local base="${1:-}" from="HEAD" started=""
   if [ -n "$base" ]; then
-    merge_base="$(git -C "$root" merge-base "$base" HEAD 2>/dev/null)" \
+    from="$(git -C "$root" merge-base "$base" HEAD 2>/dev/null)" \
       || harness_die "--base $base: 기준 커밋을 찾지 못했습니다"
+  else
+    base="$(harness_task_base)"
+    if [ -n "$base" ]; then
+      from="$base"
+      [ -f "$state_dir/task.started" ] && started="$(harness_mtime "$state_dir/task.started")"
+    fi
   fi
   (cd "$root" && {
-      if [ -n "$merge_base" ]; then git diff --name-only "$merge_base"; else git diff --name-only HEAD; fi
-      git ls-files -o --exclude-standard
+      git diff --name-only "$from"
+      git ls-files -o --exclude-standard | while IFS= read -r f; do
+        # 작업 전부터 있던 추적 안 된 파일은 이번 작업의 변경이 아니다.
+        if [ -n "$started" ] && [ "$(harness_mtime "$f")" -lt "$started" ]; then continue; fi
+        printf '%s\n' "$f"
+      done
     } | { grep -v '^\.harness/' || true; } | LC_ALL=C sort -u)
 }
 

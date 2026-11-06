@@ -37,13 +37,19 @@ emit() {
 [ -f "$file" ] || exit 0
 session="$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null)"
 [ -z "$session" ] || printf '%s\n' "$session" > "$root/.harness/state/task.owner" 2>/dev/null || true
-# 작업을 시작한 시각. 새 작업(제목·모드가 바뀜)이면 다시 적는다. scripts/harness/passed가 이보다 오래된 결과를 거절한다
-# (ai-bouncer의 .started와 같다).
-id="$(jq -r '"\(.title // "")|\(.mode // "")"' "$file" 2>/dev/null)" || id=""
-started="$root/.harness/state/task.started"
-if [ -n "$id" ] && { [ ! -f "$started" ] || [ "$(cat "$started" 2>/dev/null)" != "$id" ]; }; then
-  printf '%s\n' "$id" > "$started" 2>/dev/null || true
+# 새 작업을 시작하면 시작 시각(task.started의 수정 시각)과 시작 커밋(task.base)을 적는다.
+# scripts/harness/passed는 시작 전 결과를 거절하고, 바뀐 파일을 시작 커밋부터 본다(ai-bouncer start의 .started·base_sha).
+# 새 작업인지는 지난번에 본 단계(task.seen)로 정한다: 본 적이 없거나 done이었는데 지금은 done이 아니면 새 작업이다.
+# 제목으로 구분하면 같은 제목으로 다시 시작한 작업이 지난 결과로 통과한다.
+stage_now="$(jq -r '.stage // ""' "$file" 2>/dev/null)" || stage_now=""
+seen_file="$root/.harness/state/task.seen"
+seen="$(cat "$seen_file" 2>/dev/null || true)"
+if [ -n "$stage_now" ] && [ "$stage_now" != done ] && { [ -z "$seen" ] || [ "$seen" = done ]; }; then
+  date -u +%FT%TZ > "$root/.harness/state/task.started" 2>/dev/null || true
+  git -C "$root" rev-parse --verify -q HEAD > "$root/.harness/state/task.base" 2>/dev/null \
+    || rm -f "$root/.harness/state/task.base"
 fi
+[ -z "$stage_now" ] || printf '%s\n' "$stage_now" > "$seen_file" 2>/dev/null || true
 jq -e . "$file" >/dev/null 2>&1 || emit "[하네스] .harness/state/task.json이 JSON 형식이 아닙니다. 고쳐서 다시 저장하세요."
 checks="$root/.harness/checks.json"
 if [ -f "$checks" ]; then

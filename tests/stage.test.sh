@@ -68,15 +68,27 @@ assert_eq "owner: 고친 세션을 주인으로 적는다" "s-1" "$(cat "$p/.har
 jq -n --arg f "$p/.harness/state/task.json" '{session_id: "s-2", cwd: "/", tool_input: {file_path: $f}}' | "$hook" > /dev/null
 assert_eq "owner: 다른 세션이 다시 저장하면 그 세션이 이어받는다" "s-2" "$(cat "$p/.harness/state/task.owner")"
 
-# 작업 시작 표시: 새 작업(제목·모드)일 때만 다시 적는다 (scripts/harness/passed가 읽는다)
-sfile="$p/.harness/state/task.started"; rm -f "$sfile"
+# 작업 시작 표시: 새 작업일 때만 시각과 시작 커밋을 다시 적는다 (scripts/harness/passed가 읽는다)
+sfile="$p/.harness/state/task.started"; bfile="$p/.harness/state/task.base"
+rm -f "$sfile" "$bfile" "$p/.harness/state/task.seen"
+(cd "$p" && git init -q -b main && git -c user.name=t -c user.email=t@t commit -q --allow-empty -m init)
+head1="$(git -C "$p" rev-parse HEAD)"
 ctx '{"title":"A","mode":"simple","stage":"implement"}' > /dev/null
-assert_eq "started: 작업을 시작하면 적는다" "A|simple" "$(cat "$sfile")"
+assert_eq "started: 작업을 시작하면 적는다" "yes" "$([ -f "$sfile" ] && echo yes || echo no)"
+assert_eq "base: 시작 커밋을 적는다" "$head1" "$(cat "$bfile")"
 touch -t 202601010000 "$sfile"
+(cd "$p" && git -c user.name=t -c user.email=t@t commit -q --allow-empty -m mid)
 ctx '{"title":"A","mode":"simple","stage":"verify"}' > /dev/null
 assert_eq "started: 단계만 바뀌면 그대로 둔다" "202601010000" "$(stat -f %Sm -t %Y%m%d%H%M "$sfile")"
+assert_eq "base: 작업 중 커밋해도 그대로 둔다" "$head1" "$(cat "$bfile")"
 ctx '{"title":"B","mode":"simple","stage":"implement"}' > /dev/null
-assert_eq "started: 새 작업이면 다시 적는다" "B|simple" "$(cat "$sfile")"
+assert_eq "started: 끝나지 않은 작업은 제목이 바뀌어도 이어서 본다" "202601010000" "$(stat -f %Sm -t %Y%m%d%H%M "$sfile")"
+ctx '{"title":"A","mode":"simple","stage":"done"}' > /dev/null
+assert_eq "started: done이 돼도 그대로 둔다" "202601010000" "$(stat -f %Sm -t %Y%m%d%H%M "$sfile")"
+ctx '{"title":"A","mode":"simple","stage":"implement"}' > /dev/null
+assert_eq "started: 끝난 뒤 같은 제목으로 다시 시작해도 새로 적는다" "no" "$([ "$(stat -f %Sm -t %Y%m%d%H%M "$sfile")" = 202601010000 ] && echo yes || echo no)"
+assert_eq "base: 새 작업이면 지금 커밋을 적는다" "$(git -C "$p" rev-parse HEAD)" "$(cat "$bfile")"
+rm -rf "$p/.git"
 
 rm "$p/.harness/checks.json"
 out="$(ctx '{"title":"x","mode":"simple","stage":"verify","checks":["lint"]}')"

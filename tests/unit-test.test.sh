@@ -115,6 +115,18 @@ assert_eq "plan: --all은 변경과 상관없이 전체" "· unit-test 계획 ·
 assert_eq "plan: 커밋한 변경은 기본으로는 보지 않는다" "✓ unit-test · 바뀐 파일 없음" "$(plan)"
 assert_eq "plan: --base로 브랜치의 모든 변경을 본다" "  test FeatureA (FeatureA)" "$(plan --base main | sed -n 3p)"
 
+# 작업 중이면(task.json의 stage가 done이 아님) 작업을 시작한 커밋부터 본다
+mkdir -p "$p/.harness/state"
+git -C "$p" rev-parse main > "$p/.harness/state/task.base"
+echo '{"stage":"verify"}' > "$p/.harness/state/task.json"
+assert_eq "plan: 작업 중이면 작업 중에 커밋한 변경도 본다" "  test FeatureA (FeatureA)" "$(plan | sed -n 3p)"
+echo '// old' > "$p/Modules/CoreB/Sources/Old.swift"; touch -t 202601010000 "$p/Modules/CoreB/Sources/Old.swift"
+touch "$p/.harness/state/task.started"
+assert_eq "plan: 작업 전부터 있던 추적 안 된 파일은 빼고 본다" "· unit-test 계획 · 바뀐 파일 1개" "$(plan | sed -n 1p)"
+echo '{"stage":"done"}' > "$p/.harness/state/task.json"
+assert_eq "plan: 작업이 끝났으면 커밋하지 않은 변경만 본다" "  건너뜀 (테스트 없음): CoreB" "$(plan | sed -n 3p)"
+rm -rf "$p/.harness/state" "$p/Modules/CoreB/Sources/Old.swift"
+
 # --- unit-test --plan (모듈 구조가 없는 xcodeproj 앱) --------------------------------
 p="$work/xcodeproj"
 mkdir -p "$p/.harness" "$p/App"
