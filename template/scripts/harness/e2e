@@ -75,7 +75,7 @@ while read -r cand_udid cand_name; do
   [ -n "$cand_udid" ] || continue
   if harness_claim_simulator "$cand_udid"; then
     claimed="$cand_udid"
-    [ "$cand_udid" = "$udid" ] || echo "· e2e · $destination_label을 다른 워크트리(${sim_busy_owner})가 쓰고 있어 $cand_name을 씁니다" >&2
+    [ "$cand_udid" = "$udid" ] || echo "· e2e · ${destination_label}을 다른 워크트리(${sim_busy_owner})가 쓰고 있어 ${cand_name}을 씁니다" >&2
     udid="$cand_udid"
     destination_label="$cand_name"
     break
@@ -83,7 +83,7 @@ while read -r cand_udid cand_name; do
 done < <(xcrun simctl list devices available -j 2>/dev/null | simulator_candidates "$udid")
 [ -n "$claimed" ] || harness_die "같은 런타임의 iPhone 시뮬레이터를 모두 다른 워크트리가 쓰고 있습니다(${sim_busy_owner:-알 수 없음}). 그쪽 e2e가 끝난 뒤 다시 실행하세요"
 xcrun simctl boot "$udid" >/dev/null 2>&1 || true
-xcrun simctl bootstatus "$udid" -b >/dev/null 2>&1 || harness_die "시뮬레이터 $destination_label을 켜지 못했습니다"
+xcrun simctl bootstatus "$udid" -b >/dev/null 2>&1 || harness_die "시뮬레이터 ${destination_label}을 켜지 못했습니다"
 
 if [ "$build" = 1 ]; then
   "$here/build" || exit $?
@@ -92,12 +92,12 @@ if [ "$build" = 1 ]; then
   scheme="$(cfg .app.scheme)"
   config="$(scheme_run_config "$scheme")"
   app="$(e2e_find_app "$derived_data" "$bundle_id" "$config")"
-  [ -n "$app" ] || harness_die "스킴 $scheme이 빌드한 ${config:-앱} 중 번들 ID가 $bundle_id인 앱이 없습니다 (빌드된 앱: $(e2e_built_ids "$derived_data" "${config:-*}")). .harness/project.json의 app.scheme과 app.bundleId를 같은 앱으로 맞추세요"
+  [ -n "$app" ] || harness_die "스킴 ${scheme}이 빌드한 ${config:-앱} 중 번들 ID가 ${bundle_id}인 앱이 없습니다 (빌드된 앱: $(e2e_built_ids "$derived_data" "${config:-*}")). .harness/project.json의 app.scheme과 app.bundleId를 같은 앱으로 맞추세요"
 else
   app="$(e2e_find_app "$derived_data" "$bundle_id")"
   [ -n "$app" ] || harness_die "빌드된 앱($bundle_id)을 찾지 못했습니다. --no-build 없이 다시 실행하세요"
   stale="$(e2e_stale_source "$app")"
-  [ -z "$stale" ] || harness_die "빌드된 앱이 $stale보다 오래됐습니다. 바뀐 코드 없이 통과할 수 있어 멈춥니다. --no-build 없이 다시 실행하세요"
+  [ -z "$stale" ] || harness_die "빌드된 앱이 ${stale}보다 오래됐습니다. 바뀐 코드 없이 통과할 수 있어 멈춥니다. --no-build 없이 다시 실행하세요"
 fi
 xcrun simctl install "$udid" "$app" || harness_die "앱을 시뮬레이터에 설치하지 못했습니다: $app"
 
