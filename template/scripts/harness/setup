@@ -36,6 +36,12 @@ if [ -f package.json ]; then
     id="${k//:/-}"; [ "$id" != type-check ] || id=typecheck; [ "$id" != test-e2e ] || id=e2e
     add "$id" "$pm $k" "package.json scripts.$k"
   done
+  # 큰 저장소는 전체 테스트가 길고 이미 깨진 테스트가 섞인다. 바뀐 파일과 관련된 테스트만 도는 명령도 보여 준다.
+  if jq -e '(.dependencies.jest // .devDependencies.jest) != null' package.json > /dev/null 2>&1; then
+    add test-related "npx jest --findRelatedTests <바뀐 파일>" "package.json jest"
+  elif jq -e '(.dependencies.vitest // .devDependencies.vitest) != null' package.json > /dev/null 2>&1; then
+    add test-related "npx vitest related --run <바뀐 파일>" "package.json vitest"
+  fi
 fi
 if [ -f Makefile ]; then
   for k in test lint check build; do

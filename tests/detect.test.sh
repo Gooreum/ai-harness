@@ -232,9 +232,19 @@ echo '{}' > "$p/package.json"
 if out="$("$detect" "$p" 2> "$work/err")"; then code=0; else code=$?; fi
 assert_eq "empty: Xcode 프로젝트가 없어도 초안을 만든다" "0" "$code"
 assert_eq "empty: 묶음 없음" '{"schemaVersion":2,"platforms":[]}' "$(printf '%s' "$out" | jq -c .)"
-assert_eq "empty: 묶음이 없는 플랫폼을 알린다" "1" "$(grep -c 'package.json 파일이 있지만' "$work/err")"
+assert_eq "empty: 묶음이 없는 플랫폼을 알린다" "1" "$(grep -c 'package.json 파일이 있다. 이 플랫폼은 묶음이 없고' "$work/err")"
 p="$work/xcodeproj"
 assert_eq "platforms: Xcode 프로젝트면 ios" '["ios"]' "$(run_detect "$p" 2> /dev/null | jq -c .platforms)"
+
+p="$work/expo"
+mkdir -p "$p/ios" "$p/android" "$p/app"
+echo '{"dependencies":{"expo":"~58.0.0"}}' > "$p/package.json"
+(cd "$p" && git init -q -b main && printf '/ios/\n' > .gitignore)
+assert_eq "expo: git이 무시하는 prebuild 폴더만 generated로 둔다" '["ios/*"]' "$(run_detect "$p" | jq -c .generated)"
+printf '/ios/\n/android/\n' > "$p/.gitignore"
+assert_eq "expo: ios·android 둘 다" '["ios/*","android/*"]' "$(run_detect "$p" | jq -c .generated)"
+echo '{"dependencies":{"react":"19"}}' > "$p/package.json"
+assert_eq "expo가 아니면 generated를 두지 않는다" 'null' "$(run_detect "$p" | jq -c .generated)"
 
 p="$work/spmlib"
 mkdir -p "$p/Sources/Lib" && echo '// swift-tools-version:5.9' > "$p/Package.swift"
