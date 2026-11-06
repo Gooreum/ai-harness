@@ -316,7 +316,7 @@
   - 앱이 없는 iOS 저장소(SPM 라이브러리)도 doctor가 문제로 치지 않게 한다
   - 완료 기준: 이 저장소에서 `task`로 시작한 작업이 `record`로 남긴 테스트 결과로 게이트를 통과한다
   - 결과(2026-11-06, 0.11.1): 이 저장소의 사본에 묶음 없이 설치하니 setup이 `tests/run.sh`를 못 찾고, 리뷰가 iOS 추천 검사에만 있었다. setup이 `tests/run.sh`·`*.bats`·`Package.swift`를 찾고, 리뷰를 공통 추천 검사(`common-checks.json`)로 옮겼다. 앱 없는 Swift 패키지는 detect가 iOS 묶음을 고르지 않는다. 사본에서 `claude -p --plugin-dir`로 `task`(simple, test·review)를 돌려 `record test "bash tests/run.sh"`(92초 통과)와 리뷰로 done까지 갔다. 그때 리뷰 보고서 앞에 다른 문장이 있으면 "발견 없음"을 못 읽는 문제를 찾아 고쳤다(ADR 0023)
-- [ ] **27. JS·React Native 저장소** (시험장: PetCycle)
+- [x] **27. JS·React Native 저장소** (시험장: PetCycle)
   - 다시 정함(2026-11-06, ADR 0023): 묶음을 만들지 않는다. 빌드·테스트·컨벤션 검사는 저장소의 명령을 `checks.json`에 `record`로 적는다. 아래 원래 할 일 중 하네스가 도구를 고르거나 설정을 만드는 것은 하지 않는다. 남는 것: detect가 Expo prebuild 생성물을 `generated`로 제안, setup이 찾는 명령 확인, PetCycle에서 게이트 통과 확인
   - 바뀐 것만 테스트: `jest --findRelatedTests`, `vitest related`
   - 의존성: 설치 지문에 `package-lock.json`·`yarn.lock`·`pnpm-lock.yaml`을 넣고 `node_modules`를 설치한다. 패키지 매니저는 lock 파일로 고른다(ai-bouncer `setup.sh`)
@@ -325,6 +325,7 @@
   - doctor: node 버전(`.nvmrc`·volta), 비대화형 셸에서 nvm이 불러와지는지, CocoaPods
   - 규칙: `testing.md`의 경로(`__tests__`, `*.test.ts`)와 내용을 공통·묶음으로 나눈다. 컨벤션 검사 방식은 위 "정할 것"대로
   - 완료 기준: PetCycle에서 `task` 작업 하나가 lint·typecheck·unit-test·review를 고르고 게이트를 통과한다
+  - 결과(2026-11-06, 0.11.2): detect가 Expo의 git 무시 `ios/`·`android/`를 `generated`로 넣고 묶음은 고르지 않는다. setup이 `npm run test`·`npm run typecheck`와 jest의 `--findRelatedTests`를 찾는다. PetCycle HEAD로 만든 임시 워크트리에서 `claude -p --plugin-dir`로 setup(test·typecheck·review)을 쓰고 `task`를 돌렸다. HEAD에 이미 있는 typecheck 에러(`app.config.ts:72`)와 jest 실패 2건 때문에 verify에서 막혔고, 에이전트는 검사를 빼지 않고 사용자에게 물었다. 관련 테스트만 도는 `test-related`(`npx jest --findRelatedTests`)와 review로 다시 돌리니 done까지 갔다. 리뷰어가 `git -C`를 써서 권한 규칙에 안 맞던 것을 고쳤다. PetCycle에 eslint가 없어 lint는 고르지 않았다
 - [ ] **28. 모바일 e2e를 Android·RN으로**
   - 다시 정함(2026-11-06, ADR 0023): 하네스가 Android·RN e2e 스크립트를 만들지 않는다. 저장소가 `maestro test` 등을 `record`로 적는다. 아래 원래 할 일은 하지 않고, 가짜 응답 서버를 Android에서 쓰는 방법만 문서에 남긴다
   - 앱 id가 플랫폼마다 다르다(bundleId, applicationId). `--platform`과 앱 id 두 개를 둔다. 결과는 `e2e-ios`·`e2e-android`로 나눈다

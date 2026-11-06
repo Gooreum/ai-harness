@@ -187,7 +187,7 @@ fi
 
 # 아직 묶음이 없는 플랫폼의 흔적. 공통 파일(record·passed·wiki·doctor)만 설치된다는 것을 알린다.
 for marker in package.json gradlew pyproject.toml Cargo.toml go.mod; do
-  [ -e "$project_dir/$marker" ] && note "${marker} 파일이 있지만 이 플랫폼의 묶음은 아직 없다. 검사는 checks.json에 record로 적는다"
+  [ -e "$project_dir/$marker" ] && note "${marker} 파일이 있다. 이 플랫폼은 묶음이 없고, 빌드·테스트는 저장소의 명령을 scripts/harness/setup에서 checks.json에 record로 적는다"
 done
 
 detect_ios() {
@@ -720,13 +720,28 @@ else
 fi
 note "묶음: ${platforms[*]:-없음 (공통 파일만)}"
 
+# --- 생성 파일 (generated) ---------------------------------------------------------
+# Expo의 Continuous Native Generation: ios/·android/를 git이 무시하면 prebuild가 만드는 생성물이다.
+# 직접 고쳐도 다음 prebuild에서 사라지므로 훅이 편집을 막고 리뷰 대상에서 뺀다(ADR 0022·0023).
+generated=()
+if [ -f "$project_dir/package.json" ] \
+  && jq -e '(.dependencies.expo // .devDependencies.expo) != null' "$project_dir/package.json" > /dev/null 2>&1; then
+  for d in ios android; do
+    git -C "$project_dir" check-ignore -q "$d/" 2> /dev/null && generated+=("$d/*")
+  done
+  [ ${#generated[@]} -eq 0 ] \
+    || note "Expo prebuild 생성물(git이 무시함)을 generated로 둔다: ${generated[*]}. 고칠 것은 app.config·config plugin에 둔다"
+fi
+
 # --- 출력 -------------------------------------------------------------------
 
 # 설정 파일 초안. 각 값의 뜻은 docs/project-config.md에 있다.
 draft_json="$(
-  jq -n --argjson ios "$ios_json" --args '
+  jq -n --argjson ios "$ios_json" \
+    --argjson generated "$(jq -n '$ARGS.positional' --args ${generated[@]+"${generated[@]}"})" --args '
     { schemaVersion: 2, platforms: $ARGS.positional }
-    + (if $ios == null then {} else { ios: $ios } end)' ${platforms[@]+"${platforms[@]}"}
+    + (if $ios == null then {} else { ios: $ios } end)
+    + (if ($generated | length) == 0 then {} else { generated: $generated } end)' ${platforms[@]+"${platforms[@]}"}
 )"
 
 if [ "$write_to_file" = 1 ]; then

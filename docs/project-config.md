@@ -87,7 +87,8 @@ scripts/detect --write ~/path/to/app   # <프로젝트>/.harness/project.json에
 ```
 
 - 초안 JSON은 stdout으로, 판단 근거와 경고는 stderr로 출력한다.
-- 묶음 고르기: Xcode 프로젝트(아래 파일 구조)가 있으면 `ios`를 고른다. `package.json`·`gradlew`·`pyproject.toml`·`Cargo.toml`·`go.mod`가 있으면 아직 그 묶음이 없다고 알리기만 한다. 묶음을 하나도 고르지 않아도 초안을 만든다.
+- 묶음 고르기: Xcode 프로젝트(아래 파일 구조)가 있으면 `ios`를 고른다. 앱 없는 Swift 패키지(`Package.swift`만)는 고르지 않는다. `package.json`·`gradlew`·`pyproject.toml`·`Cargo.toml`·`go.mod`가 있으면 묶음이 없다고 알리기만 한다. 그 저장소의 검사는 setup에서 저장소의 명령으로 정한다(ADR 0023). 묶음을 하나도 고르지 않아도 초안을 만든다.
+- 생성 파일: `package.json`에 `expo`가 있고 `ios/`·`android/`를 git이 무시하면(Expo prebuild 생성물) `generated`에 `ios/*`·`android/*`를 넣는다.
 - iOS 판단 근거
   - 파일 구조: `Tuist.swift`, `Workspace.swift`, `Project.swift`, `project.yml`, `*.xcodeproj`
   - Makefile 타깃: `make generate`처럼 프로젝트가 감싼 명령을 우선한다
