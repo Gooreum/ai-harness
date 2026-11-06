@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PostToolUse(Read)·SubagentStop 훅: ios-reviewer가 실제로 리뷰했는지 리뷰어의 말이 아니라 기록으로 남긴다.
+# PostToolUse(Read)·SubagentStop 훅: 리뷰어(harness:reviewer)가 실제로 리뷰했는지 리뷰어의 말이 아니라 기록으로 남긴다.
 #
 # 발표 슬라이드 68: 지켰는지는 AI의 말이 아니라 검사 결과로 확인한다.
 # 결과 파일 형식과 최신 판정은 다른 검사와 같다(scripts/harness/passed, ai-bouncer `bouncer passed`).
@@ -7,7 +7,7 @@
 # - 입력은 stdin JSON만 읽는다 (hook_event_name, agent_id, agent_type, cwd, tool_input, last_assistant_message).
 # - PostToolUse(SubagentHandback): 백그라운드 리뷰어가 넘긴 보고서를 .harness/state/review-<agent_id>.report에 둔다.
 #   last_assistant_message에 요약 줄이 없으면 이것을 보고서로 쓴다.
-# - PostToolUse(Read): 서브에이전트(agent_id 있음)이고 agent_type이 ios-reviewer면 연 파일을
+# - PostToolUse(Read): 서브에이전트(agent_id 있음)이고 agent_type이 harness:reviewer면 연 파일을
 #   .harness/state/review-<agent_id>.reads에 적는다.
 # - SubagentStop: 같은 리뷰어가 끝나면 바뀐 파일을 다 열었는지, 차단 항목이 있는지로 .harness/out/review.json을 쓴다.
 #   - passed: 바뀐 파일을 모두 열었고, 보고서의 차단이 0
@@ -25,7 +25,7 @@ agent_id="$(field .agent_id)"
 agent_type="$(field .agent_type)"
 [ -n "$agent_id" ] || exit 0
 case "$agent_type" in
-  ios-reviewer | *:ios-reviewer) ;;
+  harness:reviewer) ;;   # 이 플러그인의 리뷰어만. 이름이 reviewer인 다른 에이전트는 뺀다
   *) exit 0 ;;
 esac
 case "$agent_id" in

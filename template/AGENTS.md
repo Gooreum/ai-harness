@@ -30,11 +30,11 @@
 | 검사 목록(`.harness/checks.json`)을 사용자와 정하기 (안내만 출력) | `scripts/harness/setup` |
 
 <!-- harness:pack notes -->
-- 코드를 고치는 작업은 `task` 스킬(ios-harness 플러그인)로 시작한다. 계획할지(plan/simple)와 돌릴 검사는 사용자가 고르고, 단계마다 할 일은 하네스가 알려 준다. 검사 목록은 `.harness/checks.json`에 있다.
+- 코드를 고치는 작업은 `task` 스킬(harness 플러그인)로 시작한다. 계획할지(plan/simple)와 돌릴 검사는 사용자가 고르고, 단계마다 할 일은 하네스가 알려 준다. 검사 목록은 `.harness/checks.json`에 있다.
 - 실패하면 출력에 나온 첫 에러의 위치부터 고친다. 전체 로그와 결과 번들은 `.harness/out/`에 있다.
 - 동작·스펙을 바꾸기 전에 `scripts/harness/wiki search <단어>`로 관련 정책·결정 기록(`docs/wiki/`)을 찾아 읽는다. 기록과 다르게 바꿔야 하면 사용자에게 먼저 묻는다.
 - 결과는 실제로 실행한 명령과 출력으로 보고한다. 실행하지 못한 검증은 못 했다고 밝힌다.
-- PR을 만들기 전에는 `ios-reviewer` 서브에이전트(ios-harness 플러그인)에 변경 검토를 맡기고, 차단 항목을 고친 뒤 올린다.
+- PR을 만들기 전에는 `reviewer` 서브에이전트(harness 플러그인)에 변경 검토를 맡기고, 차단 항목을 고친 뒤 올린다.
 
 ## 꼭 지킬 규칙
 

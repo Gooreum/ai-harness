@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# review-record.sh: ios-reviewer가 연 파일과 보고서로 .harness/out/review.json을 만드는지 검사한다.
+# review-record.sh: 리뷰어(harness:reviewer)가 연 파일과 보고서로 .harness/out/review.json을 만드는지 검사한다.
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -19,12 +19,12 @@ mkdir -p "$p/scripts/harness" && cp "$here/../template/scripts/harness/lib.sh" "
 (cd "$p" && git init -q -b main && git add -A && git -c user.name=t -c user.email=t@t commit -qm init)
 
 readf() { # 파일 [agent_type] [agent_id]
-  jq -n --arg f "$1" --arg t "${2:-ios-harness:ios-reviewer}" --arg id "${3-a1}" --arg cwd "$p" \
+  jq -n --arg f "$1" --arg t "${2:-harness:reviewer}" --arg id "${3-a1}" --arg cwd "$p" \
     '{hook_event_name: "PostToolUse", session_id: "s", cwd: $cwd, tool_name: "Read", tool_input: {file_path: $f}}
      + (if $id == "" then {} else {agent_id: $id, agent_type: $t} end)' | "$hook"
 }
 stopr() { # 보고서 [agent_type]
-  jq -n --arg m "$1" --arg t "${2:-ios-harness:ios-reviewer}" --arg cwd "$p" \
+  jq -n --arg m "$1" --arg t "${2:-harness:reviewer}" --arg cwd "$p" \
     '{hook_event_name: "SubagentStop", session_id: "s", cwd: $cwd, agent_id: "a1", agent_type: $t,
       agent_transcript_path: "/x", last_assistant_message: $m, stop_hook_active: false}' | "$hook"
 }
@@ -71,7 +71,7 @@ assert_eq "요약 줄이 없으면 실패" "false|리뷰어 보고서에서 요�
 
 readf "$p/App/A.swift"
 readf "$p/App/C.swift"
-jq -n --arg cwd "$p" '{hook_event_name: "PostToolUse", cwd: $cwd, agent_id: "a1", agent_type: "ios-harness:ios-reviewer",
+jq -n --arg cwd "$p" '{hook_event_name: "PostToolUse", cwd: $cwd, agent_id: "a1", agent_type: "harness:reviewer",
   tool_name: "SubagentHandback", tool_input: {message: "[권장] x\n요약 · 차단 0 · 권장 1 · 참고 0 · 검토한 파일 2개"}}' | "$hook"
 stopr ""
 assert_eq "백그라운드 리뷰어: SubagentHandback으로 넘긴 보고서를 쓴다" "true|0" "$(result '"\(.passed)|\(.blocking)"')"

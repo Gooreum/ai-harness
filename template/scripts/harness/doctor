@@ -125,7 +125,7 @@ fi
 # --- 플러그인 ------------------------------------------------------------------
 # 프로젝트 파일(스크립트·규칙)과 플러그인(훅·스킬)은 같은 버전이어야 한다. 훅이 설정 파일 형식을 읽기 때문이다.
 
-plugin_id="ios-harness@ios-ai-harness"
+plugin_id="harness@ai-harness"
 enabled=""
 for f in "$root/.claude/settings.local.json" "$root/.claude/settings.json"; do
   [ -f "$f" ] || continue
@@ -154,7 +154,7 @@ elif command -v claude > /dev/null 2>&1; then
       newer="$(printf '%s\n%s\n' "$plugin_version" "$installed_version" | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)"
       if [ "$newer" = "$installed_version" ]; then
         problem "플러그인($plugin_version)이 프로젝트 파일($installed_version)보다 오래됐다" \
-          "claude plugin marketplace update ios-ai-harness && claude plugin update $plugin_id"
+          "claude plugin marketplace update ai-harness && claude plugin update $plugin_id"
       else
         problem "프로젝트 파일($installed_version)이 플러그인($plugin_version)보다 오래됐다" \
           "하네스 저장소에서 scripts/sync <이 프로젝트>"
@@ -163,6 +163,22 @@ elif command -v claude > /dev/null 2>&1; then
   fi
 else
   warn "claude CLI가 없어 설치된 플러그인 버전을 확인하지 못했다"
+fi
+
+# 예전 이름(ios-harness@ios-ai-harness)의 플러그인이 아직 켜져 있으면 훅이 두 번 돈다.
+old_plugin_id="ios-harness@ios-ai-harness"
+old_on=""
+for f in "$root/.claude/settings.local.json" "$root/.claude/settings.json"; do
+  [ -f "$f" ] && [ "$(jq -r --arg id "$old_plugin_id" '.enabledPlugins[$id] // empty' "$f" 2> /dev/null)" = "true" ] && old_on=1
+done
+if [ -z "$old_on" ] && command -v claude > /dev/null 2>&1 \
+  && claude plugin list --json 2> /dev/null | jq -e --arg id "$old_plugin_id" --arg root "$root" '
+    any(.[]?; .id == $id and .enabled == true and (.projectPath == $root or .scope == "user"))' > /dev/null 2>&1; then
+  old_on=1
+fi
+if [ -n "$old_on" ]; then
+  problem "예전 이름의 플러그인 ${old_plugin_id}가 켜져 있어 훅이 두 번 돈다" \
+    "하네스 저장소에서 scripts/sync <이 프로젝트>, 그다음 claude plugin uninstall $old_plugin_id"
 fi
 
 # --- 결과 ---------------------------------------------------------------------
