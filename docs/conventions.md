@@ -13,7 +13,7 @@
 | 2. 도구가 읽게 옮기기: 목록을 규칙 종류별 도구 설정(SwiftLint·swift-format)으로 바꾼다 | `lint`가 정해진 틀대로 | 실행할 때마다 |
 | 3. 검사: 바뀐 파일과 모듈 구성을 점수로 판정한다 | 도구와 `lint` | 코드를 바꿀 때마다 |
 
-규칙을 넣는 절차는 프로젝트에 설치되는 `.claude/rules/harness/conventions.md`에 있다. 이 파일을 열면 자동으로 함께 읽힌다.
+규칙을 넣는 절차는 프로젝트에 설치되는 `.claude/rules/harness/ios/conventions.md`에 있다. 이 파일을 열면 자동으로 함께 읽힌다.
 
 ## 예시 (ReadSharp)
 
