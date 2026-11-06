@@ -217,28 +217,34 @@
   - detect가 알아볼 범위(Flutter, KMP, nx·turborepo 모노레포), 한 저장소에 앱이 여럿일 때 쓸 설정: 단위 23
 
 - [ ] **21. 지금 있는 문제 먼저 고치기** (iOS 시험장에서 확인)
+  - 무엇을 하나: 범용으로 넓히기 전에, 지금 iOS에서도 틀리게 동작하는 것을 먼저 고친다. 구조를 옮기면서 고치면 무엇 때문에 깨졌는지 구분하기 어렵다.
+  - 각 항목은 "문제 → 고치는 방법"이다. 근거가 발표·ai-bouncer에 있으면 적었다. 둘 다 없는 것은 시험장에서 겪은 문제이거나 코드를 읽어 찾은 것이다.
+  - 작업 시작 기록 (`passed`·리뷰·unit-test가 같이 쓴다)
+    - 작업을 시작한 커밋을 남기지 않는다 → 새 작업이 시작될 때 HEAD를 `.harness/state/task.base`에 적는다(ai-bouncer `start`의 `base_sha`)
+    - 새 작업인지 "제목+모드"로 구분해, 같은 제목으로 다시 시작하면 지난 결과가 통과한다 → `stage-context.sh`가 지난번에 본 단계를 적어 두고, 그 단계가 없거나 `done`이었다가 다른 단계가 되면 새 작업으로 본다. 그때 `task.started`의 시각과 `task.base`를 새로 적는다(ai-bouncer `.started`)
   - `passed`
-    - 최신인지 볼 때 HEAD가 아니라 작업을 시작한 커밋 기준으로 바뀐 파일을 본다. 작업 중에 커밋하면 옛 결과가 통과한다(ai-bouncer `result_fresh`의 `base_sha`)
-    - 새 작업인지 "제목+모드"로 구분한다. 같은 제목으로 다시 시작하면 지난 결과가 통과한다. 작업마다 시작 시각을 새로 적는다
-    - 결과가 없을 때 `scripts/harness/<이름>`을 실행하라고 안내하는데, review 같은 검사에는 틀린 안내다. 검사의 prompt를 따르라고 바꾼다
+    - 바뀐 파일을 HEAD 기준으로 봐서, 작업 중에 커밋하면 옛 결과가 통과한다 → `task.base` 이후 바뀐 파일과 추적 안 된 파일을 본다(ai-bouncer `result_fresh`)
+    - 결과가 없을 때 `scripts/harness/<이름>`을 실행하라고 안내해, review 같은 검사에는 틀린 안내다 → "`.harness/checks.json`에 적힌 이 검사의 prompt대로 실행한다"로 바꾼다
   - unit-test
-    - 바뀐 모듈만 테스트하고 그 모듈에 의존하는 모듈은 테스트하지 않는다. 의존 관계를 거꾸로 따라 넓힌다
-    - 문서만 바꿔도 앱 전체를 빌드·테스트한다. 코드가 아닌 파일은 거른다
-    - 테스트가 하나도 돌지 않아도 통과로 친다. 따로 표시한다
+    - 작업 중에 커밋하면 "바뀐 파일 없음"으로 통과한다 → 작업 중이면(`task.json`의 stage가 `done`이 아님) `task.base` 기준으로 본다. `--base`를 주면 지금처럼 그 브랜치 기준이다
+    - 바뀐 모듈만 테스트하고 그 모듈을 쓰는 모듈은 테스트하지 않는다 → 다른 모듈의 manifest에 바뀐 모듈 이름이 나오면 그 모듈도 넣고, 더 늘지 않을 때까지 반복한다. 많이 넣는 쪽으로 틀린다(빠뜨리는 것보다 낫다)
+    - 문서만 바꿔도 앱 전체를 빌드·테스트한다 → 코드가 아닌 파일(`*.md`, `docs/`, `.maestro/`, `.claude/`, 이미지)은 거른다. 남는 파일이 없으면 "코드 변경 없음"으로 통과한다
+    - 테스트가 하나도 돌지 않아도 다른 통과와 똑같이 보인다 → 결과에 돌린 테스트 수를 남기고, 0이면 요약 첫머리에 "테스트 0개"를 적는다. 통과 여부는 바꾸지 않는다(테스트가 없는 프로젝트도 있다)
   - e2e
-    - `--no-build`는 예전에 빌드한 앱으로 통과할 수 있다. 앱의 빌드 시각도 비교한다
-    - 워크트리 두 곳이 같은 시뮬레이터를 골라 동시에 돌리면 서로 덮어쓴다
-    - 가짜 응답 포트가 커밋되는 `project.json`에 있어 같은 프로젝트의 워크트리끼리 겹친다(ReadSharp 원본과 harness 워크트리가 둘 다 18787)
+    - `--no-build`는 예전에 빌드한 앱으로 통과할 수 있다 → 앱 번들의 시각이 바뀐 코드 파일보다 오래됐으면 멈추고 다시 빌드하라고 알린다
+    - 워크트리 두 곳이 같은 시뮬레이터를 골라 동시에 돌리면 서로 덮어쓴다 → 고른 기기에 잠금을 건다(사용자 임시 폴더, 워크트리 경로와 프로세스 번호). 다른 워크트리가 쓰는 중이면 같은 런타임의 다른 iPhone을 고르고, 남은 기기가 없으면 어느 워크트리가 쓰는지 알리고 멈춘다. 프로세스가 끝난 잠금은 무시한다
+    - 가짜 응답 포트가 커밋되는 `project.json`에 있어 같은 프로젝트의 워크트리끼리 겹친다(ReadSharp 원본과 harness 워크트리가 둘 다 18787) → 적힌 포트가 이미 쓰이면 MCP 서버가 빈 포트를 골라 띄우고, 실제 포트를 `.harness/state/network.port`에 적는다. `e2e`는 이 파일을 먼저 읽는다
   - 의존성 설치
-    - `commands.install`은 `generate`가 있을 때만 돈다. CocoaPods를 쓰는 xcodeproj 프로젝트는 `pod install`이 돌지 않는다
-    - 설치 지문이 Tuist 파일만 본다. `Podfile.lock`도 본다
-  - 리뷰 대상에 작업 전부터 있던 추적 안 된 파일이 섞인다
-  - 단계 순서(plan/simple)가 `stage-context.sh`와 `check-run.sh` 두 곳에 따로 있다. 한 곳에서 읽게 한다
-  - doctor가 규칙 폴더 git 무시 여부를 `swift.md`로 확인한다. 공통 파일로 확인한다
-  - sync가 `scripts/harness/`에서 template에 없는 파일을 지운다. 팀이 넣은 스크립트도 지워진다
-  - `testing.md`("프로덕션 코드에 테스트 전용 분기를 넣지 않는다")와 `maestro.md`(테스트용 실행 인자, `-HarnessNetworkBaseURL`)가 충돌한다. 예외를 적는다
-  - 가짜 응답 서버의 `VERSION`이 0.9.2에 머물러 있다
+    - `commands.install`은 `generate`가 있을 때만 돈다. CocoaPods를 쓰는 xcodeproj 프로젝트는 `pod install`이 돌지 않는다 → install을 generate와 따로 판단한다
+    - 설치 지문이 Tuist 파일만 본다 → `Podfile`과 `Podfile.lock`도 본다
+  - 리뷰 대상에 작업 전부터 있던 추적 안 된 파일이 섞인다 → `task.base` 이후 바뀐 파일과, 추적 안 된 파일 중 작업 시작 뒤에 고친 것만 넣는다
+  - 단계 순서(plan/simple)가 `stage-context.sh`와 `check-run.sh` 두 곳에 따로 있다 → `plugin/hooks/flows.json` 한 곳에 두고 둘이 읽는다
+  - doctor가 규칙 폴더 git 무시 여부를 `swift.md`로 확인한다. Swift가 아닌 프로젝트에서 틀린다 → 어느 프로젝트에나 있는 `wiki.md`로 확인한다
+  - sync가 `scripts/harness/`·`.claude/rules/harness/`에서 template에 없는 파일을 지워, 팀이 넣은 스크립트도 지워진다 → 설치한 파일 목록을 `.harness/harness.json`에 적고, 그 목록에 있었는데 template에서 사라진 것만 지운다. 목록이 없는 첫 갱신에서는 지우지 않는다
+  - `testing.md`("프로덕션 코드에 테스트 전용 분기를 넣지 않는다")와 `maestro.md`(테스트용 실행 인자, `-HarnessNetworkBaseURL`)가 충돌한다 → `testing.md`에 예외를 적는다: e2e 실행 인자를 읽는 코드는 `#if DEBUG` 안에 두고 `maestro.md`를 따른다
+  - 가짜 응답 서버의 `VERSION`이 0.9.2에 머물러 있다 → 손으로 맞추지 않고 `plugin.json`의 버전을 읽는다
   - 완료 기준: 고친 것마다 회귀 테스트가 있고, ReadSharp·IntervalTimer에서 기존 작업 흐름이 그대로 통과한다
+    - 시험장 둘 다 모듈 구조가 없어, "쓰는 모듈까지 테스트"는 회귀 테스트로만 확인한다
 - [ ] **22. 공통 핵심 떼어 내기와 `record`**
   - `lib.sh`를 공통과 iOS로 나눈다. `harness_init`이 Xcode를 고르고 `simctl`을 부르지 않게 한다. 지금은 `passed`·`wiki`도 이 과정을 거친다
   - `scripts/harness/record <이름> <명령>`: 어떤 명령이든 실행하고 `.harness/out/<이름>.json`을 남긴다(ai-bouncer `bouncer record`)
