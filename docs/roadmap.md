@@ -200,13 +200,17 @@
 - 검증 방식은 플랫폼마다 다르다. 특히 e2e가 그렇다.
   - 공통 규칙: 기능 시나리오와 영향 시나리오를 나누고, 조건은 시나리오 안에서 만들고, 증거를 남기고, 배포 전에 회귀 묶음을 돌린다.
   - 도구: 모바일(iOS, Android, RN, Flutter)은 Maestro를 함께 쓰고 앱 설치만 simctl·adb로 나눈다. 웹은 Playwright, 서버는 HTTP 시나리오를 쓴다.
+- RN 시험장: PetCycle(`~/Code/PetCycle`). 사용자가 정했다(2026-11-06). iOS와 Android를 둘 다 확인한다.
+  - Expo이고, `ios/`·`android/`는 git이 무시하는 prebuild 생성물이다(CNG). 검사 명령은 `npm test`(jest)와 `npm run typecheck`가 있고, `.maestro/`는 아직 없다
+  - 원본에서 사용자가 작업 중이라 별도 워크트리(`~/Code/PetCycle-harness`)에서 한다. ai-bouncer 설정은 그 브랜치에서 뺀다(ADR 0005, IntervalTimer와 같다)
+  - `server/`와 웹(`expo start --web`, `invite-site/`)도 있어, 웹·서버 묶음(29)을 할 때도 시험장이 될 수 있다
 - 순서: 지금 있는 문제(21) → 공통 핵심(22) → 묶음 구조(23) → 이름 변경(24) → 리뷰어·권한(25) → 묶음 없는 저장소(26) → RN(27·28).
   - 웹(29)과 Linux(30)는 필요해지면 한다.
   - 각 묶음은 실제 시험장에서 막히는 것을 보고 만든다. 미리 다 대비하지 않는다(진행 원칙 1).
 - 점검 기록: 2026-11-06에 코드를 읽어 특이점 100개를 찾았다. 아래 단위의 할 일이 그 목록이다. "관찰되면 한다"에 둔 것은 시험장에서 실제로 막힐 때 한다.
 - 정할 것 (해당 단위를 시작할 때 묻는다)
   - 새 이름(저장소·플러그인·마켓플레이스): 단위 24
-  - RN 시험장 프로젝트와 Expo·bare 여부, RN iOS를 `xcodebuild`로 빌드할지 `expo run:ios`로 할지: 단위 27
+  - RN iOS를 `xcodebuild`로 빌드할지 `expo run:ios`로 할지: 단위 27
   - 컨벤션 검사 방식: andcon처럼 규칙에서 도구 설정을 만들지, 프로젝트의 기존 eslint 등을 그대로 쓸지. 단위 27
   - 웹 e2e를 Maestro(웹 지원)로 할지 Playwright로 할지: 단위 29
   - 지원 OS(macOS만인지 Linux까지인지): 단위 30
@@ -281,14 +285,14 @@
   - 시험장: 이 하네스 저장소 자체(`bash tests/run.sh`)
   - 앱이 없는 iOS 저장소(SPM 라이브러리)도 doctor가 문제로 치지 않게 한다
   - 완료 기준: 이 저장소에서 `task`로 시작한 작업이 `record`로 남긴 테스트 결과로 게이트를 통과한다
-- [ ] **27. JS·React Native 묶음** (시험장: RN 프로젝트)
+- [ ] **27. JS·React Native 묶음** (시험장: PetCycle)
   - 바뀐 것만 테스트: `jest --findRelatedTests`, `vitest related`
   - 의존성: 설치 지문에 `package-lock.json`·`yarn.lock`·`pnpm-lock.yaml`을 넣고 `node_modules`를 설치한다. 패키지 매니저는 lock 파일로 고른다(ai-bouncer `setup.sh`)
   - Expo prebuild는 `generate` 자리에 둔다
   - RN iOS: CocoaPods, `ios/.xcode.env`의 node 경로
   - doctor: node 버전(`.nvmrc`·volta), 비대화형 셸에서 nvm이 불러와지는지, CocoaPods
   - 규칙: `testing.md`의 경로(`__tests__`, `*.test.ts`)와 내용을 공통·묶음으로 나눈다. 컨벤션 검사 방식은 위 "정할 것"대로
-  - 완료 기준: RN 시험장에서 `task` 작업 하나가 lint·typecheck·unit-test·review를 고르고 게이트를 통과한다
+  - 완료 기준: PetCycle에서 `task` 작업 하나가 lint·typecheck·unit-test·review를 고르고 게이트를 통과한다
 - [ ] **28. 모바일 e2e를 Android·RN으로**
   - 앱 id가 플랫폼마다 다르다(bundleId, applicationId). `--platform`과 앱 id 두 개를 둔다. 결과는 `e2e-ios`·`e2e-android`로 나눈다
   - Android
@@ -302,7 +306,7 @@
     - 앱 쪽 약속을 묶음별로 둔다: iOS 실행 인자, Android intent extra, RN JS 설정
   - Maestro 규칙의 요소 id 표현을 묶음별로 쓴다(RN `testID`, Android `testTag`·`resource-id`). 클립보드 규칙은 iOS 묶음으로 옮긴다
   - 관찰되면 한다: 행동 로그(logcat), 녹화(`adb screenrecord`는 3분 제한), 계측 테스트(`connectedAndroidTest`), 에뮬레이터 부하로 생기는 흔들림과 재시도 규칙
-  - 완료 기준: RN 시험장에서 같은 시나리오가 iOS 시뮬레이터와 Android 에뮬레이터에서 통과한다
+  - 완료 기준: PetCycle에서 같은 시나리오가 iOS 시뮬레이터와 Android 에뮬레이터에서 통과한다
 - [ ] **29. 웹 묶음** (웹 시험장이 생기면)
   - e2e는 위 "정할 것"대로(Playwright 또는 Maestro)
   - dev 서버를 띄우고, 워크트리마다 포트를 나눈다
@@ -334,6 +338,6 @@
 
 ## 단위마다 확인하는 방법
 
-- 완료 기준은 시험장 워크트리(`~/Code/EnglishStudy-harness`)에서 실행해 확인한다. 범용 하네스 단위는 그 단위에 적은 시험장(이 저장소, RN 프로젝트 등)에서 확인한다.
+- 완료 기준은 시험장 워크트리(`~/Code/EnglishStudy-harness`)에서 실행해 확인한다. 범용 하네스 단위는 그 단위에 적은 시험장(이 저장소, PetCycle 등)에서 확인한다.
 - 스크립트와 훅은 입력 픽스처를 넣는 셸 테스트(`tests/`)로 회귀를 막는다.
 - 중요한 결정은 `docs/decisions/`에 ADR로 남긴다.
