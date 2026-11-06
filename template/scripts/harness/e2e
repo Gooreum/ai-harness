@@ -67,6 +67,21 @@ start=$SECONDS
 
 harness_destination
 udid="${destination#id=}"
+# 다른 워크트리가 같은 기기로 e2e를 돌리는 중이면 같은 런타임의 다른 iPhone을 쓴다.
+trap harness_release_simulator EXIT
+sim_busy_owner=""
+claimed=""
+while read -r cand_udid cand_name; do
+  [ -n "$cand_udid" ] || continue
+  if harness_claim_simulator "$cand_udid"; then
+    claimed="$cand_udid"
+    [ "$cand_udid" = "$udid" ] || echo "· e2e · $destination_label을 다른 워크트리(${sim_busy_owner})가 쓰고 있어 $cand_name을 씁니다" >&2
+    udid="$cand_udid"
+    destination_label="$cand_name"
+    break
+  fi
+done < <(xcrun simctl list devices available -j 2>/dev/null | simulator_candidates "$udid")
+[ -n "$claimed" ] || harness_die "같은 런타임의 iPhone 시뮬레이터를 모두 다른 워크트리가 쓰고 있습니다(${sim_busy_owner:-알 수 없음}). 그쪽 e2e가 끝난 뒤 다시 실행하세요"
 xcrun simctl boot "$udid" >/dev/null 2>&1 || true
 xcrun simctl bootstatus "$udid" -b >/dev/null 2>&1 || harness_die "시뮬레이터 $destination_label을 켜지 못했습니다"
 
@@ -81,6 +96,8 @@ if [ "$build" = 1 ]; then
 else
   app="$(e2e_find_app "$derived_data" "$bundle_id")"
   [ -n "$app" ] || harness_die "빌드된 앱($bundle_id)을 찾지 못했습니다. --no-build 없이 다시 실행하세요"
+  stale="$(e2e_stale_source "$app")"
+  [ -z "$stale" ] || harness_die "빌드된 앱이 $stale보다 오래됐습니다. 바뀐 코드 없이 통과할 수 있어 멈춥니다. --no-build 없이 다시 실행하세요"
 fi
 xcrun simctl install "$udid" "$app" || harness_die "앱을 시뮬레이터에 설치하지 못했습니다: $app"
 
@@ -99,6 +116,9 @@ fi
 
 # 가짜 응답 서버(플러그인 MCP harness-network)의 주소. 시나리오는 launchApp.arguments의
 # "-HarnessNetworkBaseURL": ${NETWORK_BASE_URL}로 앱에 넘긴다. 서버는 Claude Code 세션이 띄운다.
+# 서버는 적힌 포트를 다른 폴더(같은 프로젝트의 다른 워크트리)가 쓰고 있으면 빈 포트로 띄우고 실제 포트를
+# .harness/state/network.port에 남긴다. 그 포트에 서버가 떠 있으면 그것을 쓴다.
+[ -z "$network_port" ] || network_port="$(e2e_network_port "$network_port")"
 if [ -n "$network_port" ]; then
   args+=(-e "NETWORK_BASE_URL=http://127.0.0.1:$network_port")
   if ! nc -z 127.0.0.1 "$network_port" 2>/dev/null; then

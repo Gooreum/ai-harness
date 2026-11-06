@@ -117,6 +117,11 @@ harness_changed_files() {
     } | { grep -v '^\.harness/' || true; } | LC_ALL=C sort -u)
 }
 
+# 목록(stdin)에서 앱 빌드·테스트에 영향이 없는 파일(문서, e2e 시나리오, 에이전트 지침·규칙)을 뺀다.
+harness_not_code() {
+  grep -vE '\.md$|^docs/|^\.maestro/|^\.claude/|^\.agents/' || true
+}
+
 # 설정 값을 읽는다. 없거나 null이면 빈 문자열.
 cfg() {
   jq -r "($1) // empty" "$config"
@@ -671,6 +676,72 @@ e2e_built_ids() {
     ids="$ids${ids:+, }$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist" 2>/dev/null || echo '?')"
   done
   echo "${ids:-없음}"
+}
+
+# 가짜 응답 서버 포트. 설정의 포트($1)가 기본이고, 서버가 .harness/state/network.port에 남긴 포트에 서버가
+# 떠 있으면 그것을 쓴다. 서버는 적힌 포트를 다른 워크트리가 쓰고 있으면 빈 포트로 띄운다.
+e2e_network_port() {
+  local actual
+  actual="$(cat "$state_dir/network.port" 2>/dev/null || true)"
+  case "$actual" in
+    "" | *[!0-9]*) ;;
+    *) if nc -z 127.0.0.1 "$actual" 2>/dev/null; then echo "$actual"; return 0; fi ;;
+  esac
+  echo "$1"
+}
+
+# 앱($1, .app 폴더)보다 나중에 고친 코드 파일 중 첫 것. 없으면 빈 값.
+# --no-build로 예전에 빌드한 앱을 설치하면 바뀐 코드 없이 통과할 수 있어 막는 데 쓴다.
+# 코드가 아닌 파일(harness_not_code)은 앱에 들어가지 않으니 보지 않는다.
+e2e_stale_source() {
+  local built=0 t f
+  for f in "$1" "$1"/*; do
+    [ -e "$f" ] || continue
+    t="$(harness_mtime "$f")"
+    [ "$t" -gt "$built" ] && built="$t"
+  done
+  harness_changed_files "" | harness_not_code | while IFS= read -r f; do
+    [ -f "$root/$f" ] || continue
+    if [ "$(harness_mtime "$root/$f")" -gt "$built" ]; then echo "$f"; break; fi
+  done
+}
+
+# --- 시뮬레이터 잠금 ---
+# 워크트리 두 곳이 같은 시뮬레이터를 골라 동시에 e2e를 돌리면 앱 설치·실행이 서로 덮어쓴다.
+# 기기마다 잠금 폴더(사용자 임시 폴더)에 워크트리 경로와 프로세스 번호를 적는다. 프로세스가 끝난 잠금은 무시한다.
+harness_sim_lock_dir() { echo "${HARNESS_SIM_LOCK_DIR:-${TMPDIR:-/tmp}/ios-harness-simulators}"; }
+
+# 기기($1)를 잡는다. 성공하면 claimed_simulator에 잠금 경로를 둔다.
+# 다른 살아 있는 프로세스가 잡고 있으면 1을 반환하고 sim_busy_owner에 그 워크트리 경로를 둔다.
+harness_claim_simulator() {
+  local dir lock pid me="${HARNESS_SIM_PID:-$$}"
+  dir="$(harness_sim_lock_dir)"
+  mkdir -p "$dir"
+  lock="$dir/$1"
+  if ! mkdir "$lock" 2>/dev/null; then
+    pid="$(sed -n 2p "$lock/owner" 2>/dev/null || true)"
+    if [ -n "$pid" ] && [ "$pid" != "$me" ] && kill -0 "$pid" 2>/dev/null; then
+      sim_busy_owner="$(sed -n 1p "$lock/owner" 2>/dev/null || true)"
+      return 1
+    fi
+  fi
+  printf '%s\n%s\n' "$root" "$me" > "$lock/owner"
+  claimed_simulator="$lock"
+}
+
+# 잡은 기기를 놓는다. 이 프로세스가 잡은 것만 지운다.
+harness_release_simulator() {
+  [ -n "${claimed_simulator:-}" ] || return 0
+  [ "$(sed -n 2p "$claimed_simulator/owner" 2>/dev/null || true)" = "${HARNESS_SIM_PID:-$$}" ] && rm -rf "$claimed_simulator"
+  claimed_simulator=""
+}
+
+# simctl JSON(stdin)에서 기기($1)와 같은 런타임의 iPhone들을 "<udid> <이름>"으로. 기기 자신이 맨 앞이다.
+simulator_candidates() {
+  jq -r --arg u "$1" '
+    [ .devices | to_entries[] | select(any(.value[]; .udid == $u)) ][0].value // []
+    | (map(select(.udid == $u)) + map(select(.udid != $u and (.name | startswith("iPhone")))))[]
+    | "\(.udid) \(.name)"'
 }
 
 # 스킴($1)의 실행(Run) 빌드 구성. xcodebuild build는 이 구성으로 빌드한다.

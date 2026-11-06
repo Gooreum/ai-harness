@@ -141,8 +141,9 @@ scripts/harness/e2e --no-build              # 이미 빌드된 앱으로
 ```
 
 - 앱을 빌드(`build`)해 설정의 시뮬레이터에 설치하고 Maestro 시나리오를 돌린다. 시뮬레이터가 꺼져 있으면 켠다.
+  - 돌리는 동안 기기에 잠금을 건다(`$TMPDIR/ios-harness-simulators/<udid>`, 워크트리 경로와 프로세스 번호). 다른 워크트리가 같은 기기로 돌리는 중이면 같은 런타임의 다른 iPhone을 쓰고 한 줄 알린다. 남은 기기가 없으면 어느 워크트리가 쓰는지 알리고 멈춘다. 프로세스가 끝난 잠금은 무시한다.
   - 설치하는 앱은 `app.scheme`의 실행(Run) 빌드 구성으로 빌드된 앱 중 번들 ID가 `app.bundleId`인 것이다. 구성은 공유된 스킴 파일(`xcshareddata/xcschemes/<스킴>.xcscheme`)의 `LaunchAction`에서 읽는다. 그런 앱이 없으면 멈춘다. 스킴과 번들 ID가 다른 앱을 가리키면, 다른 구성으로 예전에 빌드된 앱을 설치해 바뀐 코드 없이 통과하기 때문이다(IntervalTimer #13에서 관찰).
-  - `--no-build`이면 구성을 가리지 않고 번들 ID가 맞는 가장 최근 앱을 설치한다.
+  - `--no-build`이면 구성을 가리지 않고 번들 ID가 맞는 가장 최근 앱을 설치한다. 앱이 바뀐 코드 파일보다 오래됐으면 멈춘다. 예전 앱으로 바뀐 코드 없이 통과할 수 있어서다(문서·시나리오는 보지 않는다).
   - Maestro가 쓸 Java가 없으면 돌리기 전에 멈춘다. Maestro는 `JAVA_HOME`이 있으면 그 java를, 없으면 PATH의 java를 쓴다. macOS의 `/usr/bin/java`는 JDK가 없어도 있으므로 실행해 확인한다.
   - 설치할 앱은 이 워크트리의 DerivedData에서 `app.bundleId`가 맞는 가장 최근 시뮬레이터용 `.app`이다. 앱 스킴의 빌드 구성(Debug·Release)을 따른다.
 - 시나리오는 `appId: ${APP_ID}`로 쓴다. 스크립트가 `-e APP_ID=<app.bundleId>`를 넘긴다. 비밀 값은 `MAESTRO_`로 시작하는 환경 변수로 넘기면 Maestro가 읽는다.
@@ -164,7 +165,7 @@ scripts/harness/e2e --no-build              # 이미 빌드된 앱으로
   - 실패 출력: `  .maestro/profile-empty.yaml: 행동 로그 tab_select 1회 (기대 2회), onboarding_complete 1회 (기대 0회)`
   - 시험 실행의 이벤트도 실제 Firebase 프로젝트로 올라간다(디버그 표시가 붙어 DebugView에 보인다).
 - 서버 응답 바꾸기: `.harness/project.json`에 `e2e.network.port`가 있으면 maestro에 `NETWORK_BASE_URL=http://127.0.0.1:<포트>`를 넘긴다. 시나리오가 `launchApp`의 `"-HarnessNetworkBaseURL": "${NETWORK_BASE_URL}"`로 앱에 준다.
-  - 응답은 플러그인 MCP `harness-network`가 준다([plugin.md](plugin.md)). 서버가 그 포트에 떠 있지 않으면 한 줄로 알린다(막지는 않는다).
+  - 응답은 플러그인 MCP `harness-network`가 준다([plugin.md](plugin.md)). 서버가 `.harness/state/network.port`에 남긴 포트에 떠 있으면 그 포트를 쓴다. 서버가 그 포트에 떠 있지 않으면 한 줄로 알린다(막지는 않는다).
   - `tags: [network]` 시나리오(가짜 응답 서버가 필요한 것)는 사용자가 원할 때만 돈다. 인자 없이 돌리거나 다른 태그로 돌리면 `--exclude-tags network`로 뺀다. 파일을 직접 주거나 `--tag network`면 돈다.
   - 서버 응답 판정: 시나리오 옆 `<이름>.network.json`의 `expect`(`match`·`status`)마다, 그 흐름 동안 서버 기록(`.harness/state/network-requests.ndjson`)에 같은 응답이 한 번 이상 있어야 한다. 없으면 그 흐름은 실패다.
     - 실패 출력: `  .maestro/analyze-server-error.yaml: 서버 응답 POST …/v1beta 500 응답이 없었다 — mock_set으로 응답을 걸고 돌린다 (받은 요청: POST …:generateContent 404)`

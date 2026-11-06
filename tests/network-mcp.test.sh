@@ -21,10 +21,10 @@ mkproj() { # 이름 [포트]
   fi
 }
 
-# start 이름 fd — 서버를 띄우고 그 fd로 요청을 보낼 수 있게 한다(bash 3.2라 fd 번호를 직접 준다). 출력은 $work/<이름>.out
+# start 이름 fd [폴더] — 서버를 띄우고 그 fd로 요청을 보낼 수 있게 한다(bash 3.2라 fd 번호를 직접 준다). 출력은 $work/<이름>.out
 start() {
   mkfifo "$work/$1.in"
-  (cd "$work/$1/sub" && exec python3 "$server" < "$work/$1.in" > "$work/$1.out" 2>"$work/$1.err") &
+  (cd "${3:-$work/$1/sub}" && exec python3 "$server" < "$work/$1.in" > "$work/$1.out" 2>"$work/$1.err") &
   pids+=($!)
   disown $! 2>/dev/null || true
   eval "exec $2>\"$work/$1.in\""
@@ -86,12 +86,24 @@ wait_port "$port_b"
 assert_eq "다른 프로젝트엔 응답이 없다" "404" "$(curl -s -o /dev/null -w '%{http_code}' -X POST "http://127.0.0.1:$port_b/api.example.com/v1/gen")"
 assert_eq "다른 프로젝트 목록은 비었다" "0" "$(call b 20 mock_list | jq '.result.content[0].text | fromjson | .mocks | length')"
 
-# 같은 프로젝트를 연 두 번째 세션: 포트를 못 잡아도 같은 파일을 읽는다
-mkdir -p "$work/a2" && ln -s "$work/a/.harness" "$work/a2/.harness" && mkdir -p "$work/a2/sub"
-start a2 8
-assert_eq "두 번째 세션: 포트가 쓰이는 중이라고 알린다" "yes" "$(call a2 1 mock_list | jq -r '.result.content[0].text' | grep -q '이미 쓰고 있어' && echo yes || echo no)"
+assert_eq "포트: 띄운 포트를 남긴다" "$port_a" "$(cat "$work/a/.harness/state/network.port")"
+
+# 같은 프로젝트(같은 폴더)를 연 두 번째 세션: 첫 서버를 같이 쓴다. 응답은 같은 파일이다
+start a2 8 "$work/a/sub"
+assert_eq "두 번째 세션: 알릴 것이 없다" "no" "$(call a2 1 mock_list | jq -r '.result.content[0].text' | grep -q '주의' && echo yes || echo no)"
 call a2 2 mock_set '{"match":"GET api.example.com/v2","status":400}' >/dev/null
 assert_eq "두 번째 세션이 건 응답을 첫 서버가 준다" "400" "$(curl -s -o /dev/null -w '%{http_code}' "$url/api.example.com/v2")"
+
+# 같은 포트를 적은 다른 폴더(같은 프로젝트의 다른 워크트리): 빈 포트로 따로 띄운다
+mkproj wt "$port_a"
+start wt 9
+note="$(call wt 1 mock_set '{"match":"GET api.example.com/v2","status":418}' | jq -r '.result.content[0].text')"
+assert_eq "워크트리: 다른 포트로 띄웠다고 알린다" "yes" "$(printf '%s' "$note" | grep -q "다른 폴더" && echo yes || echo no)"
+port_wt="$(cat "$work/wt/.harness/state/network.port" 2>/dev/null || echo none)"
+assert_eq "워크트리: 다른 포트를 남긴다" "yes" "$([ "$port_wt" != "$port_a" ] && [ "$port_wt" != none ] && echo yes || echo no)"
+wait_port "$port_wt"
+assert_eq "워크트리: 자기 응답을 준다" "418" "$(curl -s -o /dev/null -w '%{http_code}' "http://127.0.0.1:$port_wt/api.example.com/v2")"
+assert_eq "워크트리: 원래 서버는 그대로" "400" "$(curl -s -o /dev/null -w '%{http_code}' "$url/api.example.com/v2")"
 
 call a 30 mock_clear '{"match":"slow.example.com"}' >/dev/null
 assert_eq "하나 지우기" "3" "$(jq '.mocks | length' "$work/a/.harness/state/network.json")"

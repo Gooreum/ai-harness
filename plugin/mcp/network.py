@@ -66,6 +66,8 @@ MOCKS_FILE = os.path.join(STATE, "network.json") if STATE else None
 REQUESTS_FILE = os.path.join(STATE, "network-requests.ndjson") if STATE else None
 lock = threading.Lock()
 server_note = ""  # HTTP 서버를 못 띄웠을 때 도구 결과에 붙인다
+IDENTITY_PATH = "__harness/root"
+PORT_FILE = os.path.join(STATE, "network.port") if STATE else None
 
 
 def load_mocks():
@@ -134,6 +136,10 @@ class Handler(BaseHTTPRequestHandler):
         if length:
             self.rfile.read(length)
         target = self.path.lstrip("/")
+        if target == IDENTITY_PATH:
+            # 포트가 겹쳤을 때 같은 프로젝트(같은 폴더)의 서버인지 알아보는 데 쓴다.
+            self.respond(200, ROOT or "", {"Content-Type": "text/plain; charset=utf-8"})
+            return
         mock = find_mock(self.command, target)
         record_request({
             "time": time.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -176,15 +182,48 @@ class Handler(BaseHTTPRequestHandler):
     do_GET = do_POST = do_PUT = do_PATCH = do_DELETE = do_HEAD = do_OPTIONS = handle_any
 
 
+def serving_root(port):
+    """포트에 떠 있는 응답 서버의 프로젝트 폴더. 응답 서버가 아니면 None."""
+    import urllib.request
+    try:
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/{IDENTITY_PATH}", timeout=1) as r:
+            return r.read().decode("utf-8")
+    except Exception:
+        return None
+
+
+def write_port(port):
+    """실제로 띄운 포트를 남긴다. scripts/harness/e2e가 project.json보다 먼저 읽는다."""
+    try:
+        os.makedirs(STATE, exist_ok=True)
+        with open(PORT_FILE, "w") as f:
+            f.write(f"{port}\n")
+    except OSError:
+        pass
+
+
 def start_http():
-    global server_note
+    """project.json의 포트로 띄운다. 같은 프로젝트의 다른 세션이 이미 띄웠으면 그 서버를 같이 쓴다
+    (응답·요청 기록이 같은 파일이라 그대로 동작한다). 다른 폴더(같은 프로젝트의 다른 워크트리 등)가 쓰고 있으면
+    빈 포트로 띄운다. 포트가 커밋되는 project.json에 있어 워크트리끼리 겹쳤다(ReadSharp 원본과 워크트리가 둘 다 18787)."""
+    global server_note, PORT
     try:
         httpd = ThreadingHTTPServer(("127.0.0.1", PORT), Handler)
     except OSError as e:
-        server_note = (f"포트 {PORT}을 이미 쓰고 있어 이 세션은 응답 서버를 띄우지 않았다({e.strerror}). "
-                       "같은 프로젝트를 연 다른 세션이면 같은 파일을 읽으므로 그대로 동작한다. "
-                       "다른 프로젝트라면 .harness/project.json의 e2e.network.port를 바꾼다.")
-        return
+        owner = serving_root(PORT)
+        if owner is not None and os.path.realpath(owner) == os.path.realpath(ROOT):
+            write_port(PORT)
+            return
+        try:
+            httpd = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+        except OSError as e2:
+            server_note = f"응답 서버를 띄우지 못했다({e2.strerror})."
+            return
+        used = PORT
+        PORT = httpd.server_address[1]
+        server_note = (f"포트 {used}을 다른 폴더({owner or '응답 서버가 아닌 프로그램'})가 쓰고 있어 {PORT}로 띄웠다({e.strerror}). "
+                       "scripts/harness/e2e는 이 포트를 .harness/state/network.port에서 읽는다.")
+    write_port(PORT)
     httpd.daemon_threads = True
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
 

@@ -65,11 +65,6 @@ if ! git -C "$root" rev-parse --git-dir >/dev/null 2>&1; then
   all=1
 fi
 
-# 앱 빌드·테스트에 영향이 없는 파일(문서, e2e 시나리오, 에이전트 지침·규칙). 문서만 바꿨으면 빌드·테스트하지 않는다.
-not_code() {
-  grep -vE '\.md$|^docs/|^\.maestro/|^\.claude/|^\.agents/' || true
-}
-
 changed=""
 if [ "$all" = 0 ]; then
   changed="$(harness_changed_files "$base")"
@@ -78,7 +73,8 @@ if [ "$all" = 0 ]; then
     record true "바뀐 파일 없음"
     exit 0
   fi
-  changed="$(printf '%s\n' "$changed" | not_code)"
+  # 문서·시나리오·지침만 바꿨으면 빌드·테스트하지 않는다.
+  changed="$(printf '%s\n' "$changed" | harness_not_code)"
   if [ -z "$changed" ]; then
     echo "✓ unit-test · 코드 변경 없음 (문서·시나리오·지침만 바뀜)"
     record true "코드 변경 없음 (문서·시나리오·지침만 바뀜)"

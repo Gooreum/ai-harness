@@ -55,7 +55,7 @@
 | `modules.scheme` | 규칙 문자열 | 모듈 테스트를 돌릴 스킴 이름. `{dir}`은 모듈 디렉터리 이름이다 |
 | `modules.testsDir` | 디렉터리 이름 | 생성된 스킴 파일이 없을 때 쓰는 대체 기준. 모듈 안에 이 디렉터리가 있으면 테스트가 있는 모듈로 본다 |
 | `e2e.events` | `firebase` 또는 없음 | `e2e`가 행동 로그를 받을 곳. `firebase`면 Firebase Analytics 디버그 로그를 읽어 `<시나리오>.events.json`을 판정한다. detect는 채우지 않는다 |
-| `e2e.network.port` | 포트 번호 또는 없음 | 가짜 응답 서버(플러그인 MCP `harness-network`)가 쓸 포트. 있을 때만 MCP 도구가 보이고, `e2e`가 `NETWORK_BASE_URL`을 넘긴다. 프로젝트마다 다른 번호를 쓴다. detect는 채우지 않는다 |
+| `e2e.network.port` | 포트 번호 또는 없음 | 가짜 응답 서버(플러그인 MCP `harness-network`)가 쓸 포트. 있을 때만 MCP 도구가 보이고, `e2e`가 `NETWORK_BASE_URL`을 넘긴다. 프로젝트마다 다른 번호를 쓴다. 같은 프로젝트의 다른 워크트리가 이미 쓰고 있으면 서버가 빈 포트로 띄우고 `.harness/state/network.port`에 남긴다. detect는 채우지 않는다 |
 
 ## 구성별 차이
 
