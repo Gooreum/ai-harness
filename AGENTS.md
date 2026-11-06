@@ -1,4 +1,4 @@
-# ios-ai-harness
+# ai-harness
 
 여러 iOS 프로젝트에서 재사용하는 AI 코딩 에이전트 하네스를 만드는 저장소다.
 이 파일은 **이 저장소를 개발할 때** 따르는 지침이다. 각 iOS 프로젝트에 설치되는 지침은 `template/`에 따로 있다.
@@ -15,7 +15,7 @@
   - `template/.harness/.gitignore`: 프로젝트의 `.harness/`에서 설정 파일만 커밋하게 한다.
   - `template/.claude/settings.json`: 공통 권한 규칙(`.env` 읽기 deny, 파괴적 git 작업 ask). 묶음 권한은 `packs/<묶음>/settings.json`
 - `packs/<묶음>/`: 플랫폼 묶음. `pack.json`이 template 안의 어느 파일이 그 묶음 것인지 적고, 권한(`settings.json`), AGENTS.md 관리 블록 조각(`agents-*.md`)를 둔다. 프로젝트의 `.harness/project.json` `platforms`에 고른 묶음만 설치된다
-- `plugin/`: Claude Code 플러그인 `ios-harness`. 훅(생성 파일·pbxproj 편집 차단, 단계 지시), 작업 시작 스킬(`task`), 리뷰 서브에이전트(`ios-reviewer`)를 담는다. 루트의 `.claude-plugin/marketplace.json`이 이 저장소를 마켓플레이스로 만든다
+- `plugin/`: Claude Code 플러그인 `harness`. 훅(생성 파일·pbxproj 편집 차단, 단계 지시), 작업 시작 스킬(`task`), 리뷰 서브에이전트(`reviewer`)를 담는다. 루트의 `.claude-plugin/marketplace.json`이 이 저장소를 마켓플레이스로 만든다
 - `scripts/`: 하네스를 설치·관리하는 도구. 대상 프로젝트 경로를 인자로 받는다.
   - `scripts/detect <프로젝트 경로>`: 프로젝트 설정 파일 초안 만들기
   - `scripts/init <프로젝트 경로>`: 하네스를 처음 설치

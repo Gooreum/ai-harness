@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""ios-harness 가짜 응답 서버 (MCP + HTTP, 한 프로세스).
+"""harness 가짜 응답 서버 (MCP + HTTP, 한 프로세스).
 
 - 실제 서버로 만들기 어려운 응답(지연, 400·500, 빈 응답)을 실제 서버 대신 돌려준다(발표 슬라이드 85, ADR 0017).
 - AI는 MCP 도구(stdio JSON-RPC)로 응답을 걸고, 앱은 테스트로 실행될 때 요청을

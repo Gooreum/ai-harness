@@ -35,7 +35,7 @@ export PATH="$work/bin:$PATH"
 
 plugins() { # 버전 [enabled] [projectPath]
   jq -nc --arg v "$1" --argjson e "${2:-true}" --arg p "${3:-$root}" \
-    '[{id: "ios-harness@ios-ai-harness", version: $v, scope: "project", enabled: $e, projectPath: $p}]'
+    '[{id: "harness@ai-harness", version: $v, scope: "project", enabled: $e, projectPath: $p}]'
 }
 run_doctor() {
   set +e
@@ -52,7 +52,7 @@ assert_eq "ok: 한 줄로 끝난다" "✓ doctor · 문제 없음 · 하네스 $
 export FAKE_PLUGINS="$(plugins 0.0.1)"
 run_doctor
 assert_eq "old plugin: 실패한다" "1" "$code"
-assert_eq "old plugin: 플러그인을 갱신하라고 한다" "yes" "$(has "claude plugin update ios-harness@ios-ai-harness")"
+assert_eq "old plugin: 플러그인을 갱신하라고 한다" "yes" "$(has "claude plugin update harness@ai-harness")"
 
 export FAKE_PLUGINS="$(plugins 99.0.0)"
 run_doctor
@@ -66,8 +66,19 @@ export FAKE_PLUGINS="$(plugins "$version" false)"
 run_doctor
 assert_eq "disabled: 꺼져 있으면 켜라고 한다" "yes" "$(has "claude plugin enable")"
 
+# 예전 이름의 플러그인이 같이 켜져 있으면 훅이 두 번 돈다.
+export FAKE_PLUGINS="$(jq -nc --arg v "$version" --arg p "$root" '[{id: "harness@ai-harness", version: $v, scope: "project", enabled: true, projectPath: $p},
+  {id: "ios-harness@ios-ai-harness", version: "0.9.11", scope: "project", enabled: true, projectPath: $p}]')"
+run_doctor
+assert_eq "old name: 실패한다" "1" "$code"
+assert_eq "old name: 지우라고 한다" "yes" "$(has "claude plugin uninstall ios-harness@ios-ai-harness")"
+export FAKE_PLUGINS="$(jq -nc --arg v "$version" --arg p "$root" '[{id: "harness@ai-harness", version: $v, scope: "project", enabled: true, projectPath: $p},
+  {id: "ios-harness@ios-ai-harness", version: "0.9.11", scope: "project", enabled: false, projectPath: $p}]')"
+run_doctor
+assert_eq "old name: 꺼져 있으면 통과한다" "0" "$code"
+
 # 디렉터리 마켓플레이스(--dev)는 폴더의 버전을 본다.
-export FAKE_PLUGINS="$(jq -nc --arg v "$version" --arg p "$root" '[{id: "ios-harness@ios-ai-harness", version: "0.0.1", folderVersion: $v, enabled: true, projectPath: $p}]')"
+export FAKE_PLUGINS="$(jq -nc --arg v "$version" --arg p "$root" '[{id: "harness@ai-harness", version: "0.0.1", folderVersion: $v, enabled: true, projectPath: $p}]')"
 run_doctor
 assert_eq "dev: 폴더 버전이 맞으면 통과한다" "0" "$code"
 

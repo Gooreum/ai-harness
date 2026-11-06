@@ -1,5 +1,5 @@
 ---
-name: ios-reviewer
+name: reviewer
 description: iOS 변경을 검토하는 읽기 전용 리뷰어. 버그·로직 오류와 기존 동작에 주는 영향을 먼저 보고, 동시성 격리, 모듈 의존 방향, 접근성, 테스트 약화·설정 완화 같은 편법, 과설계를 찾는다. PR을 만들기 전이나 사용자가 리뷰를 요청할 때 쓴다.
 tools: Read, Grep, Glob, Bash
 model: inherit

@@ -14,7 +14,7 @@ input="$(cat)"
 if ! command -v jq >/dev/null 2>&1; then
   case "$input" in
     *'.harness/state/task.json'*)
-      printf '%s\n' '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"jq가 없어 ios-harness의 훅(단계 지시, Stop 게이트, 생성 파일 보호)이 모두 꺼져 있다. 사용자에게 jq를 설치하라고 알린다(macOS 15 이상은 /usr/bin/jq 기본 포함). scripts/harness/doctor로 확인한다."}}'
+      printf '%s\n' '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"jq가 없어 harness 플러그인의 훅(단계 지시, Stop 게이트, 생성 파일 보호)이 모두 꺼져 있다. 사용자에게 jq를 설치하라고 알린다(macOS 15 이상은 /usr/bin/jq 기본 포함). scripts/harness/doctor로 확인한다."}}'
       ;;
   esac
   exit 0

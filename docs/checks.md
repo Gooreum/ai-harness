@@ -44,7 +44,7 @@
     { "name": "build", "description": "앱 빌드만", "prompt": "scripts/harness/build를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed build" },
     { "name": "lint", "description": "팀 컨벤션 검사", "prompt": "scripts/harness/lint를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed lint" },
     { "name": "unit-test", "description": "앱 빌드와 단위 테스트", "prompt": "scripts/harness/unit-test를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed unit-test" },
-    { "name": "review", "description": "ios-reviewer 코드 리뷰", "prompt": "ios-harness:ios-reviewer 서브에이전트에 변경 검토를 맡기고 차단 항목을 고친다. 고친 뒤에는 다시 맡긴다", "run": "scripts/harness/passed review" },
+    { "name": "review", "description": "reviewer 코드 리뷰", "prompt": "harness:reviewer 서브에이전트에 변경 검토를 맡기고 차단 항목을 고친다. 고친 뒤에는 다시 맡긴다", "run": "scripts/harness/passed review" },
     { "name": "e2e", "description": "이번 기능과 영향 받는 흐름의 E2E", "prompt": ".claude/rules/harness/ios/maestro.md의 '작업에서 무엇을 만들고 무엇을 돌리나'를 따른다. 이번 기능의 결과로 끝나는 기능 시나리오를 만들고(기능이 나오는 조건은 시나리오 안에서 만든다), 리뷰어가 적은 영향 받는 흐름의 기존 시나리오와 함께 scripts/harness/e2e --record <기능 시나리오> <영향 시나리오...>로 통과시킨다", "run": "scripts/harness/passed e2e" }
   ]
 }

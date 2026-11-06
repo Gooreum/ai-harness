@@ -68,6 +68,9 @@ harness_version="$(jq -r .version "$plugin_json")"
 marketplace_repo="${HARNESS_MARKETPLACE_REPO:-$(jq -r .repository "$plugin_json" | sed -E 's#^https://github.com/##; s#\.git$##; s#/$##')}"
 marketplace_name="$(jq -r .name "$harness_repo_dir/.claude-plugin/marketplace.json")"
 plugin_id="$(jq -r .name "$plugin_json")@$marketplace_name"
+# 예전 이름(단위 24 전). 설정에 남아 있으면 지운다. 둘 다 켜지면 훅이 두 번 돈다.
+old_marketplace_names='["ios-ai-harness"]'
+old_plugin_ids='["ios-harness@ios-ai-harness"]'
 
 # 마지막에 보여줄 목록. 한 줄에 하나씩 쌓는다.
 changes=""
@@ -302,7 +305,8 @@ jq '{ permissions: { deny: (.permissions.deny // []), ask: (.permissions.ask // 
   || echo '{ "permissions": { "deny": [], "ask": [] } }' > "$tmp_dir/added-before"
 
 # 프로젝트의 deny/ask 목록에 없는 규칙만 뒤에 붙인다. 나머지 설정은 그대로 둔다.
-jq -s --arg market "$marketplace_name" --arg repo "$marketplace_repo" --arg plugin "$plugin_id" '
+jq -s --arg market "$marketplace_name" --arg repo "$marketplace_repo" --arg plugin "$plugin_id" \
+  --argjson old_markets "$old_marketplace_names" --argjson old_plugins "$old_plugin_ids" '
   def merge($current; $wanted; $before):
     [ ($current // [])[] | . as $rule
       | select((($before // []) | index($rule)) == null or (($wanted // []) | index($rule)) != null) ]
@@ -315,6 +319,8 @@ jq -s --arg market "$marketplace_name" --arg repo "$marketplace_repo" --arg plug
   | $project
   | .permissions.deny = merge($project.permissions.deny; $template.permissions.deny; $before.permissions.deny)
   | .permissions.ask = merge($project.permissions.ask; $template.permissions.ask; $before.permissions.ask)
+  | .extraKnownMarketplaces |= ((. // {}) | delpaths([$old_markets[] | [.]]))
+  | .enabledPlugins |= ((. // {}) | delpaths([$old_plugins[] | [.]]))
   | .extraKnownMarketplaces[$market] = { source: { source: "github", repo: $repo } }
   | .enabledPlugins[$plugin] = true' \
   "$settings_input" "$tmp_dir/wanted-settings" "$tmp_dir/added-before" > "$tmp_dir/settings"
@@ -330,6 +336,19 @@ fi
 # 디렉터리 마켓플레이스는 플러그인을 복사하지 않고 그 자리에서 읽어서, 고친 내용이 다음 세션부터 반영된다.
 
 local_settings_json="$target_project_dir/.claude/settings.local.json"
+
+# 예전 이름의 마켓플레이스·플러그인 항목을 지운다. 비면 키도 지운다.
+if [ -f "$local_settings_json" ] && jq -e --argjson m "$old_marketplace_names" --argjson p "$old_plugin_ids" '
+    any((.extraKnownMarketplaces // {}) | keys[]; IN($m[])) or any((.enabledPlugins // {}) | keys[]; IN($p[]))' \
+    "$local_settings_json" > /dev/null 2>&1; then
+  jq --argjson m "$old_marketplace_names" --argjson p "$old_plugin_ids" '
+    .extraKnownMarketplaces |= ((. // {}) | delpaths([$m[] | [.]]))
+    | .enabledPlugins |= ((. // {}) | delpaths([$p[] | [.]]))
+    | if .extraKnownMarketplaces == {} then del(.extraKnownMarketplaces) else . end
+    | if .enabledPlugins == {} then del(.enabledPlugins) else . end' \
+    "$local_settings_json" > "$tmp_dir/local-old"
+  write_if_changed "$local_settings_json" "$tmp_dir/local-old" ".claude/settings.local.json (예전 이름의 플러그인 지움)"
+fi
 
 if [ "$dev" = 1 ]; then
   local_settings_input="$local_settings_json"   # 아직 없으면 빈 JSON에서 시작한다
@@ -373,6 +392,16 @@ write_if_changed "$target_project_dir/.harness/harness.json" "$tmp_dir/harness" 
 
 # --- 검사 목록: .harness/checks.json ------------------------------------------------
 # 검사는 팀이 고른다. 하네스가 파일을 쓰지 않고, Claude 세션에서 setup 안내대로 사용자에게 묻고 쓰게 한다(ai-bouncer setup, ADR 0020).
+# 예전 이름의 리뷰어를 부르는 지시문은 새 이름으로 바꾼다. 하네스가 추천한 문구만 바꾸고 나머지는 그대로 둔다.
+checks_json="$target_project_dir/.harness/checks.json"
+if [ -f "$checks_json" ] && grep -q 'ios-harness:ios-reviewer' "$checks_json"; then
+  jq '(.checks // [])[] |= (
+        (if (.prompt | type) == "string" then .prompt |= gsub("ios-harness:ios-reviewer"; "harness:reviewer") else . end)
+        | (if .description == "ios-reviewer 코드 리뷰" then .description = "reviewer 코드 리뷰" else . end))' \
+    "$checks_json" > "$tmp_dir/checks" \
+    && write_if_changed "$checks_json" "$tmp_dir/checks" ".harness/checks.json (리뷰어 새 이름)"
+fi
+
 if [ ! -f "$target_project_dir/.harness/checks.json" ]; then
   todo "검사 목록(.harness/checks.json)이 없다. Claude 세션에서 \"scripts/harness/setup 안내대로 검사를 정해 줘\"라고 한다"
 fi

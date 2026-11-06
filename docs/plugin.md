@@ -1,21 +1,21 @@
 # 플러그인
 
-`plugin/`은 Claude Code 플러그인 `ios-harness`다. 여러 프로젝트에 공통으로 적용할 훅, 서브에이전트, 스킬을 담는다.
-이 저장소 루트의 `.claude-plugin/marketplace.json` 덕분에 저장소 자체가 마켓플레이스(`ios-ai-harness`) 역할을 한다.
+`plugin/`은 Claude Code 플러그인 `harness`다. 여러 프로젝트에 공통으로 적용할 훅, 서브에이전트, 스킬을 담는다.
+이 저장소 루트의 `.claude-plugin/marketplace.json` 덕분에 저장소 자체가 마켓플레이스(`ai-harness`) 역할을 한다.
 
 ## 구성
 
 ```
 .claude-plugin/marketplace.json     마켓플레이스 정의. 플러그인 위치는 ./plugin
 plugin/
-├── .claude-plugin/plugin.json      플러그인 정보(이름 ios-harness, 버전)
+├── .claude-plugin/plugin.json      플러그인 정보(이름 harness, 버전)
 ├── agents/
-│   └── ios-reviewer.md             읽기 전용 리뷰 서브에이전트 (ios-harness:ios-reviewer)
+│   └── reviewer.md             읽기 전용 리뷰 서브에이전트 (harness:reviewer)
 ├── .mcp.json                       MCP 서버 등록: harness-network
 ├── mcp/
 │   └── network.py                  가짜 응답 서버 (MCP + HTTP, python3)
 ├── skills/
-│   └── task/SKILL.md               작업 시작: 모드·검사를 사용자에게 묻고 상태 파일을 만든다 (ios-harness:task)
+│   └── task/SKILL.md               작업 시작: 모드·검사를 사용자에게 묻고 상태 파일을 만든다 (harness:task)
 └── hooks/
     ├── hooks.json                  훅 등록: 모든 도구 전 tool-count.sh, 편집 전 protect-generated.sh·check-run.sh, 편집 후 stage-context.sh, Read·SubagentHandback 후와 서브에이전트가 끝날 때 review-record.sh, 끝낼 때 stop-gate.sh
     ├── protect-generated.sh        생성 파일·pbxproj 편집 차단
@@ -23,7 +23,7 @@ plugin/
     ├── stop-gate.sh                작업 주인 세션이 done 전에 끝내지 못하게 막는다
     ├── tool-count.sh               작업 주인 세션의 도구 호출 수를 센다 (stop-gate.sh의 반복 방지용)
     ├── stage-context.sh            작업 상태 파일이 바뀌면 그 단계의 지시를 넣는다
-    └── review-record.sh            ios-reviewer가 연 파일과 보고서의 차단 수로 리뷰 결과 파일을 남긴다
+    └── review-record.sh            reviewer가 연 파일과 보고서의 차단 수로 리뷰 결과 파일을 남긴다
 ```
 
 ## 훅: protect-generated.sh
@@ -65,9 +65,9 @@ plugin/
 - 백그라운드 서브에이전트가 돌고 있으면(Stop 입력의 `background_tasks`에 `type: "subagent"`) 기다리는 중으로 보고 막지 않는다. 끝나면 알림으로 턴이 다시 열리고 그때 다시 본다. 셸·모니터는 끝나지 않을 수 있어 넣지 않는다([ADR 0013](decisions/0013-stop-wait-subagent.md)).
 - 상태 파일이 없거나 깨졌을 때, 주인이 아닌 세션은 막지 않는다.
 
-## 서브에이전트: ios-reviewer
+## 서브에이전트: reviewer
 
-변경을 하네스 규칙에 비춰 검토하는 읽기 전용 리뷰어다(추론적 Validation). 플러그인 안에서는 `ios-harness:ios-reviewer`로 부른다.
+변경을 하네스 규칙에 비춰 검토하는 읽기 전용 리뷰어다(추론적 Validation). 플러그인 안에서는 `harness:reviewer`로 부른다.
 
 - 쓸 수 있는 도구는 Read·Grep·Glob·Bash뿐이다. Bash는 git의 읽기 명령에만 쓰도록 지시한다. 플러그인 서브에이전트에서는 `permissionMode`가 무시되기 때문에 도구 목록으로 제한한다.
 - 검토 범위: 기본은 커밋하지 않은 변경이다. 요청하면 브랜치 전체(`git diff <기본 브랜치>...HEAD`)를 본다.
@@ -84,7 +84,7 @@ plugin/
 
 리뷰어를 실제로 불렀는지, 바뀐 파일을 다 열었는지를 리뷰어의 말이 아니라 훅 입력으로 확인한다.
 
-- PostToolUse(Read): 입력에 `agent_id`가 있고 `agent_type`이 `ios-reviewer`(플러그인에서는 `ios-harness:ios-reviewer`)면 연 파일을 `.harness/state/review-<agent_id>.reads`에 적는다. 메인 세션과 다른 서브에이전트의 Read는 적지 않는다.
+- PostToolUse(Read): 입력에 `agent_id`가 있고 `agent_type`이 `reviewer`(플러그인에서는 `harness:reviewer`)면 연 파일을 `.harness/state/review-<agent_id>.reads`에 적는다. 메인 세션과 다른 서브에이전트의 Read는 적지 않는다.
 - PostToolUse(SubagentHandback): 백그라운드로 돈 리뷰어는 보고서를 이 도구로 넘긴다. 그 `message`를 `.harness/state/review-<agent_id>.report`에 둔다.
 - SubagentStop: 그 리뷰어가 끝나면 `.harness/out/review.json`을 쓴다. 보고서는 `last_assistant_message`에서 읽고, 요약 줄이 없으면 위에서 둔 것을 쓴다.
   - `passed`: 바뀐 파일(unit-test와 같은 기준, 지운 파일·이미지 같은 바이너리 제외)을 모두 열었고, 보고서의 `요약 · 차단 N`이 0이거나 `발견 없음`
@@ -100,22 +100,31 @@ plugin/
 ```json
 {
   "extraKnownMarketplaces": {
-    "ios-ai-harness": { "source": { "source": "github", "repo": "Gooreum/ios-ai-harness" } }
+    "ai-harness": { "source": { "source": "github", "repo": "Gooreum/ai-harness" } }
   },
-  "enabledPlugins": { "ios-harness@ios-ai-harness": true }
+  "enabledPlugins": { "harness@ai-harness": true }
 }
 ```
 
-- 이 파일을 커밋하면 팀원이 프로젝트를 열고 폴더를 신뢰할 때 Claude Code가 마켓플레이스 추가와 플러그인 설치를 권한다. 직접 하려면 `claude plugin marketplace add Gooreum/ios-ai-harness` 후 `claude plugin install ios-harness@ios-ai-harness --scope project`.
+- 이 파일을 커밋하면 팀원이 프로젝트를 열고 폴더를 신뢰할 때 Claude Code가 마켓플레이스 추가와 플러그인 설치를 권한다. 직접 하려면 `claude plugin marketplace add Gooreum/ai-harness` 후 `claude plugin install harness@ai-harness --scope project`.
 - 저장소 이름은 `plugin.json`의 `repository`에서 읽는다. 다른 포크로 배포하려면 그 값을 고치거나 `HARNESS_MARKETPLACE_REPO=<owner>/<repo>`를 준다.
 - 하네스를 고치는 중에는 `scripts/sync --dev <프로젝트>`로 같은 이름의 마켓플레이스를 이 저장소 디렉터리로 덮어쓴다(`.claude/settings.local.json`). 디렉터리 마켓플레이스는 복사하지 않고 그 자리에서 읽어서, 고친 내용이 다음 세션부터 반영된다.
+
+## 예전 이름에서 옮기기
+
+0.10.0에서 이름을 바꿨다(ADR 0021). 플러그인 `ios-harness` → `harness`, 마켓플레이스 `ios-ai-harness` → `ai-harness`, 리뷰어 `ios-reviewer` → `reviewer`, 저장소 `Gooreum/ios-ai-harness` → `Gooreum/ai-harness`.
+
+- `scripts/sync`가 `.claude/settings.json`·`settings.local.json`에서 예전 마켓플레이스와 플러그인 항목을 지우고 새 항목을 넣는다. 둘이 같이 켜지면 훅이 두 번 돈다.
+- `.harness/checks.json`에 하네스가 추천한 리뷰 지시문(`ios-harness:ios-reviewer`)이 있으면 새 이름으로 바꾼다. 다른 검사는 건드리지 않는다.
+- 이미 설치된 예전 플러그인은 sync가 지우지 않는다(Claude Code의 설치 기록은 사용자 것이다). 켜져 있으면 `scripts/harness/doctor`가 알리고, `claude plugin uninstall ios-harness@ios-ai-harness`로 지운다.
+- 예전 주소(`Gooreum/ios-ai-harness`)는 GitHub이 새 주소로 넘겨 주므로, sync 전의 프로젝트도 계속 갱신을 받는다.
 
 ## 버전
 
 - `plugin.json`의 `version` 하나가 하네스 버전이다. template(프로젝트 파일)과 plugin(훅·스킬)이 같은 설정 형식을 읽으므로 따로 세지 않는다.
 - template이나 plugin을 바꿔 `main`에 머지할 때 버전을 올린다. 올리지 않으면 Claude Code가 플러그인 갱신을 알아채지 못한다.
 - 프로젝트에는 sync가 설치한 버전을 `.harness/harness.json`에 남긴다. `scripts/harness/doctor`가 설치된 플러그인 버전과 비교한다.
-- 팀원 쪽 갱신: `claude plugin marketplace update ios-ai-harness && claude plugin update ios-harness@ios-ai-harness`
+- 팀원 쪽 갱신: `claude plugin marketplace update ai-harness && claude plugin update harness@ai-harness`
 
 ## 검증
 

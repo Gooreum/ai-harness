@@ -294,11 +294,12 @@
   - 완료 기준: iOS 묶음으로 ReadSharp·IntervalTimer를 sync했을 때 지금과 같게 돈다
   - 결과(23-1, 0.9.10): 묶음 구조·설정 새 형식·detect. 시험장 두 곳의 HEAD로 만든 임시 워크트리에 sync하니 설정이 옮겨지고 규칙이 `rules/harness/ios/`로 옮겨졌다(옛 자리는 지움). 파일 목록이 없는 옛 설치 기록이라 옮긴 규칙의 옛 자리를 이름으로 지우게 했다
   - 결과(23-2, 0.9.11): `checks.json`은 init이 쓰지 않고 `scripts/harness/setup` 안내로 사용자에게 물어 정한다(ai-bouncer `setup`, 처음엔 초안을 쓰게 했다가 사용자가 원하지 않아 바꿨다). sync가 지난번에 넣은 권한 규칙 중 빠진 것만 지우고, 스크립트가 가장 가까운 `.harness/project.json`을 루트로 쓴다. 시험장 두 곳의 HEAD로 만든 임시 워크트리에서 unit-test(221·130)와 `passed`가 그대로 통과했다(ADR 0020)
-- [ ] **24. 이름 바꾸기와 이전**
+- [x] **24. 이름 바꾸기와 이전**
   - 저장소, 플러그인(`ios-harness`), 마켓플레이스(`ios-ai-harness`, owner `woong`), 리뷰어(`ios-reviewer`) 이름
   - 이미 설치한 곳이 깨지지 않게 한다: `enabledPlugins` 키, doctor에 박힌 id, 리뷰 기록 훅의 이름 비교, 시험장 `checks.json` 지시문의 `ios-harness:ios-reviewer`. sync가 옛 항목을 지우고 새 항목을 넣는다. 둘이 같이 켜지면 훅이 두 번 돈다
   - README, `docs/*`, AGENTS.md·CLAUDE.md, `plugin.json`·`marketplace.json`의 설명
   - 완료 기준: 시험장 두 곳이 sync 한 번으로 새 이름의 플러그인을 쓰고, 옛 플러그인이 꺼져 있다
+  - 결과(2026-11-06, 0.10.0): 저장소 `Gooreum/ai-harness`, 마켓플레이스 `ai-harness`(owner `woong` 그대로), 플러그인 `harness`, 리뷰어 `reviewer`(사용자가 정했다). sync가 설정에서 예전 마켓플레이스·플러그인 키를 지우고 `checks.json`의 `ios-harness:ios-reviewer`를 새 이름으로 바꾼다. 예전 플러그인이 켜져 있으면 doctor가 알린다(ADR 0021). 시험장 두 곳의 HEAD로 만든 임시 워크트리에서 `sync --dev` 한 번으로 설정에 새 이름만 남았고, 새 플러그인을 설치하니 doctor가 문제 없음이었다. 이 Mac의 사용자 설정에 폴더 마켓플레이스가 예전 이름으로 등록돼 있어 새 이름으로 다시 등록했다
 - [ ] **25. 공통 리뷰어와 권한**
   - 리뷰어는 공통 절차(바뀐 파일 열기, 기존 영향 찾기, 보고 형식)만 두고, 확인 항목과 편법 목록은 묶음 규칙에서 읽는다
     - 편법 예: 스냅샷 갱신(`-u`), `@ts-ignore`, `eslint-disable`, `any`, tsconfig strict 끄기, `@Suppress`

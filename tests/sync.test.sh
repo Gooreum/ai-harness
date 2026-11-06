@@ -106,12 +106,34 @@ rm -f "$p/scripts/harness/verify" "$p/scripts/harness/team-tool"
 
 # --- 플러그인 등록과 설치 기록 -----------------------------------------------------------
 version="$(jq -r .version "$here/../plugin/.claude-plugin/plugin.json")"
-assert_eq "plugin: 공유 설정에 GitHub 마켓플레이스를 넣는다" '{"source":"github","repo":"Gooreum/ios-ai-harness"}' \
-  "$(jq -c '.extraKnownMarketplaces["ios-ai-harness"].source' "$p/.claude/settings.json")"
-assert_eq "plugin: 공유 설정에서 플러그인을 켠다" "true" "$(jq '.enabledPlugins["ios-harness@ios-ai-harness"]' "$p/.claude/settings.json")"
+assert_eq "plugin: 공유 설정에 GitHub 마켓플레이스를 넣는다" '{"source":"github","repo":"Gooreum/ai-harness"}' \
+  "$(jq -c '.extraKnownMarketplaces["ai-harness"].source' "$p/.claude/settings.json")"
+assert_eq "plugin: 공유 설정에서 플러그인을 켠다" "true" "$(jq '.enabledPlugins["harness@ai-harness"]' "$p/.claude/settings.json")"
 assert_eq "plugin: 기본 설치는 로컬 설정을 만들지 않는다" "no" "$([ -f "$p/.claude/settings.local.json" ] && echo yes || echo no)"
-assert_eq "plugin: 기존 설정에도 플러그인을 등록한다" "true" "$(jq '.enabledPlugins["ios-harness@ios-ai-harness"]' "$q/.claude/settings.json")"
+assert_eq "plugin: 기존 설정에도 플러그인을 등록한다" "true" "$(jq '.enabledPlugins["harness@ai-harness"]' "$q/.claude/settings.json")"
 assert_eq "record: 설치한 하네스 버전을 남긴다" "$version" "$(jq -r .version "$p/.harness/harness.json")"
+
+# --- 예전 이름(ios-harness@ios-ai-harness) 정리 ------------------------------------------------
+jq '.extraKnownMarketplaces["ios-ai-harness"] = {source: {source: "github", repo: "Gooreum/ios-ai-harness"}}
+    | .enabledPlugins["ios-harness@ios-ai-harness"] = true | .enabledPlugins["other@x"] = true' \
+  "$p/.claude/settings.json" > "$work/s.json" && mv "$work/s.json" "$p/.claude/settings.json"
+echo '{"extraKnownMarketplaces":{"ios-ai-harness":{"source":{"source":"directory","path":"/x"}}},"enabledPlugins":{"ios-harness@ios-ai-harness":true},"env":{"A":"1"}}' \
+  > "$p/.claude/settings.local.json"
+cat > "$p/.harness/checks.json" <<'JSON'
+{ "schemaVersion": 1, "checks": [
+  { "name": "review", "description": "ios-reviewer 코드 리뷰", "prompt": "ios-harness:ios-reviewer 서브에이전트에 변경 검토를 맡긴다", "run": "scripts/harness/passed review" },
+  { "name": "mine", "description": "팀 검사", "prompt": "scripts/harness/record mine \"make t\"", "run": "scripts/harness/passed mine" } ] }
+JSON
+"$install" "$p" > /dev/null
+assert_eq "old name: 공유 설정에서 예전 마켓플레이스를 지운다" "null" "$(jq -c '.extraKnownMarketplaces["ios-ai-harness"]' "$p/.claude/settings.json")"
+assert_eq "old name: 공유 설정에서 예전 플러그인을 지운다" "null" "$(jq -c '.enabledPlugins["ios-harness@ios-ai-harness"]' "$p/.claude/settings.json")"
+assert_eq "old name: 다른 플러그인은 남긴다" "true" "$(jq -c '.enabledPlugins["other@x"]' "$p/.claude/settings.json")"
+assert_eq "old name: 로컬 설정에서도 지우고 다른 값은 남긴다" '{"env":{"A":"1"}}' "$(jq -c . "$p/.claude/settings.local.json")"
+assert_eq "old name: 검사 지시문의 리뷰어를 새 이름으로 바꾼다" "harness:reviewer 서브에이전트에 변경 검토를 맡긴다|reviewer 코드 리뷰" \
+  "$(jq -r '.checks[0] | "\(.prompt)|\(.description)"' "$p/.harness/checks.json")"
+assert_eq "old name: 다른 검사는 그대로 둔다" 'scripts/harness/record mine "make t"' "$(jq -r '.checks[1].prompt' "$p/.harness/checks.json")"
+rm -f "$p/.claude/settings.local.json" "$p/.harness/checks.json"
+jq 'del(.enabledPlugins["other@x"])' "$p/.claude/settings.json" > "$work/s.json" && mv "$work/s.json" "$p/.claude/settings.json"
 
 # --- init과 sync의 구분 ----------------------------------------------------------------
 set +e
@@ -131,9 +153,9 @@ assert_eq "sync: 거절할 때 아무 파일도 만들지 않는다" "" "$(ls -A
 echo '{"permissions":{"deny":["Skill(x)"]}}' > "$p/.claude/settings.local.json"
 "$install" --dev "$p" > /dev/null
 assert_eq "dev: 로컬 설정에 이 저장소를 디렉터리 마켓플레이스로 넣는다" "directory" \
-  "$(jq -r '.extraKnownMarketplaces["ios-ai-harness"].source.source' "$p/.claude/settings.local.json")"
+  "$(jq -r '.extraKnownMarketplaces["ai-harness"].source.source' "$p/.claude/settings.local.json")"
 assert_eq "dev: 공유 설정은 GitHub 그대로 둔다" "github" \
-  "$(jq -r '.extraKnownMarketplaces["ios-ai-harness"].source.source' "$p/.claude/settings.json")"
+  "$(jq -r '.extraKnownMarketplaces["ai-harness"].source.source' "$p/.claude/settings.json")"
 "$install" "$p" > /dev/null
 assert_eq "dev 해제: --dev 없이 실행하면 디렉터리 마켓플레이스를 지운다" "null" \
   "$(jq -c '.extraKnownMarketplaces' "$p/.claude/settings.local.json")"
