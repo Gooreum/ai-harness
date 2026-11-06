@@ -3,7 +3,7 @@
 #
 # ai-bouncer의 `bouncer record`를 따른다. 다른 점(ADR 0018):
 #   - 결과는 로그 끝의 `exit: N` 줄이 아니라 JSON(passed, summary, exit, command)으로 남긴다.
-#     build·test·e2e 같은 다른 스크립트의 결과와 형식을 맞춰, passed가 한 가지로 읽게 한다.
+#     저장소의 도구가 직접 같은 형식의 결과를 남겨도 passed가 한 가지로 읽게 한다.
 #   - 화면에는 전체 출력이 아니라 성공하면 한 줄, 실패하면 로그 끝부분만 보여 준다. 전체 로그는 .harness/out/<이름>.log에 둔다.
 set -euo pipefail
 

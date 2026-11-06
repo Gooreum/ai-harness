@@ -1,103 +1,38 @@
 # 프로젝트 설정 파일 (`.harness/project.json`)
 
 프로젝트마다 다른 사실을 모아두는 JSON 파일이다. 각 프로젝트 루트의 `.harness/project.json`에 두고 git에 커밋한다.
-하네스 스크립트와 AGENTS.md의 명령 블록이 이 파일을 읽는다. 그래서 같은 스크립트가 어느 프로젝트에서나 동작한다.
+하네스의 훅과 스크립트는 이 파일이 있는 가장 가까운 상위 디렉터리를 프로젝트 루트로 본다. 그래서 내용이 비어 있어도 파일은 있어야 한다.
 
-- **사실만 적는다.** "무엇을 언제 검증할지" 같은 정책은 넣지 않는다.
-- **필요해질 때 필드를 추가한다.** 이후 단위에서 새 값이 필요하면 그때 필드를 더한다. `schemaVersion`은 기존 필드의 의미가 바뀔 때만 올린다.
-- **초안은 `detect`로 만들고, 사람이 확인한 뒤 저장한다.**
-- **플랫폼마다 값을 묶음 이름 아래에 둔다.** 어떤 묶음(플랫폼별 스크립트·규칙·권한 모음, ADR 0019)을 설치할지는 `platforms`에 적는다. 묶음의 값은 그 이름 아래(`ios`)에 둔다. 묶음이 여러 개여도 키가 섞이지 않는다.
+- **사실만 적는다.** "무엇을 언제 검증할지" 같은 정책은 `checks.json`에 둔다([checks.md](checks.md)).
+- **하네스는 플랫폼을 모른다.** 스킴·시뮬레이터·생성기 같은 플랫폼 값은 하네스가 읽지 않는다([ADR 0024](decisions/0024-no-platform.md)). 프로젝트가 가진 스크립트가 쓰는 값이면 이 파일에 둬도 된다. 하네스는 건드리지 않는다.
+- **처음 설치하면 `{ "schemaVersion": 2 }`만 있다.** `scripts/init`이 쓴다. 나머지는 Claude 세션에서 `scripts/harness/setup` 안내대로 사용자와 정해 더한다.
+- **필요해질 때 필드를 추가한다.** `schemaVersion`은 기존 필드의 의미가 바뀔 때만 올린다.
 
-## 예시 (Tuist 모듈 프로젝트)
+## 예시 (Expo 앱, 가짜 응답 서버 사용)
 
 ```json
 {
   "schemaVersion": 2,
-  "platforms": ["ios"],
-  "ios": {
-    "generator": "tuist",
-    "commands": {
-      "install": "tuist install",
-      "generate": "make generate"
-    },
-    "workspace": "MotoTrace.xcworkspace",
-    "project": null,
-    "app": {
-      "scheme": "MotoTrace",
-      "path": "MotoTrace",
-      "bundleId": "com.woong.MotoTrace",
-      "unitTestTargets": ["MotoTraceTests"]
-    },
-    "modules": {
-      "manifest": "Project.swift",
-      "scheme": "{dir}",
-      "testsDir": "Tests"
-    }
-  }
+  "generated": ["ios/*", "android/*", "src/gql/*.generated.ts"],
+  "e2e": { "network": { "port": 18787 } }
 }
 ```
-
-묶음이 없는 저장소(문서·스크립트만 있는 저장소, 아직 묶음이 없는 플랫폼)는 `{"schemaVersion": 2, "platforms": []}`다. 공통 파일(`record`·`passed`·`wiki`·`doctor`)만 설치된다.
 
 ## 필드
 
 | 필드 | 값 | 설명 |
 |---|---|---|
-| `schemaVersion` | `2` | 파일 형식 버전. `1`은 iOS 값이 최상위에 있던 옛 형식이다. `scripts/sync`가 `2`로 옮긴다 |
-| `platforms` | 묶음 이름 배열 | 설치할 묶음. 지금 있는 묶음은 `ios`다. 빼면 다음 sync에서 그 묶음의 파일을 지운다 |
-| `ios.generator` | `tuist` · `xcodegen` · `xcodeproj` · `spm` | Xcode 프로젝트를 만드는 방식. `tuist`·`xcodegen`은 프로젝트 파일이 생성물이다 |
-| `ios.commands.install` | 문자열 또는 `null` | 외부 의존성을 받는 명령. 새 클론이나 새 워크트리, 의존성이 바뀌었을 때 실행한다 |
-| `ios.commands.generate` | 문자열 또는 `null` | Xcode 프로젝트를 (다시) 만드는 명령. 생성기가 없으면 `null`이다 |
-| `ios.workspace` | 경로 또는 `null` | 빌드할 `.xcworkspace`. 루트 기준 경로다 |
-| `ios.project` | 경로 또는 `null` | 빌드할 `.xcodeproj`. `workspace`와 `project` 중 하나만 값을 가진다 |
-| `ios.app.scheme` | 문자열 | 앱을 빌드하는 스킴 |
-| `ios.app.testScheme` | 문자열 또는 `null` | 앱 단위 테스트를 돌리는 스킴. `null`이면 `ios.app.scheme`을 쓴다. 앱 스킴의 테스트 액션이 Release(배포용 스킴 등)라 `@testable import`가 안 될 때만 채운다 |
-| `ios.app.path` | 경로 또는 `null` | 앱 manifest가 있는 디렉터리(Tuist). 이 안의 파일은 앱의 변경으로 본다 |
-| `ios.app.bundleId` | 문자열 또는 `null` | Debug 구성의 앱 번들 ID. 시뮬레이터에서 앱을 실행할 때 쓴다 |
-| `ios.app.unitTestTargets` | 문자열 배열 | 앱이 바뀌었을 때 돌릴 단위 테스트 타깃. UI 테스트는 넣지 않는다 |
-| `ios.destination.simulator` | 문자열, 선택 | 특정 기기가 꼭 필요할 때만 적는다. 없으면 실행할 때마다 설치된 최신 iPhone(최신 iOS 런타임, 번호가 가장 큰 Pro)을 쓴다. 적은 기기가 설치돼 있지 않아도 최신 iPhone을 쓰고 알린다. `detect`는 적지 않는다: 이름을 적어 두면 Xcode가 바뀔 때 모든 프로젝트가 깨진다 |
-| `ios.destination.os` | `latest` 또는 버전, 선택 | `ios.destination.simulator`를 적었을 때의 OS 버전. 기본 `latest` |
-| `ios.modules` | 객체 또는 `null` | 모듈을 찾는 규칙. 모듈 구조가 없으면 `null`이다 |
-| `ios.modules.manifest` | 파일 이름 | 이 파일이 있는 디렉터리를 모듈 하나로 본다 |
-| `ios.modules.scheme` | 규칙 문자열 | 모듈 테스트를 돌릴 스킴 이름. `{dir}`은 모듈 디렉터리 이름이다 |
-| `ios.modules.testsDir` | 디렉터리 이름 | 생성된 스킴 파일이 없을 때 쓰는 대체 기준. 모듈 안에 이 디렉터리가 있으면 테스트가 있는 모듈로 본다 |
-| `generated` | 글롭 배열, 선택 | 직접 고치면 안 되는 생성 파일(루트 기준, `*`는 `/`도 넘는다). 예: Expo prebuild의 `["ios/*", "android/*"]`, codegen 결과 `["src/gql/*.generated.ts"]`. 훅이 편집을 막고, 리뷰어가 열지 않아도 된다. Tuist·XcodeGen의 프로젝트 파일은 `ios.generator`로 따로 막는다 |
-| `e2e.events` | `firebase` 또는 없음 | `e2e`가 행동 로그를 받을 곳. `firebase`면 Firebase Analytics 디버그 로그를 읽어 `<시나리오>.events.json`을 판정한다. detect는 채우지 않는다 |
-| `e2e.network.port` | 포트 번호 또는 없음 | 가짜 응답 서버(플러그인 MCP `harness-network`)가 쓸 포트. 있을 때만 MCP 도구가 보이고, `e2e`가 `NETWORK_BASE_URL`을 넘긴다. 프로젝트마다 다른 번호를 쓴다. 같은 프로젝트의 다른 워크트리가 이미 쓰고 있으면 서버가 빈 포트로 띄우고 `.harness/state/network.port`에 남긴다. detect는 채우지 않는다 |
+| `schemaVersion` | `2` | 파일 형식 버전 |
+| `generated` | 글롭 배열, 선택 | 직접 고치면 안 되는 생성 파일(루트 기준, `*`는 `/`도 넘는다). 예: Expo prebuild의 `["ios/*", "android/*"]`, Tuist·XcodeGen의 `["*.xcodeproj/*", "*.xcworkspace/*", "Derived/*", "*/Derived/*"]`, codegen 결과 `["src/gql/*.generated.ts"]`. 훅 `protect-generated.sh`가 편집을 막고, 리뷰어가 열지 않아도 된다. setup이 사용자에게 물어 정한다 |
+| `e2e.network.port` | 포트 번호 또는 없음 | 가짜 응답 서버(플러그인 MCP `harness-network`)가 쓸 포트. 있을 때만 MCP 도구가 보인다. 프로젝트마다 다른 번호를 쓴다. 같은 프로젝트의 다른 워크트리가 이미 쓰고 있으면 서버가 빈 포트로 띄우고 `.harness/state/network.port`에 남긴다([plugin.md](plugin.md#mcp-harness-network-가짜-응답-서버)) |
 
-## 구성별 차이
+- 생성물은 아니지만 손으로 고치면 깨지는 파일(예: `project.pbxproj`)은 여기에 적지 않고 `.claude/settings.json`의 deny에 `Edit(<글롭>)`으로 넣는다. setup이 함께 묻는다.
 
-iOS 묶음의 구성별 차이다(값은 모두 `ios` 아래).
+## 예전 iOS 값
 
-| 구성 | `generator` | `commands` | 빌드 대상 | `modules` |
-|---|---|---|---|---|
-| Tuist 모듈 프로젝트 | `tuist` | install·generate | `workspace` | 규칙 있음 |
-| Tuist, 루트 manifest 하나 | `tuist` | install·generate | `workspace` | `null` (모듈마다 manifest가 없어 바뀐 파일과 상관없이 앱 단위 테스트를 돌린다. 예: IntervalTimer) |
-| xcodeproj 단일 앱 | `xcodeproj` | 둘 다 `null` | `project` (CocoaPods 등은 `workspace`) | `null` |
-| XcodeGen | `xcodegen` | generate | `project` | `null` |
-| SPM 패키지 | `spm` | 둘 다 `null` | 둘 다 `null` | `null` (아직 build·test 미지원) |
+0.11.x까지는 iOS 묶음이 이 파일의 `platforms`와 `ios` 값(`generator`, `workspace`, `app.scheme`, `modules` 등), `e2e.events`를 읽었다. 그 스펙은 git 기록(0.11.2의 `docs/project-config.md`)에 있다.
 
-## detect
-
-하네스 저장소의 `scripts/detect`가 프로젝트를 훑어서 초안을 만든다. 설치할 때, 또는 프로젝트 구조가 바뀌었을 때 쓰는 도구라 프로젝트에는 복사하지 않는다.
-
-```bash
-scripts/detect ~/path/to/app           # 초안을 출력
-scripts/detect --write ~/path/to/app   # <프로젝트>/.harness/project.json에 저장 (이미 있으면 --force 필요)
-```
-
-- 초안 JSON은 stdout으로, 판단 근거와 경고는 stderr로 출력한다.
-- 묶음 고르기: Xcode 프로젝트(아래 파일 구조)가 있으면 `ios`를 고른다. 앱 없는 Swift 패키지(`Package.swift`만)는 고르지 않는다. `package.json`·`gradlew`·`pyproject.toml`·`Cargo.toml`·`go.mod`가 있으면 묶음이 없다고 알리기만 한다. 그 저장소의 검사는 setup에서 저장소의 명령으로 정한다(ADR 0023). 묶음을 하나도 고르지 않아도 초안을 만든다.
-- 생성 파일: `package.json`에 `expo`가 있고 `ios/`·`android/`를 git이 무시하면(Expo prebuild 생성물) `generated`에 `ios/*`·`android/*`를 넣는다.
-- iOS 판단 근거
-  - 파일 구조: `Tuist.swift`, `Workspace.swift`, `Project.swift`, `project.yml`, `*.xcodeproj`
-  - Makefile 타깃: `make generate`처럼 프로젝트가 감싼 명령을 우선한다
-  - Tuist 워크스페이스 이름: `Workspace(`, 없으면 `Project(` 호출의 `name:`. 값이 상수(`name: projectName`)면 같은 파일의 `let projectName = "..."`를 읽는다
-  - pbxproj 내용: `plutil`로 JSON 변환
-  - 생성된 워크스페이스가 있으면 `xcodebuild -list`, `-showBuildSettings`로 스킴과 번들 ID를 확인한다
-  - `xcrun simctl`: 가장 최신 iOS 런타임의 iPhone을 고른다(Pro 모델 우선)
-  - 공유 스킴 파일(`xcshareddata/xcschemes/*.xcscheme`)
-    - 앱 스킴의 테스트 액션 구성이 Debug가 아니면 `app.testScheme`을 찾는다.
-    - 테스트 액션이 Debug이고 첫 단위 테스트 타깃을 담은 스킴이어야 한다. 단위 테스트 타깃과 이름이 같은 스킴을 먼저 보고, 나머지는 이름순으로 본다.
-- Tuist 프로젝트를 아직 생성하지 않았으면 스킴과 번들 ID를 확인할 수 없다. 이 경우 추정값을 쓰거나 `null`로 두고, 경고를 출력한다.
-- `HARNESS_OFFLINE=1`을 주면 xcodebuild·simctl을 부르지 않고 파일만 본다(테스트용).
+- 묶음을 쓰던 프로젝트를 sync하면 iOS 스크립트가 `scripts/ios/`로 넘어간다. 넘어간 스크립트는 지금도 `ios` 값을 읽으므로 sync는 이 값을 지우지 않는다.
+- `ios.generator`가 `tuist`·`xcodegen`이면 sync가 프로젝트 파일 글롭을 `generated`에 더한다. 예전에는 훅이 generator를 보고 막았다.
+- `platforms`는 이제 아무도 읽지 않는다. 남아 있어도 된다.
+- sync는 더 이상 `schemaVersion` 1(iOS 값이 최상위에 있던 형식)을 옮기지 않는다.

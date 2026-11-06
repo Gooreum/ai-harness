@@ -19,42 +19,10 @@ reason() { # 파일경로
   jq -n --arg f "$1" '{cwd: "/", tool_name: "Write", tool_input: {file_path: $f}}' | "$hook" \
     | jq -r '.hookSpecificOutput.permissionDecisionReason'
 }
-project() { # 디렉터리 generator
-  mkdir -p "$1/.harness"
-  jq -n --arg g "$2" '{schemaVersion: 2, platforms: ["ios"], ios: {generator: $g}}' > "$1/.harness/project.json"
-}
-
-# --- Tuist 프로젝트 -----------------------------------------------------------
-t="$work/tuist"
-project "$t" tuist
-assert_eq "tuist: 워크스페이스 파일은 막는다" "deny" "$(decide "$t/App.xcworkspace/contents.xcworkspacedata")"
-assert_eq "tuist: 모듈 xcodeproj 안의 pbxproj는 막는다" "deny" "$(decide "$t/Modules/A/A.xcodeproj/project.pbxproj")"
-assert_eq "tuist: 생성된 스킴도 막는다" "deny" "$(decide "$t/Modules/A/A.xcodeproj/xcshareddata/xcschemes/A.xcscheme")"
-assert_eq "tuist: Derived 폴더는 막는다" "deny" "$(decide "$t/Modules/A/Derived/InfoPlists/A-Info.plist")"
-assert_eq "tuist: 소스 파일은 허용" "allow" "$(decide "$t/Modules/A/Sources/A.swift")"
-assert_eq "tuist: manifest는 허용" "allow" "$(decide "$t/Modules/A/Project.swift")"
-assert_eq "tuist: 상대 경로는 cwd 기준으로 판단" "deny" "$(decide "App.xcworkspace/contents.xcworkspacedata" "$t")"
-case "$(reason "$t/App.xcworkspace/contents.xcworkspacedata")" in
-  *"manifest"*"build·test·unit-test"*) ok=yes ;;
-  *) ok=no ;;
-esac
-assert_eq "tuist: 막는 이유에 고치는 방법(manifest, 스크립트)이 들어 있다" "yes" "$ok"
-
-o="$work/old"
-mkdir -p "$o/.harness" && echo '{"schemaVersion":1,"generator":"tuist"}' > "$o/.harness/project.json"
-assert_eq "old config: sync 전 옛 형식의 generator도 읽는다" "deny" "$(decide "$o/App.xcworkspace/contents.xcworkspacedata")"
-
-# --- xcodeproj 프로젝트 --------------------------------------------------------
-x="$work/xcodeproj"
-project "$x" xcodeproj
-assert_eq "xcodeproj: pbxproj는 막는다" "deny" "$(decide "$x/App.xcodeproj/project.pbxproj")"
-assert_eq "xcodeproj: 공유 스킴은 생성물이 아니라 허용" "allow" "$(decide "$x/App.xcodeproj/xcshareddata/xcschemes/App.xcscheme")"
-assert_eq "xcodeproj: 소스 파일은 허용" "allow" "$(decide "$x/App/ContentView.swift")"
-
 # --- project.json의 generated (글롭) -------------------------------------------
 g="$work/gen"
 mkdir -p "$g/.harness"
-echo '{"schemaVersion":2,"platforms":[],"generated":["ios/*","android/*","src/gql/*.generated.ts"]}' > "$g/.harness/project.json"
+echo '{"schemaVersion":2,"generated":["ios/*","android/*","src/gql/*.generated.ts"]}' > "$g/.harness/project.json"
 assert_eq "generated: Expo prebuild의 ios/는 막는다" "deny" "$(decide "$g/ios/App/AppDelegate.swift")"
 assert_eq "generated: 하위 폴더까지 막는다" "deny" "$(decide "$g/android/app/src/main/AndroidManifest.xml")"
 assert_eq "generated: codegen 결과는 막는다" "deny" "$(decide "$g/src/gql/user.generated.ts")"
@@ -65,6 +33,22 @@ case "$(reason "$g/ios/App/AppDelegate.swift")" in
   *) ok=no ;;
 esac
 assert_eq "generated: 막는 이유에 걸린 글롭이 들어 있다" "yes" "$ok"
+
+# Tuist처럼 저장소 안 여러 곳에 생기는 생성물. *는 /도 넘으므로 하위 모듈까지 막는다.
+t="$work/tuist"
+mkdir -p "$t/.harness"
+echo '{"schemaVersion":2,"generated":["*.xcodeproj/*","*.xcworkspace/*","Derived/*","*/Derived/*"]}' > "$t/.harness/project.json"
+assert_eq "generated: 모듈 xcodeproj 안의 pbxproj는 막는다" "deny" "$(decide "$t/Modules/A/A.xcodeproj/project.pbxproj")"
+assert_eq "generated: Derived 폴더는 막는다" "deny" "$(decide "$t/Modules/A/Derived/InfoPlists/A-Info.plist")"
+assert_eq "generated: 상대 경로는 cwd 기준으로 판단" "deny" "$(decide "App.xcworkspace/contents.xcworkspacedata" "$t")"
+assert_eq "generated: manifest는 허용" "allow" "$(decide "$t/Modules/A/Project.swift")"
+
+# 하네스는 플랫폼을 모른다. 예전 설정의 generator나 pbxproj만으로는 막지 않는다(ADR 0024).
+x="$work/xcodeproj"
+mkdir -p "$x/.harness"
+echo '{"schemaVersion":2,"platforms":["ios"],"ios":{"generator":"tuist"}}' > "$x/.harness/project.json"
+assert_eq "generator만 있으면 막지 않는다" "allow" "$(decide "$x/App.xcworkspace/contents.xcworkspacedata")"
+assert_eq "pbxproj도 generated에 없으면 막지 않는다" "allow" "$(decide "$x/App.xcodeproj/project.pbxproj")"
 
 # --- 판단할 수 없으면 막지 않는다 -------------------------------------------------
 assert_eq "설정 파일이 없는 프로젝트는 허용" "allow" "$(decide "$work/other/App.xcodeproj/project.pbxproj")"

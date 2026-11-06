@@ -11,15 +11,7 @@ export HARNESS_OFFLINE=1
 version="$(jq -r .version "$here/../plugin/.claude-plugin/plugin.json")"
 
 p="$work/app"
-mkdir -p "$p/Sample.xcodeproj"
-cat > "$p/Sample.xcodeproj/project.pbxproj" <<'PBX'
-// !$*UTF8*$!
-{ archiveVersion = 1; objectVersion = 77; objects = {
-  T1 = {isa = PBXNativeTarget; buildConfigurationList = L1; name = Sample; productType = "com.apple.product-type.application"; };
-  L1 = {isa = XCConfigurationList; buildConfigurations = (C1, ); };
-  C1 = {isa = XCBuildConfiguration; name = Debug; buildSettings = {PRODUCT_BUNDLE_IDENTIFIER = com.example.Sample; }; };
-}; rootObject = T1; }
-PBX
+mkdir -p "$p"
 (cd "$p" && git init -q -b main && printf '.claude/settings.local.json\n' > .gitignore)
 "$here/../scripts/init" "$p" > /dev/null
 root="$(cd "$p" && pwd -P)"
@@ -90,32 +82,18 @@ assert_eq "broken: CLAUDE.md import가 없으면 문제다" "yes" "$(has "✕ CL
 assert_eq "broken: settings.json이 무시되면 주의를 준다" "yes" "$(has "! .claude/settings.json이 git에서 무시돼")"
 assert_eq "broken: 요약 줄에 개수를 쓴다" "✕ doctor · 문제 1 · 주의 1 · 하네스 $version" "$(printf '%s\n' "$out" | head -1)"
 
-# 규칙 폴더가 무시되는지는 어느 프로젝트에나 있는 wiki.md로 본다 (swift.md는 Swift 프로젝트에만 있다)
+# 규칙 폴더가 무시되는지는 어느 프로젝트에나 있는 wiki.md로 본다
 printf '.claude/*\n' >> "$p/.gitignore"
-rm -f "$p/.claude/rules/harness/ios/swift.md"
 run_doctor
-assert_eq "rules ignored: swift.md가 없어도 규칙 폴더가 무시되면 주의를 준다" "yes" "$(has "! .claude/rules/가 git에서 무시돼")"
+assert_eq "rules ignored: 규칙 폴더가 무시되면 주의를 준다" "yes" "$(has "! .claude/rules/가 git에서 무시돼")"
 
-# --- 설정 형식과 묶음 ---------------------------------------------------------------
 printf '# 지침\n@AGENTS.md\n' > "$p/CLAUDE.md"
-cp "$p/.harness/project.json" "$work/pj.bak"
-jq '{schemaVersion: 1} + .ios + {e2e}' "$work/pj.bak" > "$p/.harness/project.json"
-run_doctor
-assert_eq "old config: 옛 형식이면 sync하라고 한다" "yes" "$(has "옛 형식(schemaVersion 1)")"
-jq 'del(.ios)' "$work/pj.bak" > "$p/.harness/project.json"
-run_doctor
-assert_eq "no ios: platforms에 ios가 있는데 설정이 없으면 문제다" "yes" "$(has "ios 설정이 없다")"
-jq '.platforms = ["android"]' "$work/pj.bak" > "$p/.harness/project.json"
-run_doctor
-assert_eq "unknown pack: 묶음 점검 스크립트가 없으면 문제다" "yes" "$(has "묶음 'android'의 스크립트")"
-jq '.platforms = []' "$work/pj.bak" > "$p/.harness/project.json"
-run_doctor
-assert_eq "no pack: iOS 점검을 하지 않는다" "no" "$(has "app.scheme")"
-cp "$work/pj.bak" "$p/.harness/project.json"
 
 # --- 검사 목록(checks.json)의 run과 결과 ---------------------------------------------------
-# setup 안내대로 묶음 추천 검사를 옮긴 목록
-jq -s '{schemaVersion: 1, checks: (.[0].checks + .[1].checks)}' "$p/scripts/harness/ios-checks.json" "$p/scripts/harness/common-checks.json" > "$work/checks.bak"
+# setup 안내대로 추천 검사를 옮기고, 결과를 직접 남기는 저장소 도구(scripts/ios/unit-test)를 부르는 목록
+mkdir -p "$p/scripts/ios" && printf '#!/bin/sh\n' > "$p/scripts/ios/unit-test" && chmod +x "$p/scripts/ios/unit-test"
+jq '{schemaVersion: 1, checks: ([{name: "unit-test", prompt: "`scripts/ios/unit-test`를 실행하고 통과할 때까지 고친다", run: "scripts/harness/passed unit-test"}] + .checks)}' \
+  "$p/scripts/harness/common-checks.json" > "$work/checks.bak"
 jq '.checks += [
   {name: "typecheck", prompt: "scripts/harness/record typecheck \"npm run typecheck\"를 실행한다", run: "scripts/harness/passed typecheck"},
   {name: "ghost", prompt: "알아서 돌린다", run: "scripts/harness/passed ghost"},
@@ -123,7 +101,7 @@ jq '.checks += [
   {name: "nocmd", prompt: "x", run: "no-such-command-xyz --flag"}]' "$work/checks.bak" > "$p/.harness/checks.json"
 run_doctor
 assert_eq "checks: record로 만드는 결과는 통과한다" "no" "$(has "'typecheck'")"
-assert_eq "checks: 기본 검사(lint·unit-test·review)는 통과한다" "nonono" "$(has "'lint'")$(has "'unit-test'")$(has "'review'")"
+assert_eq "checks: 결과를 직접 남기는 도구와 리뷰는 통과한다" "nono" "$(has "'unit-test'")$(has "'review'")"
 assert_eq "checks: 결과를 만드는 곳이 없으면 문제다" "yes" "$(has "'ghost'이 결과 'ghost'를 확인하지만 만드는 곳이 없다")"
 assert_eq "checks: 프로젝트 안 run 명령이 없으면 문제다" "yes" "$(has "'missing' run 명령이 없다: scripts/harness/nothing-here")"
 assert_eq "checks: PATH에 없는 run 명령은 문제다" "yes" "$(has "'nocmd' run 명령을 찾지 못했다: no-such-command-xyz")"

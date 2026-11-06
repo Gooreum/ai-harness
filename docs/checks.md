@@ -31,7 +31,9 @@
 
 `stage`는 모드의 단계 중 하나이거나, 끝나면 `done`이다.
 
-## 검사 목록 예시 (ReadSharp)
+## 검사 목록 예시 (ReadSharp, 넘겨받은 iOS 스크립트)
+
+ReadSharp는 예전 iOS 묶음의 스크립트를 `scripts/ios/`로 넘겨받아 쓴다([ADR 0024](decisions/0024-no-platform.md)). 이 스크립트들은 결과 파일(`.harness/out/<이름>.json`)을 직접 남기므로 `record` 없이 부른다.
 
 ```json
 {
@@ -41,20 +43,20 @@
     "finish": { "prompt": "이번에 정한 정책·결정과 알게 된 사실을 docs/wiki/에 기록한다(비슷한 기록이 있으면 고친다). 쓴 뒤 scripts/harness/wiki check를 돌린다" }
   },
   "checks": [
-    { "name": "build", "description": "앱 빌드만", "prompt": "scripts/harness/build를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed build" },
-    { "name": "lint", "description": "팀 컨벤션 검사", "prompt": "scripts/harness/lint를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed lint" },
-    { "name": "unit-test", "description": "앱 빌드와 단위 테스트", "prompt": "scripts/harness/unit-test를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed unit-test" },
+    { "name": "build", "description": "앱 빌드만", "prompt": "scripts/ios/build를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed build" },
+    { "name": "lint", "description": "팀 컨벤션 검사", "prompt": "scripts/ios/lint를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed lint" },
+    { "name": "unit-test", "description": "앱 빌드와 단위 테스트", "prompt": "scripts/ios/unit-test를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed unit-test" },
     { "name": "review", "description": "reviewer 코드 리뷰", "prompt": "harness:reviewer 서브에이전트에 변경 검토를 맡기고 차단 항목을 고친다. 고친 뒤에는 다시 맡긴다", "run": "scripts/harness/passed review" },
-    { "name": "e2e", "description": "이번 기능과 영향 받는 흐름의 E2E", "prompt": ".claude/rules/harness/ios/maestro.md의 '작업에서 무엇을 만들고 무엇을 돌리나'를 따른다. 이번 기능의 결과로 끝나는 기능 시나리오를 만들고(기능이 나오는 조건은 시나리오 안에서 만든다), 리뷰어가 적은 영향 받는 흐름의 기존 시나리오와 함께 scripts/harness/e2e --record <기능 시나리오> <영향 시나리오...>로 통과시킨다", "run": "scripts/harness/passed e2e" }
+    { "name": "e2e", "description": "이번 기능과 영향 받는 흐름의 E2E", "prompt": ".claude/rules/project/ios/maestro.md의 '작업에서 무엇을 만들고 무엇을 돌리나'를 따른다. 이번 기능의 결과로 끝나는 기능 시나리오를 만들고(기능이 나오는 조건은 시나리오 안에서 만든다), 리뷰어가 적은 영향 받는 흐름의 기존 시나리오와 함께 scripts/ios/e2e --record <기능 시나리오> <영향 시나리오...>로 통과시킨다", "run": "scripts/harness/passed e2e" }
   ]
 }
 ```
 
-- e2e의 기능 시나리오와 영향 시나리오는 [maestro.md](../template/.claude/rules/harness/ios/maestro.md) 규칙이 정한다. 회귀 묶음 전체(`--tag regression`)는 작업 검사에 넣지 않고 배포 전·리팩터링 뒤에 돌린다(발표 슬라이드 86).
+- e2e의 기능 시나리오와 영향 시나리오는 그 프로젝트의 규칙 `.claude/rules/project/ios/maestro.md`가 정한다. 회귀 묶음 전체(`--tag regression`)는 작업 검사에 넣지 않고 배포 전·리팩터링 뒤에 돌린다(발표 슬라이드 86).
 
-## 검사 목록 예시 (묶음 없는 저장소: RN·Android·웹)
+## 검사 목록 예시 (저장소의 명령을 record로: RN·Android·웹)
 
-하네스는 이 플랫폼들의 빌드·테스트·e2e 도구를 고르지 않는다. 저장소가 쓰는 명령을 `record`로 돌리고 `passed`로 확인한다([ADR 0023](decisions/0023-no-pack-repo.md)).
+하네스는 어느 플랫폼의 빌드·테스트·e2e 도구도 고르지 않는다. 저장소가 쓰는 명령을 `record`로 돌리고 `passed`로 확인한다([ADR 0023](decisions/0023-no-pack-repo.md), [ADR 0024](decisions/0024-no-platform.md)).
 
 ```json
 {
@@ -84,13 +86,13 @@
 
 - `project.json`은 프로젝트의 사실, `checks.json`은 팀이 정한 정책이라 나눈다(ADR 0005).
 - 검사 이름은 결과 파일 이름과 같게 둔다(`unit-test` → `.harness/out/unit-test.json` → `passed unit-test`). ai-bouncer의 `bouncer record <이름>`·`bouncer passed <이름>`과 같은 짝이다.
-- 하네스 스크립트가 없는 명령은 `scripts/harness/record <이름> <명령>`으로 돌린다. 예: `{ "name": "typecheck", "prompt": "scripts/harness/record typecheck npm run typecheck를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed typecheck" }`([scripts.md](scripts.md#record)).
+- 저장소의 명령은 `scripts/harness/record <이름> <명령>`으로 돌린다. 예: `{ "name": "typecheck", "prompt": "scripts/harness/record typecheck npm run typecheck를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed typecheck" }`([scripts.md](scripts.md#record)). 저장소의 도구가 같은 형식의 결과 파일을 직접 남기면 `record` 없이 부른다(위 ReadSharp 예시).
 - 파일을 고치는 검사(포매터, `--fix`, 설치)는 먼저 돌린다. 나중에 돌리면 앞 검사 결과가 낡은 것이 돼 `passed`가 막는다. 10분 넘게 걸리는 검사는 백그라운드로 돌리고 결과 파일을 본다. 둘 다 verify 단계 지시에 들어 있다.
 - 검사는 `checks.json`에 적힌 순서대로 돈다(발표 슬라이드 88 "차례로 수행"). 싸고 빠른 것을 앞에, 코드를 바꿀 수 있는 리뷰를 E2E 앞에, 가장 오래 걸리는 E2E를 맨 뒤에 둔다. 그래야 리뷰를 반영한 최종 코드로 E2E를 한 번만 돌린다.
 - `verify`는 단계 이름으로만 쓴다. 빌드·단위 테스트 검사는 발표(슬라이드 38·88)대로 `unit-test`라 부른다.
 - 파일이 없어도 흐름은 동작한다. 고를 검사가 없을 뿐이다.
-- 처음 정할 때는 Claude 세션에서 `scripts/harness/setup` 안내를 따른다. 저장소에서 찾은 명령(ai-bouncer `setup`과 같은 규칙)과 하네스 추천 검사(공통: review, iOS 묶음: lint·unit-test)를 보여 주고, 에이전트가 사용자에게 고르게 한 뒤 이 파일을 쓴다. setup 자체는 아무것도 쓰지 않는다([ADR 0020](decisions/0020-install-checks-permissions-root.md)).
-- `scripts/harness/doctor`가 run 명령이 있는지, `passed <이름>`이 확인하는 결과를 만드는 곳(스크립트, prompt의 `record <이름>`, 리뷰)이 있는지 본다.
+- 처음 정할 때는 Claude 세션에서 `scripts/harness/setup` 안내를 따른다. 저장소에서 찾은 명령(ai-bouncer `setup`과 같은 규칙, `scripts/` 아래 실행 파일 포함)과 하네스 추천 검사(review)를 보여 주고, 에이전트가 사용자에게 고르게 한 뒤 이 파일을 쓴다. 생성 파일·고치면 안 되는 파일·빌드·테스트 명령도 함께 정한다. setup 자체는 아무것도 쓰지 않는다([scripts.md](scripts.md#setup), [ADR 0020](decisions/0020-install-checks-permissions-root.md), [ADR 0024](decisions/0024-no-platform.md)).
+- `scripts/harness/doctor`가 run 명령이 있는지, `passed <이름>`이 확인하는 결과를 만드는 곳이 있는지 본다. 만드는 곳은 prompt의 `record <이름>`, prompt가 부르는 실행 파일 중 이름이 `<이름>`인 것(예: `scripts/ios/unit-test`), 리뷰(`review`) 중 하나다.
 
 ## run 확인 ([ADR 0012](decisions/0012-run-gate.md))
 

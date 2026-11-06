@@ -193,7 +193,7 @@
 어떤 플랫폼(iOS, React Native, Android, 웹, 서버, 앱이 아닌 저장소)이든 이 하네스로 개발하게 넓힌다.
 
 - 근거: 발표 슬라이드 19·21·38. v1이 다른 플랫폼에서 못 쓴다는 피드백을 받았고, v2는 "하네스도 훅도 그대로, 저장소마다 config만 다르게" 했다. 웹 저장소는 lint·typecheck·unit-test·build, LLM Wiki 저장소는 bats를 검사로 썼다.
-- 구조: **공통 핵심 + 플랫폼 묶음**이다.
+- 구조: **공통 핵심 + 플랫폼 묶음**이다. → 2026-11-06에 플랫폼 묶음을 없앴다(단위 31, ADR 0024).
   - 공통 핵심: 단계 훅, Stop 게이트, `task` 스킬, `checks.json`, `passed`, `wiki`, 리뷰 절차.
   - 플랫폼 묶음: 빌드·테스트·e2e 스크립트, 규칙, 권한, 생성 파일 목록, 리뷰 확인 항목, doctor 항목.
   - 한 프로젝트가 묶음을 여러 개 쓸 수 있다. React Native는 JS, iOS, Android를 함께 쓴다.
@@ -356,6 +356,11 @@
   - jq가 기본으로 없고, `shasum`·`nc`·BSD `sed` 문법을 쓴다. `passed`의 `stat -f %m`이 GNU stat에서 깨질 것으로 보인다(확인 필요, ai-bouncer도 같은 코드)
   - 가짜 응답 서버의 `python3` 이름
   - Linux CI를 둔다. 지금은 CI가 없고 테스트가 이 Mac에서만 돈다
+- [x] **31. 하네스에서 플랫폼 빼기** (ADR 0024)
+  - 정함(2026-11-06): 하네스는 플랫폼을 모른다. 플랫폼마다 무엇을 어떻게 쓰는지는 사용자가 정하고, 하네스는 setup으로 그 설정을 함께 만드는 데까지 한다(사용자 결정)
+  - 할 일: `packs/`·iOS 스크립트·규칙·`detect`를 지운다. 훅은 `generated` 글롭만 본다. setup이 검사·생성 파일·보호할 파일·감쌀 스크립트를 묻는다. sync가 예전 iOS 파일을 `scripts/ios/`·`.claude/rules/project/ios/`로 넘긴다
+  - 완료 기준: `bash tests/run.sh` 통과. 시험장 사본(ReadSharp)을 sync하면 iOS 스크립트가 `scripts/ios/`로 옮겨지고, 옮긴 스크립트로 검사가 통과한다
+  - 결과(2026-11-06): ReadSharp 사본(0.9.7)을 sync하니 스크립트 5개와 규칙 9개가 프로젝트 쪽으로 옮겨지고 checks.json 경로가 바뀌었다. `scripts/ios/build`·`unit-test`(통과 221)·`lint`(100점)와 `passed unit-test`가 통과했다. 시험장 두 곳 실제 sync는 열린 세션이 끝나면 한다
 - 범용 하네스에서 관찰되면 할 것
   - 가짜 응답 서버: 스트리밍 응답(SSE), 요청 본문 기록
   - 위키 폴더가 `dist/`·`out/`·`build/` 무시 규칙에 걸리는지 `wiki check`에서 본다(11-03에 한 번 겪었다)

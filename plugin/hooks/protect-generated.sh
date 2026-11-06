@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# PreToolUse 훅: 자동 생성 파일(Tuist·XcodeGen 결과, project.json의 generated)과 project.pbxproj를 에이전트가 직접 고치지 못하게 막는다.
+# PreToolUse 훅: 자동 생성 파일(project.json의 generated에 적은 글롭)을 에이전트가 직접 고치지 못하게 막는다.
+# 무엇이 생성 파일인지는 저장소가 정한다. 하네스는 플랫폼을 모른다(ADR 0024).
 #
 # - 입력은 stdin JSON만 읽는다 (tool_input.file_path 또는 notebook_path, cwd). Codex에서도 재사용하기 위해서다.
 # - 막을 때는 이유와 고치는 방법을 담아 deny 결정을 출력한다.
@@ -33,40 +34,20 @@ while [ -n "$dir" ] && [ "$dir" != "/" ]; do
 done
 [ -n "$root" ] || exit 0
 
-# 새 형식은 ios.generator, sync 전의 옛 형식(schemaVersion 1)은 generator에 있다.
-generator="$(jq -r '.ios.generator // .generator // empty' "$root/.harness/project.json" 2>/dev/null)"
 rel="${file#"$root"/}"
 
 reason=""
-case "$generator" in
-  tuist | xcodegen)
-    case "/$rel" in
-      */*.xcodeproj/* | */*.xcworkspace/* | */Derived/*)
-        reason="자동 생성 파일이라 직접 고쳐도 다시 생성하면 사라집니다: $rel. manifest(Tuist는 Project.swift·Tuist/, XcodeGen은 project.yml)를 고치세요. scripts/harness의 build·test·unit-test가 필요할 때 다시 생성합니다."
-        ;;
-    esac
-    ;;
-esac
-# 프로젝트가 정한 생성 파일(project.json의 generated, 글롭). 예: Expo prebuild의 "ios/*", codegen 결과.
-if [ -z "$reason" ]; then
-  while IFS= read -r g; do
-    [ -n "$g" ] || continue
-    # shellcheck disable=SC2254 # 글롭으로 맞춘다
-    case "$rel" in
-      $g)
-        reason="자동 생성 파일이라 직접 고쳐도 다시 생성하면 사라집니다: $rel (.harness/project.json의 generated: $g). 생성하는 쪽(설정·스키마·원본)을 고치고 다시 생성하세요."
-        break
-        ;;
-    esac
-  done < <(jq -r '.generated // [] | .[] | strings' "$root/.harness/project.json" 2>/dev/null)
-fi
-if [ -z "$reason" ]; then
+# 예: Expo prebuild의 "ios/*", Tuist가 만든 "*.xcodeproj/*", codegen 결과. bash case 글롭이라 *가 /도 넘는다.
+while IFS= read -r g; do
+  [ -n "$g" ] || continue
+  # shellcheck disable=SC2254 # 글롭으로 맞춘다
   case "$rel" in
-    *.pbxproj)
-      reason="project.pbxproj는 직접 편집하지 않습니다: $rel. 파일 추가나 설정 변경에 pbxproj 수정이 필요하면, 직접 고치지 말고 무엇을 바꿔야 하는지 사용자에게 알리세요."
+    $g)
+      reason="자동 생성 파일이라 직접 고쳐도 다시 생성하면 사라집니다: $rel (.harness/project.json의 generated: $g). 생성하는 쪽(설정·스키마·원본)을 고치고 다시 생성하세요."
+      break
       ;;
   esac
-fi
+done < <(jq -r '.generated // [] | .[] | strings' "$root/.harness/project.json" 2>/dev/null)
 [ -n "$reason" ] || exit 0
 
 jq -n --arg reason "$reason" \

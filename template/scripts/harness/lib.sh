@@ -1,5 +1,5 @@
-# 하네스 스크립트 공통 함수. 플랫폼과 상관없이 passed·record·wiki와 각 묶음 스크립트가 source한다. (bash 3.2 호환)
-# Xcode·시뮬레이터 함수는 ios.sh에 있다(ADR 0018).
+# 하네스 스크립트 공통 함수. passed·record·wiki·setup·doctor가 source한다. (bash 3.2 호환)
+# 하네스는 플랫폼을 모른다. 빌드·테스트 도구는 저장소가 가진다(ADR 0024).
 #
 # harness_init 이후 쓸 수 있는 변수
 #   root          프로젝트 루트 (HARNESS_ROOT, 아니면 현재 디렉터리에서 가장 가까운 .harness/project.json, 없으면 git 루트)
@@ -33,7 +33,7 @@ harness_init() {
   root="${HARNESS_ROOT:-$(harness_find_root)}"
   root="$(cd "$root" && pwd)"
   config="$root/.harness/project.json"
-  [ -f "$config" ] || harness_die ".harness/project.json이 없습니다. 하네스 저장소의 scripts/detect --write <프로젝트 경로>로 만드세요"
+  [ -f "$config" ] || harness_die ".harness/project.json이 없습니다. 하네스 저장소에서 scripts/init <프로젝트 경로>로 설치하세요"
   state_dir="$root/.harness/state"
   out_dir="$root/.harness/out"
   max_errors="${HARNESS_MAX_ERRORS:-5}"
@@ -55,7 +55,7 @@ harness_task_base() {
 # 파일($1)의 수정 시각(초)
 harness_mtime() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null; }
 
-# 바뀐 파일 목록(루트 기준 경로, 한 줄에 하나). 루트가 git 하위 폴더면 그 안의 변경만 본다(--relative). unit-test·lint·passed가 같은 기준을 쓴다.
+# 바뀐 파일 목록(루트 기준 경로, 한 줄에 하나). 루트가 git 하위 폴더면 그 안의 변경만 본다(--relative). passed와 리뷰 기록 훅이 같은 기준을 쓴다.
 # $1이 있으면 그 브랜치에서 갈라진 뒤의 모든 변경.
 # 없으면, 작업 중이면 작업을 시작한 커밋 이후의 변경(작업 중에 커밋해도 빠지지 않는다)과, 추적 안 된 파일 중
 # 작업을 시작한 뒤에 고친 것. 작업 중이 아니면 커밋하지 않은 변경(HEAD 대비 수정 + 새 파일).
@@ -80,11 +80,6 @@ harness_changed_files() {
         printf '%s\n' "$f"
       done
     } | { grep -v '^\.harness/' || true; } | LC_ALL=C sort -u)
-}
-
-# 목록(stdin)에서 앱 빌드·테스트에 영향이 없는 파일(문서, e2e 시나리오, 에이전트 지침·규칙)을 뺀다.
-harness_not_code() {
-  grep -vE '\.md$|^docs/|^\.maestro/|^\.claude/|^\.agents/' || true
 }
 
 # 설정 값을 읽는다. 없거나 null이면 빈 문자열.
@@ -125,56 +120,3 @@ wiki_problems() {
     grep -qx "## $s" "$f" || echo "\"## $s\" 항목이 없습니다"
   done
 }
-
-# --- E2E (Maestro) --------------------------------------------------------------
-
-# DerivedData($1)에서 번들 ID($2)가 맞는 시뮬레이터용 앱 중 가장 최근 것의 경로.
-# 빌드 구성($3, 예: Debug)을 주면 그 구성으로 빌드된 앱만 찾는다.
-e2e_find_app() {
-  local app id
-  for app in $(ls -dt "$1"/Build/Products/${3:-*}-iphonesimulator/*.app 2>/dev/null); do
-    id="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist" 2>/dev/null || true)"
-    if [ "$id" = "$2" ]; then
-      echo "$app"
-      return 0
-    fi
-  done
-}
-
-# DerivedData($1)에서 빌드 구성($2)으로 빌드된 시뮬레이터용 앱들의 번들 ID (쉼표로 구분)
-e2e_built_ids() {
-  local app ids=""
-  for app in $(ls -dt "$1"/Build/Products/$2-iphonesimulator/*.app 2>/dev/null); do
-    ids="$ids${ids:+, }$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist" 2>/dev/null || echo '?')"
-  done
-  echo "${ids:-없음}"
-}
-
-# 가짜 응답 서버 포트. 설정의 포트($1)가 기본이고, 서버가 .harness/state/network.port에 남긴 포트에 서버가
-# 떠 있으면 그것을 쓴다. 서버는 적힌 포트를 다른 워크트리가 쓰고 있으면 빈 포트로 띄운다.
-e2e_network_port() {
-  local actual
-  actual="$(cat "$state_dir/network.port" 2>/dev/null || true)"
-  case "$actual" in
-    "" | *[!0-9]*) ;;
-    *) if nc -z 127.0.0.1 "$actual" 2>/dev/null; then echo "$actual"; return 0; fi ;;
-  esac
-  echo "$1"
-}
-
-# 앱($1, .app 폴더)보다 나중에 고친 코드 파일 중 첫 것. 없으면 빈 값.
-# --no-build로 예전에 빌드한 앱을 설치하면 바뀐 코드 없이 통과할 수 있어 막는 데 쓴다.
-# 코드가 아닌 파일(harness_not_code)은 앱에 들어가지 않으니 보지 않는다.
-e2e_stale_source() {
-  local built=0 t f
-  for f in "$1" "$1"/*; do
-    [ -e "$f" ] || continue
-    t="$(harness_mtime "$f")"
-    [ "$t" -gt "$built" ] && built="$t"
-  done
-  harness_changed_files "" | harness_not_code | while IFS= read -r f; do
-    [ -f "$root/$f" ] || continue
-    if [ "$(harness_mtime "$root/$f")" -gt "$built" ]; then echo "$f"; break; fi
-  done
-}
-

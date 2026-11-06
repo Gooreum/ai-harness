@@ -4,6 +4,7 @@
   설치한 뒤 이 프로젝트에 맞게 채우는 영역이다. 하네스를 갱신해도 이 영역은 바뀌지 않는다.
   - 소개: 무엇을 하는 앱인지 한두 문장
   - 구조: 주요 모듈·디렉터리와 역할. 길면 별도 문서로 두고 링크만 남긴다
+  - 빌드·테스트: 이 저장소에서 빌드·테스트·린트를 돌리는 명령. scripts/harness/setup으로 검사를 정할 때 함께 채운다
   - 프로젝트 규칙: 이 프로젝트에만 있는 규칙. 특정 파일에만 해당하면 .claude/rules/project/에 paths를 달아 둔다
 -->
 
@@ -13,25 +14,27 @@
 
 - 주요 모듈·디렉터리와 역할을 적는다.
 
+## 빌드·테스트
+
+- 빌드·테스트·린트 명령을 적는다.
+
 ## 프로젝트 규칙
 
 - 이 프로젝트에만 있는 규칙을 적는다.
 
 <!-- harness:begin — 이 아래는 하네스가 관리한다. 고칠 내용은 하네스 저장소의 template/AGENTS.md에 반영한다. -->
 
-## 빌드·테스트
+## 하네스 명령
 
 | 할 일 | 명령 |
 |---|---|
-<!-- harness:pack commands -->
-| 하네스 스크립트가 없는 검사(명령) 돌리고 결과 남기기 | `scripts/harness/record <이름> <명령>` |
+| 검사 명령을 돌리고 결과 남기기 (검증 단계가 이 결과를 본다) | `scripts/harness/record <이름> <명령>` |
 | 정책·결정 기록 찾기 / 형식 검사 | `scripts/harness/wiki search <단어>` / `scripts/harness/wiki check` |
 | 하네스가 제대로 설치됐는지 점검 (도구, 설정, 플러그인 버전) | `scripts/harness/doctor` |
 | 검사 목록(`.harness/checks.json`)을 사용자와 정하기 (안내만 출력) | `scripts/harness/setup` |
 
-<!-- harness:pack notes -->
 - 코드를 고치는 작업은 `task` 스킬(harness 플러그인)로 시작한다. 계획할지(plan/simple)와 돌릴 검사는 사용자가 고르고, 단계마다 할 일은 하네스가 알려 준다. 검사 목록은 `.harness/checks.json`에 있다.
-- 실패하면 출력에 나온 첫 에러의 위치부터 고친다. 전체 로그와 결과 번들은 `.harness/out/`에 있다.
+- 실패하면 출력에 나온 첫 에러의 위치부터 고친다. `record`로 돌린 검사의 전체 로그는 `.harness/out/`에 있다.
 - 동작·스펙을 바꾸기 전에 `scripts/harness/wiki search <단어>`로 관련 정책·결정 기록(`docs/wiki/`)을 찾아 읽는다. 기록과 다르게 바꿔야 하면 사용자에게 먼저 묻는다.
 - 결과는 실제로 실행한 명령과 출력으로 보고한다. 실행하지 못한 검증은 못 했다고 밝힌다.
 - PR을 만들기 전에는 `reviewer` 서브에이전트(harness 플러그인)에 변경 검토를 맡기고, 차단 항목을 고친 뒤 올린다.
@@ -55,7 +58,6 @@ Claude Code는 아래 규칙을 해당 파일을 읽을 때 자동으로 불러�
 
 | 다루는 파일 | 규칙 |
 |---|---|
-<!-- harness:pack rules -->
 | 정책·결정 기록(`docs/wiki/`) | `.claude/rules/harness/wiki.md` |
 | 이 프로젝트에만 있는 규칙 | `.claude/rules/project/` |
 
