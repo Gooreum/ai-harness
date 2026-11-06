@@ -48,6 +48,11 @@ assert_eq "fresh: iOS 묶음 권한 규칙을 설치한다" "true" "$(jq -s '(.[
 case "$out" in *"직접 할 일"*"프로젝트 영역"*) ok=yes ;; *) ok=no ;; esac
 assert_eq "fresh: 프로젝트 영역을 채우라고 알린다" "yes" "$ok"
 
+assert_eq "fresh: 검사 목록은 쓰지 않는다 (사용자와 setup으로 정한다)" "no" "$([ -f "$p/.harness/checks.json" ] && echo yes || echo no)"
+assert_eq "fresh: 하네스가 넣은 권한 규칙을 기록한다" "true" "$(jq -s '(.[1].permissions.deny - .[0].permissions.deny) | length == 0' "$p/.harness/harness.json" "$packs/ios/settings.json")"
+case "$out" in *"scripts/harness/setup 안내대로"*) ok=yes ;; *) ok=no ;; esac
+assert_eq "fresh: setup으로 검사를 정하라고 알린다" "yes" "$ok"
+
 assert_eq "fresh: 두 번째 실행은 바뀐 것이 없다" "✓ sync · 바뀐 것 없음 · $p" "$("$install" "$p" | sed -n 1p)"
 
 # --- 관리 블록이 있는 AGENTS.md: 프로젝트 영역은 지키고 블록만 바꾼다 --------------------------
@@ -165,9 +170,31 @@ jq 'del(.files)' "$m/.harness/harness.json" > "$work/h.json" && mv "$work/h.json
 assert_eq "moved: 묶음 폴더로 옮긴 규칙의 옛 자리를 지운다" "no" "$([ -f "$m/.claude/rules/harness/swift.md" ] && echo yes || echo no)"
 assert_eq "moved: 공통 규칙은 남는다" "yes" "$([ -f "$m/.claude/rules/harness/wiki.md" ] && echo yes || echo no)"
 
+# --- 권한 규칙: 하네스가 넣었다가 빠진 규칙만 지운다 ------------------------------------------
+jq '.permissions.deny += ["Bash(old-harness-rule)", "Bash(team-rule)"]' "$m/.claude/settings.json" > "$work/s" && mv "$work/s" "$m/.claude/settings.json"
+jq '.permissions.deny += ["Bash(old-harness-rule)"]' "$m/.harness/harness.json" > "$work/h" && mv "$work/h" "$m/.harness/harness.json"
+"$install" "$m" > /dev/null
+assert_eq "perm: 하네스가 넣었는데 이제 없는 규칙을 지운다" "0" "$(jq '[.permissions.deny[] | select(. == "Bash(old-harness-rule)")] | length' "$m/.claude/settings.json")"
+assert_eq "perm: 팀이 넣은 규칙은 남긴다" "1" "$(jq '[.permissions.deny[] | select(. == "Bash(team-rule)")] | length' "$m/.claude/settings.json")"
+assert_eq "perm: 지금 넣는 규칙은 남는다" "1" "$(jq '[.permissions.deny[] | select(. == "Edit(**/*.pbxproj)")] | length' "$m/.claude/settings.json")"
+jq 'del(.permissions)' "$m/.harness/harness.json" > "$work/h" && mv "$work/h" "$m/.harness/harness.json"
+jq '.permissions.deny += ["Bash(unknown-rule)"]' "$m/.claude/settings.json" > "$work/s" && mv "$work/s" "$m/.claude/settings.json"
+"$install" "$m" > /dev/null
+assert_eq "perm: 기록이 없으면(옛 설치) 지우지 않는다" "1" "$(jq '[.permissions.deny[] | select(. == "Bash(unknown-rule)")] | length' "$m/.claude/settings.json")"
+
+# --- 검사 목록이 있으면 알리지 않는다 ---------------------------------------------------------
+c="$work/haschecks"
+new_project "$c"
+mkdir -p "$c/.harness" && echo '{"schemaVersion":1,"checks":[{"name":"mine"}]}' > "$c/.harness/checks.json"
+out="$("$init" "$c")"
+assert_eq "checks: 이미 있는 검사 목록은 그대로 둔다" '["mine"]' "$(jq -c '[.checks[].name]' "$c/.harness/checks.json")"
+case "$out" in *"setup 안내대로"*) ok=no ;; *) ok=yes ;; esac
+assert_eq "checks: 있으면 setup을 안내하지 않는다" "yes" "$ok"
+
 # --- 묶음이 없는 프로젝트: 공통 파일만 ------------------------------------------------------
 n="$work/nopack"
-mkdir -p "$n" && (cd "$n" && git init -q -b main) && echo '{}' > "$n/package.json"
+mkdir -p "$n" && (cd "$n" && git init -q -b main) && echo '{"scripts":{"test":"jest","lint":"eslint ."}}' > "$n/package.json"
+touch "$n/yarn.lock"
 "$init" "$n" > /dev/null
 assert_eq "nopack: 묶음 없음" '[]' "$(jq -c .platforms "$n/.harness/project.json")"
 assert_eq "nopack: 공통 스크립트는 설치한다" "yes" "$([ -x "$n/scripts/harness/record" ] && [ -x "$n/scripts/harness/passed" ] && echo yes || echo no)"
@@ -177,11 +204,15 @@ assert_eq "nopack: 공통 규칙은 설치한다" "yes" "$([ -f "$n/.claude/rule
 assert_eq "nopack: 관리 블록에 iOS 줄이 없다" "0" "$(grep -c 'unit-test\|swift.md' "$n/AGENTS.md" || true)"
 assert_eq "nopack: iOS 권한 규칙은 넣지 않는다" "0" "$(jq '[.permissions.deny[] | select(. == "Edit(**/*.pbxproj)")] | length' "$n/.claude/settings.json")"
 
+assert_eq "nopack: setup은 공통 스크립트라 설치한다" "yes" "$([ -x "$n/scripts/harness/setup" ] && echo yes || echo no)"
+assert_eq "nopack: iOS 추천 검사는 설치하지 않는다" "no" "$([ -e "$n/scripts/harness/ios-checks.json" ] && echo yes || echo no)"
+
 # 고른 묶음을 빼면 그 묶음 파일을 지운다
 jq '.platforms = []' "$m/.harness/project.json" > "$work/pj" && mv "$work/pj" "$m/.harness/project.json"
 "$install" "$m" > /dev/null
 assert_eq "unpick: 뺀 묶음의 스크립트를 지운다" "no" "$([ -e "$m/scripts/harness/unit-test" ] && echo yes || echo no)"
 assert_eq "unpick: 뺀 묶음의 규칙을 지운다" "no" "$([ -e "$m/.claude/rules/harness/ios/swift.md" ] && echo yes || echo no)"
+assert_eq "unpick: 뺀 묶음의 권한 규칙을 지운다" "0" "$(jq '[.permissions.deny[] | select(. == "Edit(**/*.pbxproj)")] | length' "$m/.claude/settings.json")"
 assert_eq "unpick: 공통 스크립트는 남는다" "yes" "$([ -e "$m/scripts/harness/passed" ] && echo yes || echo no)"
 jq '.platforms = ["android"]' "$m/.harness/project.json" > "$work/pj" && mv "$work/pj" "$m/.harness/project.json"
 out="$("$install" "$m")"

@@ -15,13 +15,15 @@ template 안의 경로가 그대로 프로젝트 루트 기준 경로가 된다.
 | `.claude/rules/harness/*.md` | 공통 상황별 규칙(`wiki.md`) | 통째로 바꾼다 |
 | `.claude/rules/harness/ios/*.md` | iOS 묶음 규칙(Swift, 테스트, 프로젝트 설정, Tuist, 컨벤션, Maestro) | 통째로 바꾼다. 묶음을 빼면 지운다 |
 | `.claude/rules/project/` | 프로젝트 고유 규칙을 두는 자리 (`.gitkeep`만 있음) | 건드리지 않는다 |
-| `.claude/settings.json` | 공통 권한 규칙(`.env` 읽기 deny, 파괴적·외부 공개 git 작업 ask), 고른 묶음의 권한 규칙(`packs/<묶음>/settings.json`, iOS는 인증서 읽기·pbxproj 편집 deny)과 플러그인 등록(GitHub 마켓플레이스) | 프로젝트 설정과 합친다 |
+| `.claude/settings.json` | 공통 권한 규칙(`.env` 읽기 deny, 파괴적·외부 공개 git 작업 ask), 고른 묶음의 권한 규칙(`packs/<묶음>/settings.json`, iOS는 인증서 읽기·pbxproj 편집 deny)과 플러그인 등록(GitHub 마켓플레이스) | 프로젝트 설정과 합친다. 지난번에 하네스가 넣었는데 이제 없는 규칙만 지운다(설치 기록의 `permissions`) |
 | `scripts/harness/*` | 공통 스크립트(wiki·record·passed·doctor, 공통 함수 lib.sh)와 iOS 묶음 스크립트(build·test·unit-test·lint·e2e, ios.sh, ios-doctor.sh) | 통째로 바꾼다. 묶음을 빼면 그 묶음 것을 지운다 |
 | `.harness/.gitignore` | `.harness/`에서 설정 파일과 설치 기록만 커밋되게 함 | 통째로 바꾼다 |
 
-`.harness/harness.json`(설치 기록)은 template에 없다. init·sync가 설치한 하네스 버전(`plugin.json`의 `version`)과 설치한 파일 목록을 `{"version": "0.9.10", "packs": ["ios"], "files": [...]}` 형태로 쓴다. 다음 sync는 이 목록에 있었는데 template에서 사라졌거나 고르지 않은 묶음의 파일만 지운다. 팀이 `scripts/harness/`에 넣은 파일은 남는다. 커밋해서 팀원의 doctor도 같은 값과 비교하게 한다.
+`.harness/harness.json`(설치 기록)은 template에 없다. init·sync가 설치한 하네스 버전(`plugin.json`의 `version`)과 설치한 파일 목록을 `{"version": "0.9.11", "packs": ["ios"], "files": [...], "permissions": {"deny": [...], "ask": [...]}}` 형태로 쓴다. 다음 sync는 이 목록에 있었는데 template에서 사라졌거나 고르지 않은 묶음의 파일만 지운다. 팀이 `scripts/harness/`에 넣은 파일은 남는다. 커밋해서 팀원의 doctor도 같은 값과 비교하게 한다.
 
 `.harness/project.json`은 template에 없다. 설치할 때 하네스 저장소의 `scripts/detect`가 프로젝트를 보고 만들고, 이후에는 `detect --write --force`로만 다시 만든다.
+
+`.harness/checks.json`(검사 목록)도 template에 없다. init·sync는 쓰지 않고, 없으면 Claude 세션에서 `scripts/harness/setup` 안내대로 사용자와 정하라고 알린다. setup은 저장소에서 찾은 명령과 묶음 추천 검사(`scripts/harness/<묶음>-checks.json`)를 보여 준다([checks.md](checks.md), [ADR 0020](decisions/0020-install-checks-permissions-root.md)).
 
 `.harness/conventions.json`(팀 컨벤션 목록)도 template에 없다. 팀이 규칙을 고른 뒤 프로젝트에서 직접 만든다([conventions.md](conventions.md)). 없으면 `lint`는 건너뛴다.
 
@@ -59,7 +61,7 @@ scripts/sync --dev <프로젝트 경로>    # 갱신하되 플러그인을 이 �
 |---|---|---|
 | 묶음 | 설정이 옛 형식이다, 고른 묶음의 점검 스크립트(`<묶음>-doctor.sh`)가 없다 | |
 | iOS 도구 | xcodebuild, 생성기(tuist·xcodegen)가 없다 | `.maestro/`가 있는데 maestro가 없다 |
-| 설정 파일 | ios 설정·ios.app.scheme이 없다, 프로젝트·워크스페이스 파일이 없다(생성기 없는 프로젝트만), checks·conventions JSON이 깨졌다 | 설정에 적은 시뮬레이터가 없다(최신 iPhone을 대신 쓴다) |
+| 설정 파일 | ios 설정·ios.app.scheme이 없다, 프로젝트·워크스페이스 파일이 없다(생성기 없는 프로젝트만), checks·conventions JSON이 깨졌다, checks.json의 run 명령이나 `passed <이름>` 결과를 만드는 곳이 없다 | 설정에 적은 시뮬레이터가 없다(최신 iPhone을 대신 쓴다) |
 | 설치된 파일 | AGENTS.md 관리 블록, CLAUDE.md의 `@AGENTS.md`, `.claude/rules/harness/`가 없다 | 설치 기록이 없다, 규칙이나 `settings.json`이 git에서 무시된다 |
 | 플러그인 | 켜져 있지 않다, 이 프로젝트에 설치되지 않았다, 꺼져 있다, 버전이 설치 기록과 다르다 | claude CLI가 없어 버전을 못 봤다 |
 

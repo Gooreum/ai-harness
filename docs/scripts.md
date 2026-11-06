@@ -5,6 +5,7 @@
 
 ## 공통
 
+- **프로젝트 루트**: 현재 디렉터리에서 git 최상위까지 올라가며 가장 가까운 `.harness/project.json`이 있는 폴더다. 없으면 git 최상위. `HARNESS_ROOT`로 바꿀 수 있다. 모노레포 하위 폴더(`apps/ios/`)에 설치해도 그 폴더 기준으로 돈다. 바뀐 파일도 루트 안의 것만 루트 기준 경로로 본다(`git diff --relative`). 훅과 같은 기준이다([ADR 0020](decisions/0020-install-checks-permissions-root.md)).
 - **출력**: 성공하면 한 줄, 실패하면 원인을 찾는 데 필요한 만큼만 출력한다. 전체 로그와 결과 번들은 파일로 남기고 경로만 알려준다.
 - **산출물 위치**
 
@@ -211,3 +212,11 @@ scripts/harness/passed unit-test   # .harness/out/unit-test.json이 통과했고
   - 바뀐 파일(unit-test와 같은 기준) 중 결과 파일보다 나중에 고친 것이 없어야 한다.
   - 이 기준은 발표에 없어 ai-bouncer의 `bouncer passed`를 따랐다.
 - 실패하면 이유 한 줄(없음, 통과 못 함, 어느 파일보다 오래됨)을 출력하고 2로 끝난다.
+
+## setup
+
+`scripts/harness/setup`은 검사 목록(`.harness/checks.json`)을 사용자와 정하는 안내를 출력한다. 파일은 쓰지 않는다. ai-bouncer `bouncer setup`을 따른다([ADR 0020](decisions/0020-install-checks-permissions-root.md)).
+
+- 저장소에서 찾은 명령(package.json scripts, Makefile, pytest·ruff, go, cargo, gradlew)과 근거, 고른 묶음의 추천 검사(`scripts/harness/<묶음>-checks.json`)를 보여 준다.
+- 에이전트는 안내대로 AskUserQuestion으로 사용자에게 고르게 하고, 답대로 `checks.json`을 쓴 뒤 `doctor`로 확인한다. 찾은 명령은 `record`로 돌리고 run은 `passed`로 본다.
+- 이미 `checks.json`이 있으면 지금 검사를 보여 주고 바꿀 부분만 묻게 한다.

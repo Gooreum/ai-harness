@@ -102,6 +102,22 @@ run_doctor
 assert_eq "no pack: iOS 점검을 하지 않는다" "no" "$(has "app.scheme")"
 cp "$work/pj.bak" "$p/.harness/project.json"
 
+# --- 검사 목록(checks.json)의 run과 결과 ---------------------------------------------------
+# setup 안내대로 묶음 추천 검사를 옮긴 목록
+jq '{schemaVersion: 1} + .' "$p/scripts/harness/ios-checks.json" > "$work/checks.bak"
+jq '.checks += [
+  {name: "typecheck", prompt: "scripts/harness/record typecheck \"npm run typecheck\"를 실행한다", run: "scripts/harness/passed typecheck"},
+  {name: "ghost", prompt: "알아서 돌린다", run: "scripts/harness/passed ghost"},
+  {name: "missing", prompt: "x", run: "scripts/harness/nothing-here"},
+  {name: "nocmd", prompt: "x", run: "no-such-command-xyz --flag"}]' "$work/checks.bak" > "$p/.harness/checks.json"
+run_doctor
+assert_eq "checks: record로 만드는 결과는 통과한다" "no" "$(has "'typecheck'")"
+assert_eq "checks: 기본 검사(lint·unit-test·review)는 통과한다" "nonono" "$(has "'lint'")$(has "'unit-test'")$(has "'review'")"
+assert_eq "checks: 결과를 만드는 곳이 없으면 문제다" "yes" "$(has "'ghost'이 결과 'ghost'를 확인하지만 만드는 곳이 없다")"
+assert_eq "checks: 프로젝트 안 run 명령이 없으면 문제다" "yes" "$(has "'missing' run 명령이 없다: scripts/harness/nothing-here")"
+assert_eq "checks: PATH에 없는 run 명령은 문제다" "yes" "$(has "'nocmd' run 명령을 찾지 못했다: no-such-command-xyz")"
+rm -f "$p/.harness/checks.json"
+
 rc=0; out="$(cd "$p" && env PATH="$(nojq_path "$work")" /bin/bash scripts/harness/doctor)" || rc=$?
 assert_eq "jq가 없으면 문제로 알린다" "1" "$rc"
 case "$out" in *'jq가 없다'*) ok=yes ;; *) ok="$out" ;; esac

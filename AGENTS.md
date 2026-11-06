@@ -11,10 +11,10 @@
   - 이 저장소를 개발하기 위한 내용은 넣지 않는다.
   - `template/AGENTS.md`, `template/CLAUDE.md`: 프로젝트에 설치될 지침. AGENTS.md는 프로젝트 영역과 하네스 관리 블록으로 나뉜다
   - `template/.claude/rules/harness/`: 상황별 규칙. `paths:`로 해당 파일을 읽을 때만 로드된다. 묶음 규칙은 `<묶음>/` 아래(`ios/`). 프로젝트 고유 규칙 자리는 `rules/project/`
-  - `template/scripts/harness/`: 프로젝트 안에서 매일 쓰는 스크립트(build·test·unit-test·lint·wiki·e2e·doctor·passed·record)와 공통 함수 `lib.sh`, iOS 함수 `ios.sh`·`ios-doctor.sh`. 설치되면 `scripts/harness/`가 된다.
+  - `template/scripts/harness/`: 프로젝트 안에서 매일 쓰는 스크립트(build·test·unit-test·lint·wiki·e2e·doctor·passed·record·setup)와 공통 함수 `lib.sh`, iOS 함수 `ios.sh`·`ios-doctor.sh`. 설치되면 `scripts/harness/`가 된다.
   - `template/.harness/.gitignore`: 프로젝트의 `.harness/`에서 설정 파일만 커밋하게 한다.
   - `template/.claude/settings.json`: 공통 권한 규칙(`.env` 읽기 deny, 파괴적 git 작업 ask). 묶음 권한은 `packs/<묶음>/settings.json`
-- `packs/<묶음>/`: 플랫폼 묶음. `pack.json`이 template 안의 어느 파일이 그 묶음 것인지 적고, 권한(`settings.json`)과 AGENTS.md 관리 블록 조각(`agents-*.md`)을 둔다. 프로젝트의 `.harness/project.json` `platforms`에 고른 묶음만 설치된다
+- `packs/<묶음>/`: 플랫폼 묶음. `pack.json`이 template 안의 어느 파일이 그 묶음 것인지 적고, 권한(`settings.json`), AGENTS.md 관리 블록 조각(`agents-*.md`)를 둔다. 프로젝트의 `.harness/project.json` `platforms`에 고른 묶음만 설치된다
 - `plugin/`: Claude Code 플러그인 `ios-harness`. 훅(생성 파일·pbxproj 편집 차단, 단계 지시), 작업 시작 스킬(`task`), 리뷰 서브에이전트(`ios-reviewer`)를 담는다. 루트의 `.claude-plugin/marketplace.json`이 이 저장소를 마켓플레이스로 만든다
 - `scripts/`: 하네스를 설치·관리하는 도구. 대상 프로젝트 경로를 인자로 받는다.
   - `scripts/detect <프로젝트 경로>`: 프로젝트 설정 파일 초안 만들기
@@ -59,6 +59,6 @@
   - 예외: 가짜 응답 MCP 서버(`plugin/mcp/network.py`)는 HTTP 서버라 python3로 쓴다(ADR 0017).
   - 성공하면 출력을 짧게 한다.
   - 실패하면 첫 에러의 위치부터 구체적으로 보여준다.
-  - 사람이나 에이전트가 직접 실행하는 명령(`detect`, `init`, `sync`, `build`·`test`·`unit-test`·`lint`·`wiki`·`e2e`·`doctor`·`passed`·`record`)은 확장자를 붙이지 않는다. `source`로 불러 쓰는 파일(`lib.sh`·`ios.sh`·`ios-doctor.sh`)과 테스트·훅 스크립트에는 `.sh`를 붙인다.
+  - 사람이나 에이전트가 직접 실행하는 명령(`detect`, `init`, `sync`, `build`·`test`·`unit-test`·`lint`·`wiki`·`e2e`·`doctor`·`passed`·`record`·`setup`)은 확장자를 붙이지 않는다. `source`로 불러 쓰는 파일(`lib.sh`·`ios.sh`·`ios-doctor.sh`)과 테스트·훅 스크립트에는 `.sh`를 붙인다.
 - 훅 스크립트는 stdin으로 받은 JSON만 읽는다. 그래야 Codex에서도 재사용할 수 있다.
 - 문서는 한국어로 쓰고, 새 용어는 처음 나올 때 정의한다.

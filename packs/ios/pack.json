@@ -4,6 +4,7 @@
   "files": [
     "scripts/harness/ios.sh",
     "scripts/harness/ios-doctor.sh",
+    "scripts/harness/ios-checks.json",
     "scripts/harness/build",
     "scripts/harness/test",
     "scripts/harness/unit-test",

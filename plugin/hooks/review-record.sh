@@ -81,6 +81,7 @@ case "$event" in
     git -C "$root" rev-parse --git-dir >/dev/null 2>&1 || exit 0
     # 바뀐 파일: scripts/harness/lib.sh의 harness_changed_files와 같은 기준이다. 작업 중이면 작업을 시작한 커밋 이후의
     # 변경과, 추적 안 된 파일 중 작업을 시작한 뒤에 고친 것. 작업 전부터 있던 파일은 리뷰 대상이 아니다.
+    # 루트가 git 하위 폴더(모노레포)면 --relative로 루트 기준 경로를 받는다. 없으면 저장소 기준 경로라 열어 본 파일과 맞지 않는다.
     from=HEAD started=""
     stage="$(jq -r '.stage // ""' "$state/task.json" 2>/dev/null)" || stage=""
     if [ -n "$stage" ] && [ "$stage" != done ] && [ -f "$state/task.base" ]; then
@@ -91,7 +92,7 @@ case "$event" in
       fi
     fi
     changed="$(cd "$root" && {
-        git diff --name-only "$from" 2>/dev/null
+        git diff --name-only --relative "$from" 2>/dev/null
         git ls-files -o --exclude-standard | while IFS= read -r f; do
           if [ -n "$started" ] && [ "$(mtime "$f")" -lt "$started" ]; then continue; fi
           printf '%s\n' "$f"

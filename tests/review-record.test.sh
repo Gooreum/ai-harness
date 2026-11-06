@@ -96,4 +96,15 @@ readf "$p/App/C.swift"
 stopr "발견 없음"
 assert_eq "작업 중 커밋한 파일은 대상, 작업 전부터 있던 파일은 제외" "true|App/A.swift,App/C.swift" "$(result '"\(.passed)|\(.changed | join(","))"')"
 
+# 모노레포: git 하위 폴더에 설치한 프로젝트도 루트 기준 경로로 바뀐 파일을 본다 (바뀐 파일 0개로 통과하지 않는다)
+mono="$work/mono"
+mkdir -p "$mono/apps/ios/.harness" "$mono/apps/ios/App"
+echo '{"schemaVersion":2,"platforms":[]}' > "$mono/apps/ios/.harness/project.json"
+echo 'let a = 1' > "$mono/apps/ios/App/A.swift"
+(cd "$mono" && git init -q -b main && git add -A && git -c user.name=t -c user.email=t@t commit -qm init)
+echo 'let a = 2' > "$mono/apps/ios/App/A.swift"
+p="$mono/apps/ios"
+stopr "발견 없음"
+assert_eq "mono: 하위 폴더의 바뀐 파일을 루트 기준으로 본다" "false|App/A.swift" "$(result '"\(.passed)|\(.missing | join(","))"')"
+
 finish

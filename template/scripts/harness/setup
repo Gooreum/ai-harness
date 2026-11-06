@@ -1,0 +1,97 @@
+#!/usr/bin/env bash
+# 이 프로젝트의 검사 목록(.harness/checks.json)을 사용자와 대화로 정하라는 안내를 낸다. 아무것도 쓰지 않는다.
+# 저장소에서 찾은 명령과 고른 묶음의 추천 검사를 함께 보여 준다. 에이전트가 이 안내대로 묻고, 답을 받아 checks.json을 쓴다.
+# ai-bouncer의 `bouncer setup`을 따른다(ADR 0020).
+set -euo pipefail
+
+here="$(cd "$(dirname "$0")" && pwd)"
+. "$here/lib.sh"
+
+case "${1:-}" in
+  -h | --help)
+    cat <<'EOF'
+사용법: scripts/harness/setup
+
+  검사 목록(.harness/checks.json)을 사용자와 정하는 안내를 출력한다. 파일은 쓰지 않는다.
+  Claude 세션에서 에이전트가 이 안내대로 사용자에게 묻고 checks.json을 쓴다.
+EOF
+    exit 0
+    ;;
+esac
+
+harness_init
+checks_json="$root/.harness/checks.json"
+
+# --- 저장소에서 검사 명령 찾기 (ai-bouncer setup.sh와 같은 규칙) ----------------------------
+found=()
+add() { found+=("$1"$'\t'"$2"$'\t'"$3"); } # 이름, 명령, 근거
+cd "$root"
+if [ -f package.json ]; then
+  pm="npm run"
+  [ ! -f pnpm-lock.yaml ] || pm="pnpm"
+  [ ! -f yarn.lock ] || pm="yarn"
+  { [ ! -f bun.lockb ] && [ ! -f bun.lock ]; } || pm="bun run"
+  for k in test lint typecheck type-check build e2e test:e2e; do
+    jq -e --arg k "$k" '.scripts[$k]' package.json > /dev/null 2>&1 || continue
+    id="${k//:/-}"; [ "$id" != type-check ] || id=typecheck; [ "$id" != test-e2e ] || id=e2e
+    add "$id" "$pm $k" "package.json scripts.$k"
+  done
+fi
+if [ -f Makefile ]; then
+  for k in test lint check build; do
+    ! grep -Eq "^$k:" Makefile || add "$k" "make $k" "Makefile"
+  done
+fi
+if [ -f pyproject.toml ] || [ -f pytest.ini ] || [ -f setup.cfg ] || ls tests/test_*.py > /dev/null 2>&1; then
+  if grep -qs pytest pyproject.toml pytest.ini setup.cfg requirements*.txt || ls tests/test_*.py > /dev/null 2>&1; then
+    add test "pytest" "pytest 설정/tests"
+  fi
+  ! grep -qs ruff pyproject.toml || add lint "ruff check ." "pyproject.toml ruff"
+fi
+[ ! -f go.mod ] || { add test "go test ./..." "go.mod"; add lint "go vet ./..." "go.mod"; }
+[ ! -f Cargo.toml ] || { add test "cargo test" "Cargo.toml"; add lint "cargo clippy -- -D warnings" "Cargo.toml"; }
+[ ! -x gradlew ] || add test "./gradlew test" "gradlew"
+[ ! -f tests/run-all.sh ] || add test "bash tests/run-all.sh" "tests/run-all.sh"
+
+# --- 묶음의 추천 검사 (scripts/harness/<묶음>-checks.json) ------------------------------------
+pack_checks=""
+for pack in $(jq -r '.platforms // [] | .[]' "$config" 2> /dev/null || true); do
+  f="$here/$pack-checks.json"
+  [ -f "$f" ] || continue
+  pack_checks="$pack_checks$(jq -r --arg p "$pack" '.checks[] | "  - \(.name)\t\(.description) — 묶음 \($p)"' "$f")"$'\n'
+done
+
+echo "[harness setup] 이 프로젝트($root)의 검사 목록을 사용자와 대화로 정한다."
+echo "설정 파일: .harness/checks.json"
+if [ -f "$checks_json" ]; then
+  echo "이미 검사 목록이 있다. 먼저 지금 검사(name·description)를 보여 주고 바꿀 부분만 묻는다."
+fi
+echo
+echo "묶음이 추천하는 검사 (scripts/harness/<묶음>-checks.json에 prompt·run이 있다):"
+if [ -n "$pack_checks" ]; then printf '%s' "$pack_checks" | column -t -s $'\t'; else echo "  (없다)"; fi
+echo
+echo "저장소에서 찾은 검사 명령:"
+if [ ${#found[@]} -eq 0 ]; then
+  echo "  (찾지 못했다 — 무엇으로 테스트·린트·빌드하는지 사용자에게 묻는다)"
+else
+  printf '%s\n' "${found[@]}" | awk -F'\t' '!seen[$2]++ { printf "  - %-10s %-28s (근거: %s)\n", $1, $2, $3 }'
+fi
+cat <<'EOF'
+
+진행 순서
+1. AskUserQuestion으로 작업마다 고를 수 있게 둘 검사를 묻는다(multiSelect). 위의 추천 검사와 찾은 명령을 선택지로 낸다.
+   - 추천하는 것은 라벨 끝에 "(Recommended)"를 붙이고, 왜 그런지 저장소 근거를 한 줄 붙인다.
+   - 1분 넘게 걸리는 것(e2e 등)은 그렇다고 적는다. 선택지가 4개를 넘으면 질문을 나눈다.
+   - 답이 애매하거나 사용자가 덧붙이면 이어서 묻는다. 정할 것이 다 정해질 때까지 주고받는다.
+2. 고른 검사로 .harness/checks.json을 쓴다. 형식은 schemaVersion 1과 checks 배열이다(하네스 저장소의 docs/checks.md).
+   - 묶음 검사는 <묶음>-checks.json의 항목을 그대로 옮긴다.
+   - 찾은 명령은 이렇게 쓴다. 검사는 훅에서 돌리지 않고 에이전트가 record로 돌린다. run은 결과만 본다:
+       { "name": "test", "description": "단위 테스트 (npm test)",
+         "prompt": "scripts/harness/record test \"npm test\"를 실행하고 통과할 때까지 고친다",
+         "run": "scripts/harness/passed test" }
+   - e2e처럼 범위를 고를 수 있는 것은 이번 수정에 영향받는 것만 돌리게 prompt에 적는다.
+   - 순서: 파일을 고치는 검사(포매터, --fix) → 싸고 빠른 검사 → 리뷰 → e2e.
+3. scripts/harness/doctor가 checks.json 문제를 내지 않는지 확인한다. 쓴 내용을 사용자에게 보여 주고, 커밋해야 한다고 알린다.
+
+AskUserQuestion을 쓸 수 없는 세션이면 묻지 말고 묶음 추천 검사만으로 쓴다. 묶음이 없으면 쓰지 말고 사용자에게 알린다.
+EOF

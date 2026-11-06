@@ -66,6 +66,23 @@ echo '{"title":"c","mode":"simple","stage":"verify"}' > "$p/.harness/state/task.
 touch -t 202601010800 "$r"
 assert_eq "다시 돌린 결과면 0" "rc=0" "$(last "$(run unit-test)")"
 
+# 모노레포: git 하위 폴더에 설치하면 그 폴더가 루트이고, 그 안의 변경만 본다
+m="$work/mono"
+mkdir -p "$m/apps/ios/.harness/out" "$m/apps/ios/App" "$m/web"
+echo '{"schemaVersion":2,"platforms":[]}' > "$m/apps/ios/.harness/project.json"
+echo '// a' > "$m/apps/ios/App/A.swift"; echo 'x' > "$m/web/index.js"
+printf '.harness/out/\n.harness/state/\n' > "$m/.gitignore"
+(cd "$m" && git init -q -b main && git add -A && git -c user.name=t -c user.email=t@t commit -qm init)
+mr="$m/apps/ios/.harness/out/unit-test.json"
+mrun() { (cd "$m/apps/ios/App" && "$passed" "$@" 2>&1) && echo "rc=0" || echo "rc=$?"; }
+echo '{"passed": true}' > "$mr"; touch -t 202601010100 "$mr"
+echo 'y' >> "$m/web/index.js"; touch -t 202601010200 "$m/web/index.js"
+assert_eq "mono: 하위 폴더에서 가장 가까운 설정을 루트로 쓴다" "rc=0" "$(last "$(mrun unit-test)")"
+echo '// b' >> "$m/apps/ios/App/A.swift"; touch -t 202601010200 "$m/apps/ios/App/A.swift"
+out="$(mrun unit-test)"
+assert_eq "mono: 루트 안 변경은 본다" "rc=2" "$(last "$out")"
+assert_eq "  루트 기준 경로로 알린다" "결과(.harness/out/unit-test.json)가 App/A.swift보다 오래됐다 — 고친 뒤 검사를 다시 실행한다" "$(first "$out")"
+
 assert_eq "이름에 경로를 쓰면 거절" "rc=2" "$(last "$(run ../x)")"
 assert_eq "이름이 없으면 2" "rc=2" "$(last "$(run)")"
 
