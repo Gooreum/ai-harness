@@ -52,6 +52,25 @@
 
 - e2e의 기능 시나리오와 영향 시나리오는 [maestro.md](../template/.claude/rules/harness/ios/maestro.md) 규칙이 정한다. 회귀 묶음 전체(`--tag regression`)는 작업 검사에 넣지 않고 배포 전·리팩터링 뒤에 돌린다(발표 슬라이드 86).
 
+## 검사 목록 예시 (묶음 없는 저장소: RN·Android·웹)
+
+하네스는 이 플랫폼들의 빌드·테스트·e2e 도구를 고르지 않는다. 저장소가 쓰는 명령을 `record`로 돌리고 `passed`로 확인한다([ADR 0023](decisions/0023-no-pack-repo.md)).
+
+```json
+{
+  "schemaVersion": 1,
+  "checks": [
+    { "name": "typecheck", "description": "타입 검사", "prompt": "scripts/harness/record typecheck \"npm run typecheck\"를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed typecheck" },
+    { "name": "test-related", "description": "바뀐 파일과 관련된 jest 테스트", "prompt": "scripts/harness/record test-related \"npx jest --findRelatedTests <이번에 바꾼 파일들>\"를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed test-related" },
+    { "name": "review", "description": "reviewer 코드 리뷰", "prompt": "harness:reviewer 서브에이전트에 변경 검토를 맡기고 차단 항목을 고친다. 고친 뒤에는 다시 맡긴다", "run": "scripts/harness/passed review" },
+    { "name": "e2e-android", "description": "Android 에뮬레이터 E2E (Maestro)", "prompt": "앱을 에뮬레이터에 설치한 뒤 scripts/harness/record e2e-android \"maestro test .maestro/<이번 기능 시나리오>\"를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed e2e-android" },
+    { "name": "e2e-web", "description": "웹 E2E (Playwright)", "prompt": "scripts/harness/record e2e-web \"npx playwright test <이번 기능 테스트>\"를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed e2e-web" }
+  ]
+}
+```
+
+- 10분 넘게 걸리는 명령은 `record`를 백그라운드로 돌리고 결과 파일을 본다.
+
 ## 필드
 
 | 필드 | 값 | 설명 |

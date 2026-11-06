@@ -205,7 +205,7 @@
   - 원본에서 사용자가 작업 중이라 별도 워크트리(`~/Code/PetCycle-harness`)에서 한다. ai-bouncer 설정은 그 브랜치에서 뺀다(ADR 0005, IntervalTimer와 같다)
   - `server/`와 웹(`expo start --web`, `invite-site/`)도 있어, 웹·서버 묶음(29)을 할 때도 시험장이 될 수 있다
 - 순서: 지금 있는 문제(21) → 공통 핵심(22) → 묶음 구조(23) → 이름 변경(24) → 리뷰어·권한(25) → 묶음 없는 저장소(26) → RN(27·28).
-  - 웹(29)과 Linux(30)는 필요해지면 한다.
+  - 웹(29)과 Linux(30)는 필요해지면 한다. → 2026-11-06에 27~30을 묶음 없이 `record`로 하는 것으로 다시 정했다(ADR 0023).
   - 각 묶음은 실제 시험장에서 막히는 것을 보고 만든다. 미리 다 대비하지 않는다(진행 원칙 1).
 - 점검 기록: 2026-11-06에 코드를 읽어 특이점 100개를 찾았다. 아래 단위의 할 일이 그 목록이다. "관찰되면 한다"에 둔 것은 시험장에서 실제로 막힐 때 한다.
 - 정할 것 (해당 단위를 시작할 때 묻는다)
@@ -326,8 +326,9 @@
   - 규칙: `testing.md`의 경로(`__tests__`, `*.test.ts`)와 내용을 공통·묶음으로 나눈다. 컨벤션 검사 방식은 위 "정할 것"대로
   - 완료 기준: PetCycle에서 `task` 작업 하나가 lint·typecheck·unit-test·review를 고르고 게이트를 통과한다
   - 결과(2026-11-06, 0.11.2): detect가 Expo의 git 무시 `ios/`·`android/`를 `generated`로 넣고 묶음은 고르지 않는다. setup이 `npm run test`·`npm run typecheck`와 jest의 `--findRelatedTests`를 찾는다. PetCycle HEAD로 만든 임시 워크트리에서 `claude -p --plugin-dir`로 setup(test·typecheck·review)을 쓰고 `task`를 돌렸다. HEAD에 이미 있는 typecheck 에러(`app.config.ts:72`)와 jest 실패 2건 때문에 verify에서 막혔고, 에이전트는 검사를 빼지 않고 사용자에게 물었다. 관련 테스트만 도는 `test-related`(`npx jest --findRelatedTests`)와 review로 다시 돌리니 done까지 갔다. 리뷰어가 `git -C`를 써서 권한 규칙에 안 맞던 것을 고쳤다. PetCycle에 eslint가 없어 lint는 고르지 않았다
-- [ ] **28. 모바일 e2e를 Android·RN으로**
+- [x] **28. 모바일 e2e를 Android·RN으로**
   - 다시 정함(2026-11-06, ADR 0023): 하네스가 Android·RN e2e 스크립트를 만들지 않는다. 저장소가 `maestro test` 등을 `record`로 적는다. 아래 원래 할 일은 하지 않고, 가짜 응답 서버를 Android에서 쓰는 방법만 문서에 남긴다
+  - 결과(2026-11-06): `docs/checks.md`에 `record`로 적는 Android·웹 e2e 예시를, `docs/plugin.md`에 가짜 응답 서버를 Android에서 쓰는 방법(`10.0.2.2`·`adb reverse`, 디버그 평문 허용)을 적었다. 코드는 바꾸지 않았다. Android 에뮬레이터에서는 돌려 보지 않았다
   - 앱 id가 플랫폼마다 다르다(bundleId, applicationId). `--platform`과 앱 id 두 개를 둔다. 결과는 `e2e-ios`·`e2e-android`로 나눈다
   - Android
     - 빌드 변형(debug/release, flavor)이 iOS 스킴에 해당한다. debug의 `applicationIdSuffix` 때문에 앱 id가 달라지니 빌드 결과에서 읽는다
@@ -341,15 +342,17 @@
   - Maestro 규칙의 요소 id 표현을 묶음별로 쓴다(RN `testID`, Android `testTag`·`resource-id`). 클립보드 규칙은 iOS 묶음으로 옮긴다
   - 관찰되면 한다: 행동 로그(logcat), 녹화(`adb screenrecord`는 3분 제한), 계측 테스트(`connectedAndroidTest`), 에뮬레이터 부하로 생기는 흔들림과 재시도 규칙
   - 완료 기준: PetCycle에서 같은 시나리오가 iOS 시뮬레이터와 Android 에뮬레이터에서 통과한다
-- [ ] **29. 웹 묶음** (웹 시험장이 생기면)
+- [x] **29. 웹 묶음** (웹 시험장이 생기면)
   - 다시 정함(2026-11-06, ADR 0023): 웹 묶음을 만들지 않는다. e2e 도구(Playwright 등)는 저장소가 고르고 `record`로 적는다. 아래 원래 할 일은 웹 시험장에서 막히면 그때 본다
+  - 결과(2026-11-06): `docs/checks.md` 예시에 Playwright를 `record`로 적는 방법을 넣었다. 가짜 응답 서버의 CORS는 웹에서 막히면 넣는다. 코드는 바꾸지 않았다
   - e2e는 위 "정할 것"대로(Playwright 또는 Maestro)
   - dev 서버를 띄우고, 워크트리마다 포트를 나눈다
   - 가짜 응답 서버: CORS를 응답한다(지금은 OPTIONS에도 404). Playwright `page.route`로 충분하면 MCP를 쓰지 않는다
   - 위키 경로를 설정으로 받는다. Docusaurus·VitePress 같은 문서 사이트는 `docs/` 아래를 그대로 공개한다
   - 관찰되면 한다: 서버 e2e(DB·docker), 화면 검증(후보 10)
-- [ ] **30. Linux 지원** (정하면)
+- [x] **30. Linux 지원** (정하면)
   - 다시 정함(2026-11-06): macOS만 지원한다(사용자 결정, ADR 0023). 아래 원래 할 일은 하지 않는다
+  - 결과(2026-11-06): README에 지원 OS를 적었다
   - jq가 기본으로 없고, `shasum`·`nc`·BSD `sed` 문법을 쓴다. `passed`의 `stat -f %m`이 GNU stat에서 깨질 것으로 보인다(확인 필요, ai-bouncer도 같은 코드)
   - 가짜 응답 서버의 `python3` 이름
   - Linux CI를 둔다. 지금은 CI가 없고 테스트가 이 Mac에서만 돈다

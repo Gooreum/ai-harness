@@ -154,3 +154,7 @@ bash tests/run.sh                 # 훅 판단 회귀 테스트 포함
   - 다른 폴더(같은 프로젝트의 다른 워크트리)가 그 포트를 쓰고 있으면 빈 포트로 띄우고 도구 결과에 알린다. 포트가 커밋되는 `project.json`에 있어 워크트리끼리 겹쳤다(ReadSharp 원본과 워크트리가 둘 다 18787).
   - 실제로 띄운 포트는 `.harness/state/network.port`에 남긴다. `scripts/harness/e2e`가 이 파일을 먼저 읽는다.
 - 프로젝트 고유의 MCP는 그 프로젝트가 직접 만든다. 하네스는 어느 프로젝트에나 쓰이는 이 서버만 담는다.
+- iOS 밖에서 쓰기: 주소를 바꾸는 앱 쪽 약속은 그 앱이 정한다. `scripts/harness/e2e`가 없으면 시나리오나 테스트에 주소를 직접 넘긴다(Maestro `-e NETWORK_BASE_URL=…`, 웹은 Playwright `page.route`로 충분하면 이 서버를 쓰지 않는다).
+  - Android 에뮬레이터에서는 Mac의 `127.0.0.1`이 `10.0.2.2`로 보인다. 또는 `adb reverse tcp:<포트> tcp:<포트>`로 에뮬레이터의 `127.0.0.1`을 Mac으로 잇는다.
+  - Android 9 이상은 `http://` 평문 요청을 막는다. 디버그 빌드에만 `network_security_config`로 `127.0.0.1`·`10.0.2.2`를 허용한다.
+  - 웹 앱에서 부르면 브라우저가 CORS를 확인하는데, 이 서버는 CORS 헤더를 주지 않는다. 필요해지면 그때 넣는다.
