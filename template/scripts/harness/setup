@@ -131,6 +131,10 @@ cat <<'EOF'
          "prompt": "scripts/harness/record test \"npm test\"를 실행하고 통과할 때까지 고친다",
          "run": "scripts/harness/passed test" }
      e2e처럼 범위를 고를 수 있는 것은 이번 수정에 영향받는 것만 돌리게 prompt에 적는다.
+     회귀 묶음(늘 확인할 시나리오 모음)이 있으면 regression 검사를 따로 둔다. 배포 전·리팩터링 뒤에 사용자가 고르는 검사다.
+       { "name": "regression", "description": "회귀 묶음 전체 (배포 전·리팩터링 뒤에 고른다)",
+         "prompt": "scripts/harness/record regression \"<회귀 묶음 명령>\"을 실행하고, 실패하면 이번 변경 때문인지 먼저 확인한 뒤 고친다",
+         "run": "scripts/harness/passed regression" }
      순서: 파일을 고치는 검사(포매터, --fix) → 싸고 빠른 검사 → 리뷰 → e2e.
    - 생성 파일 → .harness/project.json의 "generated" 배열(글롭, 프로젝트 루트 기준). *는 /도 넘는다. 예: ["ios/*", "*.xcodeproj/*"].
      훅이 이 파일의 편집을 막고, 리뷰어가 열지 않아도 되는 파일로 친다.
