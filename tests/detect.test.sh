@@ -11,7 +11,7 @@ trap 'rm -rf "$work"' EXIT
 export HARNESS_OFFLINE=1
 
 run_detect() { "$detect" "$@" 2>/dev/null; }
-field() { printf '%s' "$1" | jq -c "$2"; }
+field() { printf '%s' "$1" | jq -c ".ios | $2"; }
 
 # 최소 pbxproj: 앱·단위 테스트·UI 테스트 타깃. $2는 앱의 번들 ID 값(따옴표 포함 가능).
 write_pbxproj() {
@@ -225,16 +225,21 @@ assert_eq "modules-no-scheme: 스킴 없는 모듈을 \", \"로 나열" \
   "detect: 경고: 디렉터리 이름과 같은 스킴이 없는 모듈: Modules/Core/CoreB, Modules/Feature/FeatureA — modules.scheme 규칙을 확인하세요" \
   "$(grep '스킴이 없는 모듈' "$work/err")"
 
-# --- iOS 프로젝트가 아님 -------------------------------------------------------
+# --- 묶음 ---------------------------------------------------------------------
 p="$work/empty"
 mkdir -p "$p"
-if run_detect "$p" >/dev/null; then code=0; else code=$?; fi
-assert_eq "empty: iOS 프로젝트가 아니면 종료 코드 1" "1" "$code"
+echo '{}' > "$p/package.json"
+if out="$("$detect" "$p" 2> "$work/err")"; then code=0; else code=$?; fi
+assert_eq "empty: Xcode 프로젝트가 없어도 초안을 만든다" "0" "$code"
+assert_eq "empty: 묶음 없음" '{"schemaVersion":2,"platforms":[]}' "$(printf '%s' "$out" | jq -c .)"
+assert_eq "empty: 묶음이 없는 플랫폼을 알린다" "1" "$(grep -c 'package.json 파일이 있지만' "$work/err")"
+p="$work/xcodeproj"
+assert_eq "platforms: Xcode 프로젝트면 ios" '["ios"]' "$(run_detect "$p" 2> /dev/null | jq -c .platforms)"
 
 # --- --write / --force --------------------------------------------------------
 p="$work/xcodeproj"
 run_detect --write "$p" >/dev/null
-assert_eq "write: 파일 생성" '"xcodeproj"' "$(jq -c .generator "$p/.harness/project.json")"
+assert_eq "write: 파일 생성" '"xcodeproj"' "$(jq -c .ios.generator "$p/.harness/project.json")"
 if run_detect --write "$p" >/dev/null; then code=0; else code=$?; fi
 assert_eq "write: 이미 있으면 --force 없이 실패" "1" "$code"
 if run_detect --write --force "$p" >/dev/null; then code=0; else code=$?; fi

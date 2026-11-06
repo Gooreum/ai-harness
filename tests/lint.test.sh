@@ -64,7 +64,7 @@ mkdir -p "$p/.harness" "$p/App/Views"
 jq -n '{schemaVersion:1, generator:"xcodeproj", commands:{install:null, generate:null},
   workspace:null, project:"App.xcodeproj",
   app:{scheme:"App", path:null, bundleId:null, unitTestTargets:[]},
-  destination:{simulator:"iPhone 17 Pro", os:"latest"}, modules:null}' > "$p/.harness/project.json"
+  destination:{simulator:"iPhone 17 Pro", os:"latest"}, modules:null} | {schemaVersion: 2, platforms: ["ios"], ios: del(.schemaVersion)}' > "$p/.harness/project.json"
 echo 'import SwiftUI' > "$p/App/Views/HomeView.swift"
 echo 'let x = 1' > "$p/App/Model.swift"
 (cd "$p" && git init -q -b main && git add -A && git -c user.name=t -c user.email=t@t commit -qm init)

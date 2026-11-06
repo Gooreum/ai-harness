@@ -141,7 +141,7 @@ mkdir -p "$p/.harness" "$p/App" "$work/bin"
 jq -n '{schemaVersion:1, generator:"tuist", commands:{install:null, generate:null},
   workspace:"App.xcworkspace", project:null,
   app:{scheme:"App", path:null, bundleId:null, unitTestTargets:[]},
-  destination:{simulator:"iPhone 17 Pro", os:"latest"}, modules:null}' > "$p/.harness/project.json"
+  destination:{simulator:"iPhone 17 Pro", os:"latest"}, modules:null} | {schemaVersion: 2, platforms: ["ios"], ios: del(.schemaVersion)}' > "$p/.harness/project.json"
 printf 'let p = Project(targets: [\n  .target(name: "FeatureTimer", sources: "F"),\n])\n' > "$p/Project.swift"
 echo 'let x = 1' > "$p/App/A.swift"
 cat > "$work/bin/tuist" <<EOF
@@ -192,7 +192,7 @@ assert_eq "dependency: 규칙에 없는 모듈은 감점 없이 알린다" "0|  
   "$code|$(printf '%s\n' "$out" | sed -n 2p)"
 (cd "$p" && git checkout -q -- .)
 
-jq '.generator = "xcodeproj"' "$p/.harness/project.json" > "$work/pj" && cp "$work/pj" "$p/.harness/project.json"
+jq '.ios.generator = "xcodeproj"' "$p/.harness/project.json" > "$work/pj" && cp "$work/pj" "$p/.harness/project.json"
 out="$(run --all 2>&1)" && code=0 || code=$?
 assert_eq "dependency: Tuist가 아니면 2로 끝나고 대신 쓸 방법을 알린다" "2 yes" "$code $(printf '%s' "$out" | grep -q 'pattern 규칙의 included' && echo yes)"
 (cd "$p" && git checkout -q -- .)

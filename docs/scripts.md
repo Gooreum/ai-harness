@@ -142,13 +142,13 @@ scripts/harness/e2e --no-build              # 이미 빌드된 앱으로
 
 - 앱을 빌드(`build`)해 설정의 시뮬레이터에 설치하고 Maestro 시나리오를 돌린다. 시뮬레이터가 꺼져 있으면 켠다.
   - 돌리는 동안 기기에 잠금을 건다(`$TMPDIR/ios-harness-simulators/<udid>`, 워크트리 경로와 프로세스 번호). 다른 워크트리가 같은 기기로 돌리는 중이면 같은 런타임의 다른 iPhone을 쓰고 한 줄 알린다. 남은 기기가 없으면 어느 워크트리가 쓰는지 알리고 멈춘다. 프로세스가 끝난 잠금은 무시한다.
-  - 설치하는 앱은 `app.scheme`의 실행(Run) 빌드 구성으로 빌드된 앱 중 번들 ID가 `app.bundleId`인 것이다. 구성은 공유된 스킴 파일(`xcshareddata/xcschemes/<스킴>.xcscheme`)의 `LaunchAction`에서 읽는다. 그런 앱이 없으면 멈춘다. 스킴과 번들 ID가 다른 앱을 가리키면, 다른 구성으로 예전에 빌드된 앱을 설치해 바뀐 코드 없이 통과하기 때문이다(IntervalTimer #13에서 관찰).
+  - 설치하는 앱은 `ios.app.scheme`의 실행(Run) 빌드 구성으로 빌드된 앱 중 번들 ID가 `ios.app.bundleId`인 것이다. 구성은 공유된 스킴 파일(`xcshareddata/xcschemes/<스킴>.xcscheme`)의 `LaunchAction`에서 읽는다. 그런 앱이 없으면 멈춘다. 스킴과 번들 ID가 다른 앱을 가리키면, 다른 구성으로 예전에 빌드된 앱을 설치해 바뀐 코드 없이 통과하기 때문이다(IntervalTimer #13에서 관찰).
   - `--no-build`이면 구성을 가리지 않고 번들 ID가 맞는 가장 최근 앱을 설치한다. 앱이 바뀐 코드 파일보다 오래됐으면 멈춘다. 예전 앱으로 바뀐 코드 없이 통과할 수 있어서다(문서·시나리오는 보지 않는다).
   - Maestro가 쓸 Java가 없으면 돌리기 전에 멈춘다. Maestro는 `JAVA_HOME`이 있으면 그 java를, 없으면 PATH의 java를 쓴다. macOS의 `/usr/bin/java`는 JDK가 없어도 있으므로 실행해 확인한다.
-  - 설치할 앱은 이 워크트리의 DerivedData에서 `app.bundleId`가 맞는 가장 최근 시뮬레이터용 `.app`이다. 앱 스킴의 빌드 구성(Debug·Release)을 따른다.
-- 시나리오는 `appId: ${APP_ID}`로 쓴다. 스크립트가 `-e APP_ID=<app.bundleId>`를 넘긴다. 비밀 값은 `MAESTRO_`로 시작하는 환경 변수로 넘기면 Maestro가 읽는다.
+  - 설치할 앱은 이 워크트리의 DerivedData에서 `ios.app.bundleId`가 맞는 가장 최근 시뮬레이터용 `.app`이다. 앱 스킴의 빌드 구성(Debug·Release)을 따른다.
+- 시나리오는 `appId: ${APP_ID}`로 쓴다. 스크립트가 `-e APP_ID=<ios.app.bundleId>`를 넘긴다. 비밀 값은 `MAESTRO_`로 시작하는 환경 변수로 넘기면 Maestro가 읽는다.
 - `.maestro/` 아래 폴더(`common/` 등)는 `runFlow`로 부르는 공통 흐름이라 따로 돌지 않는다. Maestro가 폴더를 받으면 바로 아래 파일만 돌린다.
-- 작성 규칙은 template 규칙 `.claude/rules/harness/maestro.md`에 있다(id 우선, 딥링크 진입, 계정은 환경 변수, 공통 흐름, 결과 확인, 통과한 것만 저장).
+- 작성 규칙은 template 규칙 `.claude/rules/harness/ios/maestro.md`에 있다(id 우선, 딥링크 진입, 계정은 환경 변수, 공통 흐름, 결과 확인, 통과한 것만 저장).
 - 출력: 통과하면 한 줄, 실패하면 시나리오마다 Maestro의 실패 메시지와 산출물 위치.
   ```
   ✗ e2e · 실패 1 / 2 · 96s

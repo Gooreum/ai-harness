@@ -7,6 +7,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 init="$here/../scripts/init"
 install="$here/../scripts/sync"
 template="$here/../template"
+packs="$here/../packs"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
@@ -31,14 +32,19 @@ same() { if cmp -s "$1" "$2"; then echo yes; else echo no; fi; }
 p="$work/fresh"
 new_project "$p"
 out="$("$init" "$p")"
-assert_eq "fresh: 설정 파일 초안을 만든다" '"xcodeproj"' "$(jq -c .generator "$p/.harness/project.json")"
+assert_eq "fresh: 설정 파일 초안을 만든다" '"xcodeproj"' "$(jq -c .ios.generator "$p/.harness/project.json")"
+assert_eq "fresh: iOS 묶음을 고른다" '["ios"]' "$(jq -c .platforms "$p/.harness/project.json")"
+assert_eq "fresh: 설치한 묶음을 기록한다" '["ios"]' "$(jq -c .packs "$p/.harness/harness.json")"
 assert_eq "fresh: 스크립트를 복사한다" "yes" "$(same "$template/scripts/harness/unit-test" "$p/scripts/harness/unit-test")"
 assert_eq "fresh: 스크립트 실행 권한을 유지한다" "yes" "$([ -x "$p/scripts/harness/unit-test" ] && echo yes || echo no)"
-assert_eq "fresh: 규칙을 복사한다" "yes" "$(same "$template/.claude/rules/harness/swift.md" "$p/.claude/rules/harness/swift.md")"
+assert_eq "fresh: 규칙을 복사한다" "yes" "$(same "$template/.claude/rules/harness/ios/swift.md" "$p/.claude/rules/harness/ios/swift.md")"
 assert_eq "fresh: 프로젝트 규칙 자리를 만든다" "yes" "$([ -f "$p/.claude/rules/project/.gitkeep" ] && echo yes || echo no)"
-assert_eq "fresh: AGENTS.md 제목을 앱 스킴으로 채운다" "# Sample" "$(head -1 "$p/AGENTS.md")"
+assert_eq "fresh: AGENTS.md 제목을 폴더 이름으로 채운다" "# fresh" "$(head -1 "$p/AGENTS.md")"
+assert_eq "fresh: 관리 블록에 iOS 묶음 줄을 넣는다" "1" "$(grep -c 'scripts/harness/unit-test --plan' "$p/AGENTS.md")"
+assert_eq "fresh: 묶음 자리 표시는 남기지 않는다" "0" "$(grep -c 'harness:pack' "$p/AGENTS.md" || true)"
 assert_eq "fresh: CLAUDE.md를 복사한다" "yes" "$(same "$template/CLAUDE.md" "$p/CLAUDE.md")"
-assert_eq "fresh: 권한 규칙을 설치한다" "true" "$(jq -s '.[1].permissions == .[0].permissions' "$p/.claude/settings.json" "$template/.claude/settings.json")"
+assert_eq "fresh: 공통 권한 규칙을 설치한다" "true" "$(jq -s '(.[1].permissions.deny - .[0].permissions.deny) + (.[1].permissions.ask - .[0].permissions.ask) | length == 0' "$p/.claude/settings.json" "$template/.claude/settings.json")"
+assert_eq "fresh: iOS 묶음 권한 규칙을 설치한다" "true" "$(jq -s '(.[1].permissions.deny - .[0].permissions.deny) | length == 0' "$p/.claude/settings.json" "$packs/ios/settings.json")"
 case "$out" in *"직접 할 일"*"프로젝트 영역"*) ok=yes ;; *) ok=no ;; esac
 assert_eq "fresh: 프로젝트 영역을 채우라고 알린다" "yes" "$ok"
 
@@ -70,6 +76,8 @@ assert_eq "existing: 기존 훅 설정을 지킨다" '{"PreToolUse":[]}' "$(jq -
 assert_eq "existing: deny 규칙은 중복 없이 합친다" "1" "$(jq '[.permissions.deny[] | select(. == "Read(**/*.p12)")] | length' "$q/.claude/settings.json")"
 assert_eq "existing: template의 deny 규칙이 모두 들어간다" "true" \
   "$(jq -s '(.[1].permissions.deny - .[0].permissions.deny) | length == 0' "$q/.claude/settings.json" "$template/.claude/settings.json")"
+assert_eq "existing: 묶음의 deny 규칙도 들어간다" "true" \
+  "$(jq -s '(.[1].permissions.deny - .[0].permissions.deny) | length == 0' "$q/.claude/settings.json" "$packs/ios/settings.json")"
 assert_eq "existing: 두 번째 실행은 바뀐 것이 없다" "✓ sync · 바뀐 것 없음 · $q" "$("$install" "$q" | sed -n 1p)"
 
 # --- template에서 사라진 하네스 규칙은 지운다 -----------------------------------------------
@@ -131,5 +139,53 @@ printf '.claude/settings.json\n' >> "$q/.gitignore"
 out="$("$install" "$q")"
 case "$out" in *"settings.json이 git에서 무시된다"*) ok=yes ;; *) ok=no ;; esac
 assert_eq "ignored: settings.json이 공유되지 않는다고 알린다" "yes" "$ok"
+
+# --- 옛 형식 설정(schemaVersion 1)을 옮긴다 ---------------------------------------------
+m="$work/migrate"
+new_project "$m"
+"$init" "$m" > /dev/null
+jq -n '{schemaVersion: 1, generator: "xcodeproj", commands: {install: null, generate: null}, workspace: null,
+  project: "Sample.xcodeproj", app: {scheme: "Sample", bundleId: "com.example.Sample"},
+  destination: {simulator: "iPhone 17 Pro", os: "latest"}, modules: null, e2e: {network: {port: 18787}}}' > "$m/.harness/project.json"
+out="$("$install" "$m")"
+assert_eq "migrate: 새 형식으로 옮긴다" "2" "$(jq .schemaVersion "$m/.harness/project.json")"
+assert_eq "migrate: iOS 묶음을 고른다" '["ios"]' "$(jq -c .platforms "$m/.harness/project.json")"
+assert_eq "migrate: iOS 설정은 ios 아래로" '"Sample"|"iPhone 17 Pro"' \
+  "$(jq -c '.ios.app.scheme' "$m/.harness/project.json")|$(jq -c '.ios.destination.simulator' "$m/.harness/project.json")"
+assert_eq "migrate: e2e는 위에 남긴다" "18787" "$(jq .e2e.network.port "$m/.harness/project.json")"
+assert_eq "migrate: 위에 iOS 키가 남지 않는다" "null" "$(jq -c .generator "$m/.harness/project.json")"
+case "$out" in *"새 형식으로 옮김"*) ok=yes ;; *) ok=no ;; esac
+assert_eq "migrate: 옮겼다고 알린다" "yes" "$ok"
+assert_eq "migrate: 두 번째 실행은 바뀐 것이 없다" "✓ sync · 바뀐 것 없음 · $m" "$("$install" "$m" | sed -n 1p)"
+
+# 파일 목록이 없는 옛 설치에서도 묶음 폴더로 옮긴 규칙의 옛 자리는 지운다
+echo '# old swift' > "$m/.claude/rules/harness/swift.md"
+jq 'del(.files)' "$m/.harness/harness.json" > "$work/h.json" && mv "$work/h.json" "$m/.harness/harness.json"
+"$install" "$m" > /dev/null
+assert_eq "moved: 묶음 폴더로 옮긴 규칙의 옛 자리를 지운다" "no" "$([ -f "$m/.claude/rules/harness/swift.md" ] && echo yes || echo no)"
+assert_eq "moved: 공통 규칙은 남는다" "yes" "$([ -f "$m/.claude/rules/harness/wiki.md" ] && echo yes || echo no)"
+
+# --- 묶음이 없는 프로젝트: 공통 파일만 ------------------------------------------------------
+n="$work/nopack"
+mkdir -p "$n" && (cd "$n" && git init -q -b main) && echo '{}' > "$n/package.json"
+"$init" "$n" > /dev/null
+assert_eq "nopack: 묶음 없음" '[]' "$(jq -c .platforms "$n/.harness/project.json")"
+assert_eq "nopack: 공통 스크립트는 설치한다" "yes" "$([ -x "$n/scripts/harness/record" ] && [ -x "$n/scripts/harness/passed" ] && echo yes || echo no)"
+assert_eq "nopack: iOS 스크립트는 설치하지 않는다" "no" "$([ -e "$n/scripts/harness/unit-test" ] || [ -e "$n/scripts/harness/ios.sh" ] && echo yes || echo no)"
+assert_eq "nopack: iOS 규칙은 설치하지 않는다" "no" "$([ -d "$n/.claude/rules/harness/ios" ] && echo yes || echo no)"
+assert_eq "nopack: 공통 규칙은 설치한다" "yes" "$([ -f "$n/.claude/rules/harness/wiki.md" ] && echo yes || echo no)"
+assert_eq "nopack: 관리 블록에 iOS 줄이 없다" "0" "$(grep -c 'unit-test\|swift.md' "$n/AGENTS.md" || true)"
+assert_eq "nopack: iOS 권한 규칙은 넣지 않는다" "0" "$(jq '[.permissions.deny[] | select(. == "Edit(**/*.pbxproj)")] | length' "$n/.claude/settings.json")"
+
+# 고른 묶음을 빼면 그 묶음 파일을 지운다
+jq '.platforms = []' "$m/.harness/project.json" > "$work/pj" && mv "$work/pj" "$m/.harness/project.json"
+"$install" "$m" > /dev/null
+assert_eq "unpick: 뺀 묶음의 스크립트를 지운다" "no" "$([ -e "$m/scripts/harness/unit-test" ] && echo yes || echo no)"
+assert_eq "unpick: 뺀 묶음의 규칙을 지운다" "no" "$([ -e "$m/.claude/rules/harness/ios/swift.md" ] && echo yes || echo no)"
+assert_eq "unpick: 공통 스크립트는 남는다" "yes" "$([ -e "$m/scripts/harness/passed" ] && echo yes || echo no)"
+jq '.platforms = ["android"]' "$m/.harness/project.json" > "$work/pj" && mv "$work/pj" "$m/.harness/project.json"
+out="$("$install" "$m")"
+case "$out" in *"'android' 묶음이 하네스에 없다"*) ok=yes ;; *) ok=no ;; esac
+assert_eq "unknown: 없는 묶음을 알린다" "yes" "$ok"
 
 finish

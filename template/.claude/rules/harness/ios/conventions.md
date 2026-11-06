@@ -15,7 +15,7 @@ paths:
 |---|---|---|---|
 | `pattern` (기본) | 쓰면 안 되는 코드(API, import, 호출) | SwiftLint | 모두 |
 | `format` | 이름·줄 길이·들여쓰기 같은 모양 | swift-format (Xcode 포함) | 모두 |
-| `dependency` | 모듈 사이의 금지된 의존, 의존 목록에 없는 import(`undeclared: true`) | tuist graph·inspect | `.harness/project.json`의 `generator`가 `tuist`일 때만 |
+| `dependency` | 모듈 사이의 금지된 의존, 의존 목록에 없는 import(`undeclared: true`) | tuist graph·inspect | `.harness/project.json`의 `ios.generator`가 `tuist`일 때만 |
 
 - 모듈이 하나뿐인 앱(xcodeproj 단일 타깃 등)의 레이어 규칙은 `dependency`로 쓸 수 없다. `pattern`의 `included`로 폴더를 좁히고 금지할 타입·import를 정규식으로 적는다.
 - `format`의 `formatRule`은 `xcrun swift-format dump-configuration`의 `rules` 이름이나 `Indentation`·`LineLength`·`Spacing`·`TrailingComma`·`TrailingWhitespace`·`RemoveLine`·`AddLines`·`EndOfLineComment` 중 하나다. 줄 길이·들여쓰기 폭은 `formatOptions`로 정한다(예: `{"lineLength": 120}`).

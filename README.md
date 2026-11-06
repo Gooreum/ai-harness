@@ -84,7 +84,7 @@ scripts/sync ~/path/to/MyApp     # 하네스를 고친 뒤 갱신
 1. `.harness/project.json`이 없으면 `scripts/detect`가 프로젝트를 훑어 초안을 만든다.
    - 생성기 종류(Tuist / XcodeGen / xcodeproj / SPM), 워크스페이스, 앱 스킴, bundle ID, 단위 테스트 타깃, 모듈 구조를 찾는다. 시뮬레이터는 적지 않는다(커밋되면 다른 사람과 다른 Xcode에서도 그 기기로 고정된다).
 2. `template/`의 파일을 프로젝트에 맞춘다.
-   - `scripts/harness/`, `.claude/rules/harness/`, `.harness/.gitignore`는 template과 똑같이 맞춘다. 지난번에 설치했는데 template에서 사라진 파일만 지운다. 팀이 넣은 스크립트는 남는다.
+   - `scripts/harness/`, `.claude/rules/harness/`, `.harness/.gitignore`는 template과 똑같이 맞춘다. 묶음 파일은 `project.json`의 `platforms`에 고른 묶음(`packs/<묶음>/pack.json`)의 것만 넣는다. 지난번에 설치했는데 template에서 사라졌거나 고르지 않은 묶음의 파일만 지운다. 팀이 넣은 스크립트는 남는다.
    - `AGENTS.md`는 하네스 관리 블록만 넣거나 바꾼다. 프로젝트가 쓴 부분은 건드리지 않는다.
    - `.claude/settings.json`에는 권한 규칙을 중복 없이 합친다. 프로젝트의 기존 설정은 유지한다.
 3. `.claude/settings.json`에 GitHub 마켓플레이스(`Gooreum/ios-ai-harness`)를 등록하고 플러그인 `ios-harness`를 켠다. 설치한 하네스 버전은 `.harness/harness.json`에 적는다.
@@ -226,15 +226,15 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 |---|---|---|
 | `AGENTS.md` | Context | 프로젝트 지침. 위쪽 프로젝트 영역(빈 자리)과 아래쪽 하네스 관리 블록 |
 | `CLAUDE.md` | Context | `@AGENTS.md` import. Claude Code가 AGENTS.md를 읽게 한다 |
-| `.claude/rules/harness/swift.md` | Context | Swift 코드 작성 규칙 |
-| `.claude/rules/harness/swiftui.md` | Context | SwiftUI 상태 관리, 뷰 작성, 접근성 규칙 |
-| `.claude/rules/harness/concurrency.md` | Context | Swift Concurrency 격리, 컴파일러 진단 대응, Task, 콜백 브리지 규칙 |
-| `.claude/rules/harness/dependencies.md` | Context | 모듈 경계, 외부 라이브러리 추가·노출, 과한 추상화 금지 |
-| `.claude/rules/harness/testing.md` | Context | 테스트 작성·격리 규칙, 테스트를 약화하는 편법 금지 |
-| `.claude/rules/harness/project-settings.md` | Context | 프로젝트 파일·빌드 설정을 바꿀 때의 규칙, 설정 완화 금지 |
-| `.claude/rules/harness/tuist.md` | Context | Tuist 프로젝트 구성과 생성 규칙 |
+| `.claude/rules/harness/ios/swift.md` | Context | Swift 코드 작성 규칙 |
+| `.claude/rules/harness/ios/swiftui.md` | Context | SwiftUI 상태 관리, 뷰 작성, 접근성 규칙 |
+| `.claude/rules/harness/ios/concurrency.md` | Context | Swift Concurrency 격리, 컴파일러 진단 대응, Task, 콜백 브리지 규칙 |
+| `.claude/rules/harness/ios/dependencies.md` | Context | 모듈 경계, 외부 라이브러리 추가·노출, 과한 추상화 금지 |
+| `.claude/rules/harness/ios/testing.md` | Context | 테스트 작성·격리 규칙, 테스트를 약화하는 편법 금지 |
+| `.claude/rules/harness/ios/project-settings.md` | Context | 프로젝트 파일·빌드 설정을 바꿀 때의 규칙, 설정 완화 금지 |
+| `.claude/rules/harness/ios/tuist.md` | Context | Tuist 프로젝트 구성과 생성 규칙 |
 | `.claude/rules/project/.gitkeep` | Context | 프로젝트 고유 규칙을 두는 자리. 하네스가 건드리지 않는다 |
-| `.claude/settings.json` | Enforcement | 권한 규칙(deny 6개, ask 20개) |
+| `.claude/settings.json` | Enforcement | 공통 권한 규칙(`.env` 읽기 deny 2개, git·PR ask 20개). 묶음 규칙은 `packs/<묶음>/settings.json`에서 더한다 |
 | `scripts/harness/build` | Execution + Validation | 빌드하고 첫 에러를 요약한다 |
 | `scripts/harness/test` | Execution + Validation | 테스트하고 실패만 요약한다 |
 | `scripts/harness/unit-test` | Execution + Validation | 바뀐 파일로 대상을 정해 빌드와 테스트를 한 번에 돌린다 |
@@ -245,10 +245,21 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `scripts/harness/record` | Execution + Validation | 하네스 스크립트가 없는 명령(typecheck, jest 등)을 돌려 결과를 `.harness/out/<이름>.json`에 남긴다. run은 `passed <이름>` |
 | `scripts/harness/lib.sh` | Execution | 공통 함수: 설정 읽기, 바뀐 파일 목록, 작업 시작 커밋, 위키 형식 |
 | `scripts/harness/ios.sh` | Execution | iOS 함수: Xcode·시뮬레이터 찾기, 생성 지문, DerivedData 경로, `xcresulttool` 결과 정리, 컨벤션 변환 |
-| `.claude/rules/harness/conventions.md` | Context | 컨벤션 목록을 열 때 읽히는 규칙: 규칙 후보는 사람이 고르고, 통과하려고 규칙을 완화하지 않는다 |
-| `.claude/rules/harness/maestro.md` | Context | 시나리오를 열 때 읽히는 팀 작성 규칙 |
+| `scripts/harness/ios-doctor.sh` | Validation | doctor의 iOS 점검(xcodebuild·생성기·maestro, ios 설정, 시뮬레이터) |
+| `.claude/rules/harness/ios/conventions.md` | Context | 컨벤션 목록을 열 때 읽히는 규칙: 규칙 후보는 사람이 고르고, 통과하려고 규칙을 완화하지 않는다 |
+| `.claude/rules/harness/ios/maestro.md` | Context | 시나리오를 열 때 읽히는 팀 작성 규칙 |
 | `.claude/rules/harness/wiki.md` | Context | 기록을 열 때 읽히는 규칙: 두 종류의 형식, 쓰는 때, 기록과 반대되는 요청은 묻기 |
 | `.harness/.gitignore` | State | `.harness/`에서 설정 파일(`project.json`·`conventions.json`·`checks.json`)과 설치 기록(`harness.json`)만 커밋되게 한다 |
+
+### packs/ — 플랫폼 묶음
+
+설치는 `.harness/project.json`의 `platforms`에 고른 묶음만 한다([ADR 0019](docs/decisions/0019-pack-install.md)). 지금 있는 묶음은 `ios`다.
+
+| 파일 | 역할 |
+|---|---|
+| `ios/pack.json` | template 안에서 iOS 묶음에 속한 파일 목록(build·test·unit-test·lint·e2e·`ios.sh`·`ios-doctor.sh`, `.claude/rules/harness/ios/`) |
+| `ios/settings.json` | iOS 권한 규칙(인증서·프로비저닝 읽기 deny, pbxproj 편집 deny) |
+| `ios/agents-commands.md`, `agents-notes.md`, `agents-rules.md` | AGENTS.md 관리 블록의 `<!-- harness:pack … -->` 자리에 들어갈 명령 표 줄, 안내, 규칙 표 줄 |
 
 ### plugin/ — Claude Code 플러그인 ios-harness
 
@@ -330,6 +341,8 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `decisions/0010-e2e-events.md` | 시나리오가 끝난 뒤 행동 로그(이벤트·횟수·값·업로드)를 판정하는 방식과 Firebase 로그를 읽는 근거 |
 | `decisions/0017-network-mock.md` | 서버 응답 조작을 프록시 대신 실제 서버를 대신하는 가짜 응답 MCP로 만든 이유 |
 | `decisions/0008-wiki.md` | 정책·결정 기록을 프로젝트 안 파일과 검색 스크립트로 시작한 이유와 비교 결과 |
+| `decisions/0018-core-and-packs.md` | 공통 핵심과 플랫폼 묶음으로 나누고, 아무 명령의 결과를 record로 남기는 이유 |
+| `decisions/0019-pack-install.md` | 묶음을 pack.json 목록으로 정하고, 설정의 플랫폼 값을 묶음 이름 아래로 옮긴 이유 |
 | `decisions/0007-task-flow.md` | 사람이 고른 모드·검사와 단계 지시 훅으로 작업 흐름을 만들고, 강제는 미룬 이유 |
 
 ## 설치하면 대상 프로젝트는 이렇게 된다
@@ -347,13 +360,14 @@ MyApp/
 │   ├── settings.json              권한 규칙 (기존 설정과 합침)
 │   ├── settings.local.json        로컬 플러그인 켜기 (커밋하지 않음)
 │   └── rules/
-│       ├── harness/*.md           하네스 경로 규칙 (하네스가 관리)
+│       ├── harness/*.md           공통 규칙 (하네스가 관리)
+│       ├── harness/ios/*.md       iOS 묶음 규칙 (platforms에 ios가 있을 때)
 │       └── project/*.md           프로젝트 고유 규칙 (프로젝트가 관리)
 └── scripts/harness/
-    ├── build, test, unit-test, lint, e2e, doctor   (iOS)
-    ├── record, passed, wiki                        (공통)
+    ├── build, test, unit-test, lint, e2e           (iOS 묶음)
+    ├── record, passed, wiki, doctor                (공통)
     ├── lib.sh                                      공통 함수
-    └── ios.sh                                      iOS 함수
+    └── ios.sh, ios-doctor.sh                       iOS 함수, iOS 점검
 ```
 
 ## 직접 해 보기

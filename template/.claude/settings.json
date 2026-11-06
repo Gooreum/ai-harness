@@ -1,12 +1,8 @@
 {
   "permissions": {
     "deny": [
-      "Read(**/*.p12)",
-      "Read(**/*.p8)",
-      "Read(**/*.mobileprovision)",
       "Read(**/.env)",
-      "Read(**/.env.*)",
-      "Edit(**/*.pbxproj)"
+      "Read(**/.env.*)"
     ],
     "ask": [
       "Bash(git push *)",

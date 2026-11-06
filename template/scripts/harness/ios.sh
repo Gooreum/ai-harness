@@ -7,8 +7,15 @@
 
 harness_init_ios() {
   harness_init
+  [ "$(jq -r '.ios | type' "$config")" = object ] \
+    || harness_die ".harness/project.json에 ios 설정이 없습니다. 하네스 저장소에서 scripts/sync <프로젝트 경로>로 옛 설정을 옮기세요"
   derived_data="$(harness_derived_data_path "$root")"
   harness_use_buildable_xcode
+}
+
+# .harness/project.json의 ios 아래 값. 없거나 null이면 빈 문자열. 예: ios_cfg .app.scheme
+ios_cfg() {
+  jq -r "(.ios | $1) // empty" "$config"
 }
 
 # 선택된 Xcode의 iOS 시뮬레이터 SDK에 맞는 런타임이 없으면, 런타임이 맞는 다른 Xcode를 DEVELOPER_DIR로 쓴다.
@@ -64,8 +71,8 @@ harness_derived_data_path() {
 # xcodebuild의 -workspace/-project 인자를 container_args 배열에 담는다.
 harness_container_args() {
   local ws pj
-  ws="$(cfg .workspace)"
-  pj="$(cfg .project)"
+  ws="$(ios_cfg .workspace)"
+  pj="$(ios_cfg .project)"
   if [ -n "$ws" ]; then
     container_args=(-workspace "$root/$ws")
   elif [ -n "$pj" ]; then
@@ -107,8 +114,8 @@ pick_latest_iphone() {
 # 설정에 destination.simulator가 있으면 그 기기를 쓰고, 설치돼 있지 않으면 최신 iPhone을 쓰고 한 줄 알린다.
 harness_destination() {
   local name os json udid latest
-  name="$(cfg .destination.simulator)"
-  os="$(cfg .destination.os)"
+  name="$(ios_cfg .destination.simulator)"
+  os="$(ios_cfg .destination.os)"
   os="${os:-latest}"
   json="$(xcrun simctl list devices available -j 2>/dev/null)" || harness_die "xcrun simctl을 실행하지 못했습니다"
   udid=""
@@ -168,8 +175,8 @@ harness_report_step_failure() { # 단계 명령 로그
 harness_ensure_generated() {
   local force="${1:-}" gen install target fp dfp
   generated_now=0
-  gen="$(cfg .commands.generate)"
-  install="$(cfg .commands.install)"
+  gen="$(ios_cfg .commands.generate)"
+  install="$(ios_cfg .commands.install)"
 
   if [ -n "$install" ]; then
     dfp="$(deps_fingerprint)"
@@ -185,7 +192,7 @@ harness_ensure_generated() {
   fi
 
   [ -n "$gen" ] || return 0
-  target="$root/$(cfg '.workspace // .project')"
+  target="$root/$(ios_cfg '.workspace // .project')"
 
   fp="$(generate_fingerprint)"
   if [ "$force" != force ] && [ -e "$target" ] \

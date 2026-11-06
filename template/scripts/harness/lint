@@ -54,7 +54,7 @@ if conventions_has_kind "$conventions" format; then
   xcrun --find swift-format >/dev/null 2>&1 || harness_die "swift-format이 필요합니다. Xcode 16 이상에 들어 있습니다 (xcode-select로 Xcode를 고르세요)"
 fi
 if conventions_has_kind "$conventions" dependency; then
-  [ "$(cfg .generator)" = tuist ] || harness_die "dependency 규칙은 Tuist 프로젝트에서만 씁니다 (generator: $(cfg .generator)). 단일 모듈 앱의 레이어는 pattern 규칙의 included와 금지 정규식으로 적으세요"
+  [ "$(ios_cfg .generator)" = tuist ] || harness_die "dependency 규칙은 Tuist 프로젝트에서만 씁니다 (generator: $(ios_cfg .generator)). 단일 모듈 앱의 레이어는 pattern 규칙의 included와 금지 정규식으로 적으세요"
   command -v tuist >/dev/null 2>&1 || harness_die "tuist가 필요합니다"
 fi
 

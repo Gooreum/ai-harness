@@ -280,18 +280,19 @@
   - 완료 기준: iOS 스크립트 없이 `record`와 `passed`만으로 `checks.json`의 검사가 게이트를 통과·실패한다
   - 결과(2026-11-06): `tests/record.test.sh`에서 결과 없음·실패는 막고, 통과는 넘기고, 고친 뒤 낡은 결과는 다시 막았다. IntervalTimer 임시 워크트리(0.9.9)에서 `record`·`passed`·`wiki`가 `xcrun`을 부르지 않았고, unit-test(테스트 130)·`passed`·lint가 그대로 통과했다. ADR 0018
 - [ ] **23. 플랫폼 묶음과 설치**
-  - 묶음 구조: 묶음마다 스크립트, 규칙(`rules/harness/<묶음>/`), 권한, 생성 파일 목록, AGENTS.md 관리 블록 조각, doctor 항목을 둔다
-  - 한 프로젝트가 묶음을 여러 개 고를 수 있다. 고른 묶음을 설치 기록에 남기고, sync가 그 기록으로 설치하고 지울 것을 계산한다
-  - `project.json`: `platforms` 필드를 두고 iOS 키(`app.scheme`, `bundleId` …)를 iOS 아래로 옮긴다. `schemaVersion`을 올리고 ReadSharp·IntervalTimer 설정을 옮긴다
-  - detect가 파일을 보고 묶음을 고른다(Xcode, package.json, gradlew, pyproject, Cargo, go.mod)
-  - 검사 목록 초안: init이 저장소에서 찾은 명령으로 `checks.json` 초안을 만든다. 지금은 아무도 만들지 않는다(ai-bouncer `setup.sh`)
-  - sync가 권한 규칙을 더하기만 하고 지우지 않는다. 하네스가 넣은 항목은 지울 수 있게 한다
-  - 하위 폴더 프로젝트(모노레포)
+  - [x] 묶음 구조: `packs/<묶음>/pack.json`이 template 안의 묶음 파일(스크립트, 규칙 `rules/harness/<묶음>/`)을 적고, 권한(`settings.json`), AGENTS.md 관리 블록 조각(`agents-*.md`), doctor 항목(`<묶음>-doctor.sh`)을 둔다(ADR 0019). 생성 파일 목록은 단위 25에서 묶음으로 옮긴다
+  - [x] 한 프로젝트가 묶음을 여러 개 고를 수 있다. 고른 묶음을 설치 기록(`harness.json`의 `packs`)에 남기고, 고르지 않은 묶음의 파일은 설치 기록의 `files`로 지운다
+  - [x] `project.json`: `platforms`를 두고 iOS 키를 `ios` 아래로 옮겼다. `schemaVersion` 2. 옛 설정은 sync가 옮기고, 생성 파일 보호 훅은 옛 형식도 읽는다
+  - [x] detect가 Xcode 프로젝트를 보고 `ios`를 고른다. `package.json`·`gradlew`·`pyproject.toml`·`Cargo.toml`·`go.mod`는 묶음이 없다고 알리고 공통 파일만 설치한다
+  - [ ] 검사 목록 초안: init이 저장소에서 찾은 명령으로 `checks.json` 초안을 만든다. 지금은 아무도 만들지 않는다(ai-bouncer `setup.sh`)
+  - [ ] sync가 권한 규칙을 더하기만 하고 지우지 않는다. 하네스가 넣은 항목은 지울 수 있게 한다
+  - [ ] 하위 폴더 프로젝트(모노레포)
     - 스크립트는 git 최상위를 루트로, 훅은 가장 가까운 `.harness/project.json`을 루트로 쓴다. 맞춘다
     - `git diff --name-only`가 저장소 루트 기준 경로를 내서 리뷰가 "바뀐 파일 0개"로 통과한다. `--relative`를 쓴다
-  - AGENTS.md 제목을 `app.scheme`이 아니라 폴더 이름으로 한다
-  - doctor가 `checks.json`의 run 명령과 결과 이름이 실제로 있는지 확인한다
+  - [x] AGENTS.md 제목을 `app.scheme`이 아니라 폴더 이름으로 한다
+  - [ ] doctor가 `checks.json`의 run 명령과 결과 이름이 실제로 있는지 확인한다
   - 완료 기준: iOS 묶음으로 ReadSharp·IntervalTimer를 sync했을 때 지금과 같게 돈다
+  - 결과(23-1, 0.9.10): 묶음 구조·설정 새 형식·detect. 시험장 두 곳의 HEAD로 만든 임시 워크트리에 sync하니 설정이 옮겨지고 규칙이 `rules/harness/ios/`로 옮겨졌다(옛 자리는 지움). 파일 목록이 없는 옛 설치 기록이라 옮긴 규칙의 옛 자리를 이름으로 지우게 했다
 - [ ] **24. 이름 바꾸기와 이전**
   - 저장소, 플러그인(`ios-harness`), 마켓플레이스(`ios-ai-harness`, owner `woong`), 리뷰어(`ios-reviewer`) 이름
   - 이미 설치한 곳이 깨지지 않게 한다: `enabledPlugins` 키, doctor에 박힌 id, 리뷰 기록 훅의 이름 비교, 시험장 `checks.json` 지시문의 `ios-harness:ios-reviewer`. sync가 옛 항목을 지우고 새 항목을 넣는다. 둘이 같이 켜지면 훅이 두 번 돈다

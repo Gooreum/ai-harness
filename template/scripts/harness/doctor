@@ -4,7 +4,7 @@
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
-. "$here/ios.sh"
+. "$here/lib.sh"
 
 case "${1:-}" in
   -h | --help)
@@ -28,7 +28,7 @@ if ! command -v jq > /dev/null 2>&1; then
   echo "      → jq를 설치한다 (macOS 15 이상은 /usr/bin/jq 기본 포함, 그 전은 brew install jq)"
   exit 1
 fi
-harness_init_ios
+harness_init
 
 problems=0
 warnings=0
@@ -47,46 +47,30 @@ warn() {
 in_git() { git -C "$root" rev-parse --git-dir > /dev/null 2>&1; }
 ignored() { in_git && git -C "$root" check-ignore -q "$1"; }
 
-# --- 도구 ---------------------------------------------------------------------
+# --- 묶음 (project.json의 platforms) ---------------------------------------------
+if [ "$(jq -r '.schemaVersion // 1' "$config" 2> /dev/null)" = 1 ]; then
+  problem ".harness/project.json이 옛 형식(schemaVersion 1)이다" "하네스 저장소에서 scripts/sync <이 프로젝트>로 새 형식으로 옮긴다"
+fi
+# 묶음마다 scripts/harness/<묶음>-doctor.sh가 있으면 불러 doctor_<묶음>을 부른다.
 
-command -v xcodebuild > /dev/null 2>&1 || problem "xcodebuild가 없다" "Xcode를 설치하고 xcode-select로 지정한다"
-generator="$(cfg .generator)"
-case "$generator" in
-  tuist | xcodegen)
-    command -v "$generator" > /dev/null 2>&1 || problem "${generator}가 없다 (generator: $generator)" "${generator}를 설치한다"
-    ;;
-esac
-if [ -d "$root/.maestro" ] && ! command -v maestro > /dev/null 2>&1; then
-  warn "maestro가 없어 e2e를 돌릴 수 없다" "curl -fsSL https://get.maestro.mobile.dev | bash"
-fi
-if [ -d "$root/.maestro" ] && ! e2e_java_ok; then
-  warn "Maestro가 쓸 Java가 없어 e2e를 돌릴 수 없다" "brew install openjdk@17 후 JAVA_HOME 지정"
-fi
+platforms="$(jq -r '.platforms // [] | .[]' "$config" 2> /dev/null || true)"
+for pack in $platforms; do
+  if [ -f "$here/$pack-doctor.sh" ]; then
+    . "$here/$pack-doctor.sh"
+    "doctor_$pack"
+  else
+    problem "묶음 '$pack'의 스크립트(scripts/harness/$pack-doctor.sh)가 없다" "하네스 저장소에서 scripts/sync <이 프로젝트>"
+  fi
+done
+
+# --- 공통 도구·설정 ----------------------------------------------------------------
 
 if [ -n "$(cfg .e2e.network.port)" ] && ! command -v python3 > /dev/null 2>&1; then
   warn "python3가 없어 가짜 응답 서버(harness-network MCP)가 뜨지 않는다" "xcode-select --install"
 fi
-
-# --- 설정 파일 -------------------------------------------------------------------
-
-[ -n "$(cfg .app.scheme)" ] || problem ".harness/project.json에 app.scheme이 없다"
-# 생성기를 쓰는 프로젝트의 워크스페이스·프로젝트는 생성물이라, 아직 없어도 build가 만든다.
-if [ "$generator" != "tuist" ] && [ "$generator" != "xcodegen" ]; then
-  for key in workspace project; do
-    path="$(cfg ".$key")"
-    [ -z "$path" ] || [ -e "$root/$path" ] || problem ".harness/project.json의 $key '$path'가 없다"
-  done
-fi
 for f in checks.json conventions.json; do
   [ ! -f "$root/.harness/$f" ] || jq empty "$root/.harness/$f" 2> /dev/null || problem ".harness/${f}가 올바른 JSON이 아니다"
 done
-if [ -z "${HARNESS_OFFLINE:-}" ] && command -v xcrun > /dev/null 2>&1; then
-  sim="$(cfg .destination.simulator)"
-  os="$(cfg .destination.os)"
-  if [ -n "$sim" ] && [ -z "$(xcrun simctl list devices available -j 2> /dev/null | pick_simulator "$sim" "${os:-latest}")" ]; then
-    warn "시뮬레이터 '$sim' (iOS ${os:-latest})가 없어 최신 런타임의 iPhone을 대신 쓴다" "그 기기를 꼭 써야 하면 Xcode > Settings > Components에서 런타임을 설치한다"
-  fi
-fi
 
 # --- 설치된 파일 -----------------------------------------------------------------
 

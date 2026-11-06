@@ -21,7 +21,7 @@ reason() { # 파일경로
 }
 project() { # 디렉터리 generator
   mkdir -p "$1/.harness"
-  jq -n --arg g "$2" '{schemaVersion: 1, generator: $g}' > "$1/.harness/project.json"
+  jq -n --arg g "$2" '{schemaVersion: 2, platforms: ["ios"], ios: {generator: $g}}' > "$1/.harness/project.json"
 }
 
 # --- Tuist 프로젝트 -----------------------------------------------------------
@@ -39,6 +39,10 @@ case "$(reason "$t/App.xcworkspace/contents.xcworkspacedata")" in
   *) ok=no ;;
 esac
 assert_eq "tuist: 막는 이유에 고치는 방법(manifest, 스크립트)이 들어 있다" "yes" "$ok"
+
+o="$work/old"
+mkdir -p "$o/.harness" && echo '{"schemaVersion":1,"generator":"tuist"}' > "$o/.harness/project.json"
+assert_eq "old config: sync 전 옛 형식의 generator도 읽는다" "deny" "$(decide "$o/App.xcworkspace/contents.xcworkspacedata")"
 
 # --- xcodeproj 프로젝트 --------------------------------------------------------
 x="$work/xcodeproj"

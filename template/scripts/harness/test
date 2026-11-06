@@ -39,13 +39,13 @@ harness_container_args
 harness_destination
 if [ -z "$scheme" ]; then
   # 앱 스킴의 테스트 액션이 Release인 프로젝트는 테스트용 스킴을 따로 둔다(app.testScheme).
-  scheme="$(cfg .app.testScheme)"
-  [ -n "$scheme" ] || scheme="$(cfg .app.scheme)"
-  [ -n "$scheme" ] || harness_die "설정에 app.scheme이 없습니다"
+  scheme="$(ios_cfg .app.testScheme)"
+  [ -n "$scheme" ] || scheme="$(ios_cfg .app.scheme)"
+  [ -n "$scheme" ] || harness_die "설정에 ios.app.scheme이 없습니다"
   if [ -z "$only" ]; then
-    only="$(jq -r '.app.unitTestTargets // [] | .[]' "$config")"
+    only="$(jq -r '.ios.app.unitTestTargets // [] | .[]' "$config")"
     if [ -z "$only" ]; then
-      echo "· test $scheme · 실행할 테스트 없음 (app.unitTestTargets가 비어 있음)"
+      echo "· test $scheme · 실행할 테스트 없음 (ios.app.unitTestTargets가 비어 있음)"
       exit 0
     fi
   fi

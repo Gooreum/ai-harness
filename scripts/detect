@@ -164,10 +164,16 @@ has_scheme() {
   printf '%s' "$schemes_json" | jq -e --arg scheme "$scheme" 'index($scheme) != null' > /dev/null
 }
 
-# --- 생성기 -------------------------------------------------------------------
-# 결과: generator
+# --- 묶음 (platforms) ---------------------------------------------------------
+# 결과: platforms. 묶음은 하네스 저장소의 packs/<이름>/에 있다. 아직 묶음이 없는 플랫폼은 알리기만 한다.
 
-generator=""   # 프로젝트를 만드는 방식: tuist · xcodegen · xcodeproj · spm
+platforms=()
+ios_json="null"
+
+# --- 생성기 -------------------------------------------------------------------
+# 결과: ios.generator
+
+generator=""   # 프로젝트를 만드는 방식: tuist · xcodegen · xcodeproj · spm. Xcode 프로젝트가 없으면 빈 값
 if is_tuist_project; then
   generator="tuist"
 elif [ -f "$project_dir/project.yml" ] && grep -qE '^targets:' "$project_dir/project.yml"; then
@@ -177,10 +183,14 @@ elif [ -n "$(first_match "$project_dir" '*.xcworkspace')" ] \
   generator="xcodeproj"
 elif [ -f "$project_dir/Package.swift" ]; then
   generator="spm"
-else
-  echo "detect: iOS 프로젝트를 찾지 못했습니다 (Tuist·XcodeGen·xcodeproj·Package.swift 없음): $project_dir" >&2
-  exit 1
 fi
+
+# 아직 묶음이 없는 플랫폼의 흔적. 공통 파일(record·passed·wiki·doctor)만 설치된다는 것을 알린다.
+for marker in package.json gradlew pyproject.toml Cargo.toml go.mod; do
+  [ -e "$project_dir/$marker" ] && note "${marker} 파일이 있지만 이 플랫폼의 묶음은 아직 없다. 검사는 checks.json에 record로 적는다"
+done
+
+detect_ios() {
 note "생성기: $generator"
 
 # --- 명령 ---------------------------------------------------------------------
@@ -662,10 +672,7 @@ fi
 # 시뮬레이터는 적지 않는다. 기기 이름을 적어 두면 Xcode가 바뀌어 그 기기가 사라질 때 모든 프로젝트가 깨진다.
 # 빌드·테스트가 실행할 때마다 설치된 최신 iPhone을 고른다(lib.sh pick_latest_iphone). 특정 기기가 필요하면 사람이 destination.simulator를 적는다.
 
-# --- 출력 -------------------------------------------------------------------
-
-# 설정 파일 초안. 각 값의 뜻은 docs/project-config.md에 있다.
-draft_json="$(
+ios_json="$(
   jq -n \
     --arg generator "$generator" \
     --arg install "$install_cmd" \
@@ -682,7 +689,6 @@ draft_json="$(
     def orNull: if . == "" then null else . end;
 
     {
-      schemaVersion: 1,
       generator: $generator,
       commands: {
         install: ($install | orNull),
@@ -699,6 +705,24 @@ draft_json="$(
       },
       modules: $modules
     }'
+)"
+}
+
+if [ -n "$generator" ]; then
+  detect_ios
+  platforms+=(ios)
+else
+  note "Xcode 프로젝트가 없어 iOS 묶음을 고르지 않았다 (Tuist·XcodeGen·xcodeproj·Package.swift 없음)"
+fi
+note "묶음: ${platforms[*]:-없음 (공통 파일만)}"
+
+# --- 출력 -------------------------------------------------------------------
+
+# 설정 파일 초안. 각 값의 뜻은 docs/project-config.md에 있다.
+draft_json="$(
+  jq -n --argjson ios "$ios_json" --args '
+    { schemaVersion: 2, platforms: $ARGS.positional }
+    + (if $ios == null then {} else { ios: $ios } end)' ${platforms[@]+"${platforms[@]}"}
 )"
 
 if [ "$write_to_file" = 1 ]; then
