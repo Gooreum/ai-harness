@@ -4,7 +4,7 @@
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
-. "$here/lib.sh"
+. "$here/ios.sh"
 
 case "${1:-}" in
   -h | --help)
@@ -21,7 +21,14 @@ EOF
     ;;
 esac
 
-harness_init
+# jq가 없으면 스크립트뿐 아니라 하네스 훅(단계 지시, Stop 게이트, 생성 파일 보호)도 아무 말 없이 꺼진다.
+if ! command -v jq > /dev/null 2>&1; then
+  echo "✕ doctor · 문제 1"
+  echo "  ✕ jq가 없다. 스크립트가 돌지 않고, 플러그인 훅이 모두 아무 말 없이 꺼져 있다"
+  echo "      → jq를 설치한다 (macOS 15 이상은 /usr/bin/jq 기본 포함, 그 전은 brew install jq)"
+  exit 1
+fi
+harness_init_ios
 
 problems=0
 warnings=0

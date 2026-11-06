@@ -30,6 +30,7 @@
 | 앱 단위 테스트 / 특정 스킴 테스트 | `scripts/harness/test` / `scripts/harness/test --scheme <스킴>` |
 | 팀 컨벤션 검사 (바뀐 Swift 파일) | `scripts/harness/lint` |
 | E2E 시나리오 / 회귀 묶음(배포 전·리팩터링 뒤) / 영상 | `scripts/harness/e2e <파일>` / `scripts/harness/e2e --tag regression` / `--record` |
+| 하네스 스크립트가 없는 검사(명령) 돌리고 결과 남기기 | `scripts/harness/record <이름> <명령>` |
 | 정책·결정 기록 찾기 / 형식 검사 | `scripts/harness/wiki search <단어>` / `scripts/harness/wiki check` |
 | 하네스가 제대로 설치됐는지 점검 (도구, 설정, 플러그인 버전) | `scripts/harness/doctor` |
 

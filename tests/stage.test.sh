@@ -115,4 +115,10 @@ assert_eq "project.json이 없는 곳은 무시" "" \
   "$(jq -n --arg f "$work/other/.harness/state/task.json" '{tool_input:{file_path:$f}}' | "$hook")"
 assert_eq "깨진 입력은 무시" "" "$(printf 'not json' | "$hook")"
 
+# --- jq가 없을 때 --------------------------------------------------------------
+nojq() { printf '%s' "$1" | env PATH="$(nojq_path "$work")" /bin/bash "$hook"; }
+out="$(nojq "{\"tool_input\":{\"file_path\":\"$p/.harness/state/task.json\"}}")"
+assert_eq "jq 없음: 상태 파일을 고치면 꺼졌다고 알린다" "yes" "$(has "jq가 없어" "$(printf '%s' "$out" | /usr/bin/jq -r '.hookSpecificOutput.additionalContext')")"
+assert_eq "jq 없음: 다른 파일은 조용히 넘긴다" "" "$(nojq '{"tool_input":{"file_path":"/x/A.swift"}}')"
+
 finish
