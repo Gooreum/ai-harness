@@ -52,7 +52,11 @@ ReadSharp는 예전 iOS 묶음의 스크립트를 `scripts/ios/`로 넘겨받아
 }
 ```
 
-- e2e의 기능 시나리오와 영향 시나리오는 그 프로젝트의 규칙 `.claude/rules/project/ios/maestro.md`가 정한다. 회귀 묶음 전체(`--tag regression`)는 작업 검사에 넣지 않고 배포 전·리팩터링 뒤에 돌린다(발표 슬라이드 86).
+- e2e의 기능 시나리오와 영향 시나리오는 그 프로젝트의 규칙 `.claude/rules/project/ios/maestro.md`가 정한다.
+- 회귀 묶음 전체(`--tag regression`)는 `e2e`에 넣지 않고 따로 `regression` 검사로 둔다. 배포 전 통합 검증이나 리팩터링 뒤에 작업을 시작하며 사용자가 고른다(발표 슬라이드 86, [ADR 0025](decisions/0025-regression-check.md)). 하네스가 따로 돌리는 때(훅·CI·git 훅)는 두지 않는다.
+  ```json
+  { "name": "regression", "description": "회귀 묶음 전체 (배포 전·리팩터링 뒤에 고른다)", "prompt": "scripts/harness/record regression scripts/ios/e2e --tag regression을 실행하고, 실패하면 이번 변경 때문인지 먼저 확인한 뒤 고친다", "run": "scripts/harness/passed regression" }
+  ```
 
 ## 검사 목록 예시 (저장소의 명령을 record로: RN·Android·웹)
 

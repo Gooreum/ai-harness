@@ -361,6 +361,11 @@
   - 할 일: `packs/`·iOS 스크립트·규칙·`detect`를 지운다. 훅은 `generated` 글롭만 본다. setup이 검사·생성 파일·보호할 파일·감쌀 스크립트를 묻는다. sync가 예전 iOS 파일을 `scripts/ios/`·`.claude/rules/project/ios/`로 넘긴다
   - 완료 기준: `bash tests/run.sh` 통과. 시험장 사본(ReadSharp)을 sync하면 iOS 스크립트가 `scripts/ios/`로 옮겨지고, 옮긴 스크립트로 검사가 통과한다
   - 결과(2026-11-06): ReadSharp 사본(0.9.7)을 sync하니 스크립트 5개와 규칙 9개가 프로젝트 쪽으로 옮겨지고 checks.json 경로가 바뀌었다. `scripts/ios/build`·`unit-test`(통과 221)·`lint`(100점)와 `passed unit-test`가 통과했다. 시험장 두 곳 실제 sync는 열린 세션이 끝나면 한다
+  - 결과(2026-11-07): 두 시험장을 임시 사본에서 0.12.0으로 올려 머지했다(ReadSharp #241, IntervalTimer #37). AGENTS.md에 빌드·테스트 명령을 적었다. IntervalTimer `unit-test`·`passed`·`lint` 통과
+- [x] **32. 회귀 묶음을 돌리는 때** (ADR 0025)
+  - 정함(2026-11-07): 회귀 묶음 전체는 `regression` 검사 하나로 두고, 배포 전·리팩터링 뒤에 작업을 시작하며 사용자가 고른다. 하네스가 따로 돌리는 때(훅·CI·git 훅)는 만들지 않는다
+  - 할 일: setup 안내와 `docs/checks.md`에 `regression` 검사 형태를 적는다. 시험장 두 곳 `checks.json`에 넣는다
+  - 완료 기준: `bash tests/run.sh` 통과. 시험장 `checks.json`에 `regression`이 있고 `record regression`·`passed regression`이 통과한다
 - 범용 하네스에서 관찰되면 할 것
   - 가짜 응답 서버: 스트리밍 응답(SSE), 요청 본문 기록
   - 위키 폴더가 `dist/`·`out/`·`build/` 무시 규칙에 걸리는지 `wiki check`에서 본다(11-03에 한 번 겪었다)
