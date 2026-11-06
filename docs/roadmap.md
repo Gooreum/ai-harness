@@ -259,6 +259,12 @@
   - [x] 응답 서버 버전: 가짜 응답 서버의 `VERSION`이 0.9.2에 머물러 있다
     - → 손으로 맞추지 않고 `plugin.json`의 버전을 읽는다
   - 완료 기준: 고친 것마다 회귀 테스트가 있고, ReadSharp·IntervalTimer에서 기존 작업 흐름이 그대로 통과한다
+  - 진행 (2026-11-06): 18개 모두 고치고 회귀 테스트를 붙였다(0.9.8). ReadSharp 확인용 워크트리에서 확인했다
+    - 문서만 바꾸면 "코드 변경 없음", 작업 중 커밋한 코드도 바뀐 파일로 잡고 빌드·테스트 221개 통과
+    - 결과 뒤에 고치고 커밋하면 `passed`가 막는다
+    - 다른 워크트리가 기기를 잡고 있으면 다른 iPhone을 쓰고, `--no-build`로 옛 앱이면 멈춘다
+    - 회귀 e2e 4개 통과(행동 로그 4)
+    - 남은 것: IntervalTimer(열린 세션이 끝나면 0.9.8로 올려 확인)
 - [ ] **22. 공통 핵심 떼어 내기와 `record`**
   - `lib.sh`를 공통과 iOS로 나눈다. `harness_init`이 Xcode를 고르고 `simctl`을 부르지 않게 한다. 지금은 `passed`·`wiki`도 이 과정을 거친다
   - `scripts/harness/record <이름> <명령>`: 어떤 명령이든 실행하고 `.harness/out/<이름>.json`을 남긴다(ai-bouncer `bouncer record`)
