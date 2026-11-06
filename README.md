@@ -170,9 +170,9 @@ scripts/harness/test --scheme CoreTracking
 
 | 장치 | 막는 것 | 방식 |
 |---|---|---|
-| 훅 `protect-generated.sh` (플러그인) | Tuist·XcodeGen 프로젝트: `*.xcodeproj/`, `*.xcworkspace/`, `Derived/` 안의 파일 편집 / 그 외: `*.pbxproj` 편집 | 편집 직전에 거부하고 고치는 방법(manifest 수정 등)을 알려준다 |
-| 권한 `deny` (`settings.json`) | 서명·시크릿 파일 읽기(`*.p12`, `*.p8`, `*.mobileprovision`, `.env*`), `*.pbxproj` 편집 | 항상 거부 |
-| 권한 `ask` (`settings.json`) | `git push`, `reset --hard`, `clean`, `checkout --`, `restore`, `branch -D`, `rebase`, `commit --no-verify`, `gh pr create/merge` (`git -C <경로>` 형식 포함) | 매번 사용자에게 묻는다 |
+| 훅 `protect-generated.sh` (플러그인) | Tuist·XcodeGen 프로젝트: `*.xcodeproj/`, `*.xcworkspace/`, `Derived/` 안의 파일 편집 / 그 외: `*.pbxproj` 편집 / 모든 프로젝트: `project.json`의 `generated` 글롭 | 편집 직전에 거부하고 고치는 방법(manifest 수정 등)을 알려준다 |
+| 권한 `deny` (`settings.json`) | 서명·시크릿 파일 읽기(`.env*`(Bash로 읽기 포함), `*.jks`, `*.keystore`, `keystore.properties`, `.npmrc`, `credentials.json`, iOS 묶음은 `*.p12`, `*.p8`, `*.mobileprovision`), `*.pbxproj` 편집 | 항상 거부 |
+| 권한 `ask` (`settings.json`) | `git push`, `reset --hard`, `clean`, `checkout --`, `restore`, `branch -D`, `rebase`, `commit --no-verify`, `gh pr create/merge` (`git -C <경로>` 형식 포함), 배포·공개 명령(`npm`·`yarn`·`pnpm publish`, `eas submit`·`eas update`, `fastlane`, gradle publish, `firebase deploy`, `vercel`. `--prefix`·`--cwd`·`-C`·`-p` 형식 포함) | 매번 사용자에게 묻는다 |
 
 - 훅은 stdin으로 받은 JSON만 읽는다. 나중에 Codex에서도 같은 스크립트를 쓰기 위해서다.
 - 훅은 판단할 수 없으면(설정 파일 없음, 입력 오류) 막지 않는다. 실수를 줄이는 장치이지 보안 경계가 아니라서, 고장 난 훅이 정상 작업을 막으면 안 된다.
@@ -193,10 +193,11 @@ PR을 만들기 전에 메인 에이전트가 플러그인의 서브에이전트
 
 1. `git diff HEAD`, `git status --porcelain`으로 바뀐 파일을 찾는다.
 2. 바뀐 파일을 하나씩 연다. 이때 경로 규칙이 함께 들어와서 그 규칙에 비춰 본다.
-3. 의심되는 부분은 주변 코드와 manifest를 읽어 확인한다.
+3. 바뀐 것의 참조처를 찾아 기존 동작 영향을 본다. 의심되는 부분은 주변 코드와 빌드 설정을 읽어 확인한다.
 4. `[차단|권장|참고] 경로:줄 — 문제`, 근거, 제안을 보고한다. 마지막에 실제로 연 파일과 규칙을 적는다.
 
-- 중점 항목: 동시성 격리, 모듈 의존 방향, 접근성, 테스트 약화·설정 완화 같은 편법, 과설계
+- 공통 중점 항목: 버그·로직 오류, 기존 동작 영향, 테스트 약화·검사 끄기 같은 편법, 의존·구조, 과설계
+- 플랫폼별 항목은 묶음 규칙 `.claude/rules/harness/<묶음>/review.md`에서 읽는다(iOS: 동시성 격리, 모듈 의존 방향, 접근성)
 - 도구는 Read·Grep·Glob·Bash뿐이고 코드를 고치지 않는다.
 - Claude Code 안에서 도는 서브에이전트다. 메인 세션과 같은 모델을 쓰고(`model: inherit`), Codex를 부르지 않는다.
 - Codex로 하는 리뷰(예: Codex 플러그인의 `/codex:review`)와는 별개다. 프로젝트가 원하면 둘을 함께 쓸 수 있지만, Codex 리뷰는 하네스에 포함되지 않는다.
@@ -234,8 +235,9 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `.claude/rules/harness/ios/testing.md` | Context | 테스트 작성·격리 규칙, 테스트를 약화하는 편법 금지 |
 | `.claude/rules/harness/ios/project-settings.md` | Context | 프로젝트 파일·빌드 설정을 바꿀 때의 규칙, 설정 완화 금지 |
 | `.claude/rules/harness/ios/tuist.md` | Context | Tuist 프로젝트 구성과 생성 규칙 |
+| `.claude/rules/harness/ios/review.md` | Context | 리뷰어가 iOS 변경에서 더 보는 확인 항목과 편법 목록 |
 | `.claude/rules/project/.gitkeep` | Context | 프로젝트 고유 규칙을 두는 자리. 하네스가 건드리지 않는다 |
-| `.claude/settings.json` | Enforcement | 공통 권한 규칙(`.env` 읽기 deny 2개, git·PR ask 20개). 묶음 규칙은 `packs/<묶음>/settings.json`에서 더한다 |
+| `.claude/settings.json` | Enforcement | 공통 권한 규칙(비밀 파일 읽기 deny, git·PR·배포 명령 ask). 묶음 규칙은 `packs/<묶음>/settings.json`에서 더한다 |
 | `scripts/harness/build` | Execution + Validation | 빌드하고 첫 에러를 요약한다 |
 | `scripts/harness/test` | Execution + Validation | 테스트하고 실패만 요약한다 |
 | `scripts/harness/unit-test` | Execution + Validation | 바뀐 파일로 대상을 정해 빌드와 테스트를 한 번에 돌린다 |
@@ -346,6 +348,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `decisions/0019-pack-install.md` | 묶음을 pack.json 목록으로 정하고, 설정의 플랫폼 값을 묶음 이름 아래로 옮긴 이유 |
 | `decisions/0020-install-checks-permissions-root.md` | 검사 목록은 setup 안내로 사용자와 정하고, sync가 넣었던 권한 규칙을 지우고, 스크립트가 가장 가까운 설정을 루트로 쓰는 이유 |
 | `decisions/0021-rename.md` | 이름에서 iOS를 빼고(플러그인 `harness`, 리뷰어 `reviewer`), sync가 예전 이름의 항목을 지우는 이유 |
+| `decisions/0022-common-reviewer-permissions.md` | 리뷰어는 공통 절차만 두고 플랫폼 항목은 묶음 규칙에서 읽는다. 생성 파일 목록(`generated`)과 공통 권한 |
 | `decisions/0007-task-flow.md` | 사람이 고른 모드·검사와 단계 지시 훅으로 작업 흐름을 만들고, 강제는 미룬 이유 |
 
 ## 설치하면 대상 프로젝트는 이렇게 된다

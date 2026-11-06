@@ -32,6 +32,7 @@ plugin/
 |---|---|---|
 | tuist, xcodegen | `*.xcodeproj/` 안, `*.xcworkspace/` 안, `Derived/` 안 | manifest를 고치면 스크립트가 다시 생성한다 |
 | 그 외 (xcodeproj 등) | `*.pbxproj` | 직접 고치지 말고 무엇을 바꿔야 하는지 사용자에게 알린다 |
+| 모든 프로젝트 | `.harness/project.json`의 `generated` 글롭(예: Expo prebuild의 `ios/*`·`android/*`, codegen 결과) | 생성하는 쪽을 고치고 다시 생성한다 |
 
 - 파일이 속한 프로젝트는 `.harness/project.json`이 있는 가장 가까운 상위 디렉터리다. 생성기는 그 파일에서 읽는다.
 - 판단할 수 없으면 막지 않는다. 설정 파일이 없거나 입력이 깨진 경우다.
@@ -69,11 +70,14 @@ plugin/
 
 변경을 하네스 규칙에 비춰 검토하는 읽기 전용 리뷰어다(추론적 Validation). 플러그인 안에서는 `harness:reviewer`로 부른다.
 
+- 리뷰어 지시문에는 플랫폼과 상관없는 공통 절차와 중점 항목만 있다. 플랫폼별 확인 항목과 편법 목록은 묶음 규칙 `.claude/rules/harness/<묶음>/review.md`에 있고, 바뀐 파일을 열면 `paths`로 함께 들어온다. 리뷰어는 이 파일들을 Glob으로도 찾아 연다(ADR 0022). iOS 묶음은 동시성 격리, 의존 방향, 접근성, 경고를 덮는 속성을 본다.
+- 열지 않아도 되는 파일: 바이너리(이미지·영상·글꼴·압축·`jar`·`aar`·`so`·`wasm`), lock 파일(`package-lock.json`, `yarn.lock`, `Podfile.lock`, `Package.resolved` 등), `.harness/project.json`의 `generated`에 적힌 생성 파일.
+
 - 쓸 수 있는 도구는 Read·Grep·Glob·Bash뿐이다. Bash는 git의 읽기 명령에만 쓰도록 지시한다. 플러그인 서브에이전트에서는 `permissionMode`가 무시되기 때문에 도구 목록으로 제한한다.
 - 검토 범위: 기본은 커밋하지 않은 변경이다. 요청하면 브랜치 전체(`git diff <기본 브랜치>...HEAD`)를 본다.
 - 검토 순서: 바뀐 파일 찾기(`git diff HEAD`, `git status --porcelain`) → 바뀐 파일을 Read로 열기 → 기존 영향 찾기(바뀐 함수·타입·화면·저장 키·이벤트의 참조처를 Grep으로 찾아 열기) → 의심되는 부분 확인 → 출력.
   바뀐 파일을 열면 그 파일에 맞는 `.claude/rules/harness/` 규칙이 자동으로 함께 들어온다. 그래서 규칙 파일을 따로 읽으라고 시키지 않는다.
-- 중점 항목: 버그·로직 오류, 기존 동작 영향, 동시성 격리, 의존 방향, 접근성, 테스트 약화·설정 완화 같은 편법, 과설계
+- 중점 항목: 버그·로직 오류, 기존 동작 영향, 테스트 약화·검사 끄기 같은 편법, 의존·구조, 과설계. 묶음 리뷰 항목이 더해진다
   - 버그와 기존 영향은 ai-bouncer 기본 리뷰("버그·누락·불필요한 변경")와 계획 단계의 영향 범위(참조처를 실제로 검색해 표로 적기)를 따랐다. 처음에는 규칙 위반만 봐서, IntervalTimer #10에서 요약 화면 닫힘에 코드를 넣었는데도 기존 흐름 영향을 보지 않고 차단 0이 나왔다.
 - 출력
   - 발견이 없으면 한 줄만 쓴다.

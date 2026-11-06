@@ -51,6 +51,21 @@ assert_eq "xcodeproj: pbxproj는 막는다" "deny" "$(decide "$x/App.xcodeproj/p
 assert_eq "xcodeproj: 공유 스킴은 생성물이 아니라 허용" "allow" "$(decide "$x/App.xcodeproj/xcshareddata/xcschemes/App.xcscheme")"
 assert_eq "xcodeproj: 소스 파일은 허용" "allow" "$(decide "$x/App/ContentView.swift")"
 
+# --- project.json의 generated (글롭) -------------------------------------------
+g="$work/gen"
+mkdir -p "$g/.harness"
+echo '{"schemaVersion":2,"platforms":[],"generated":["ios/*","android/*","src/gql/*.generated.ts"]}' > "$g/.harness/project.json"
+assert_eq "generated: Expo prebuild의 ios/는 막는다" "deny" "$(decide "$g/ios/App/AppDelegate.swift")"
+assert_eq "generated: 하위 폴더까지 막는다" "deny" "$(decide "$g/android/app/src/main/AndroidManifest.xml")"
+assert_eq "generated: codegen 결과는 막는다" "deny" "$(decide "$g/src/gql/user.generated.ts")"
+assert_eq "generated: 원본은 허용" "allow" "$(decide "$g/src/gql/user.graphql")"
+assert_eq "generated: 목록에 없는 파일은 허용" "allow" "$(decide "$g/app/index.tsx")"
+case "$(reason "$g/ios/App/AppDelegate.swift")" in
+  *"generated: ios/*"*) ok=yes ;;
+  *) ok=no ;;
+esac
+assert_eq "generated: 막는 이유에 걸린 글롭이 들어 있다" "yes" "$ok"
+
 # --- 판단할 수 없으면 막지 않는다 -------------------------------------------------
 assert_eq "설정 파일이 없는 프로젝트는 허용" "allow" "$(decide "$work/other/App.xcodeproj/project.pbxproj")"
 assert_eq "깨진 JSON 입력은 허용" "" "$(printf 'not json' | "$hook")"

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# PreToolUse 훅: 자동 생성 파일과 project.pbxproj를 에이전트가 직접 고치지 못하게 막는다.
+# PreToolUse 훅: 자동 생성 파일(Tuist·XcodeGen 결과, project.json의 generated)과 project.pbxproj를 에이전트가 직접 고치지 못하게 막는다.
 #
 # - 입력은 stdin JSON만 읽는다 (tool_input.file_path 또는 notebook_path, cwd). Codex에서도 재사용하기 위해서다.
 # - 막을 때는 이유와 고치는 방법을 담아 deny 결정을 출력한다.
@@ -47,6 +47,19 @@ case "$generator" in
     esac
     ;;
 esac
+# 프로젝트가 정한 생성 파일(project.json의 generated, 글롭). 예: Expo prebuild의 "ios/*", codegen 결과.
+if [ -z "$reason" ]; then
+  while IFS= read -r g; do
+    [ -n "$g" ] || continue
+    # shellcheck disable=SC2254 # 글롭으로 맞춘다
+    case "$rel" in
+      $g)
+        reason="자동 생성 파일이라 직접 고쳐도 다시 생성하면 사라집니다: $rel (.harness/project.json의 generated: $g). 생성하는 쪽(설정·스키마·원본)을 고치고 다시 생성하세요."
+        break
+        ;;
+    esac
+  done < <(jq -r '.generated // [] | .[] | strings' "$root/.harness/project.json" 2>/dev/null)
+fi
 if [ -z "$reason" ]; then
   case "$rel" in
     *.pbxproj)

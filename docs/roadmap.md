@@ -300,7 +300,7 @@
   - README, `docs/*`, AGENTS.md·CLAUDE.md, `plugin.json`·`marketplace.json`의 설명
   - 완료 기준: 시험장 두 곳이 sync 한 번으로 새 이름의 플러그인을 쓰고, 옛 플러그인이 꺼져 있다
   - 결과(2026-11-06, 0.10.0): 저장소 `Gooreum/ai-harness`, 마켓플레이스 `ai-harness`(owner `woong` 그대로), 플러그인 `harness`, 리뷰어 `reviewer`(사용자가 정했다). sync가 설정에서 예전 마켓플레이스·플러그인 키를 지우고 `checks.json`의 `ios-harness:ios-reviewer`를 새 이름으로 바꾼다. 예전 플러그인이 켜져 있으면 doctor가 알린다(ADR 0021). 시험장 두 곳의 HEAD로 만든 임시 워크트리에서 `sync --dev` 한 번으로 설정에 새 이름만 남았고, 새 플러그인을 설치하니 doctor가 문제 없음이었다. 이 Mac의 사용자 설정에 폴더 마켓플레이스가 예전 이름으로 등록돼 있어 새 이름으로 다시 등록했다
-- [ ] **25. 공통 리뷰어와 권한**
+- [x] **25. 공통 리뷰어와 권한**
   - 리뷰어는 공통 절차(바뀐 파일 열기, 기존 영향 찾기, 보고 형식)만 두고, 확인 항목과 편법 목록은 묶음 규칙에서 읽는다
     - 편법 예: 스냅샷 갱신(`-u`), `@ts-ignore`, `eslint-disable`, `any`, tsconfig strict 끄기, `@Suppress`
     - 리뷰어 설명과 관리 블록이 늘 iOS를 말하면 RN에서 JS만 고칠 때도 iOS 지시가 섞인다(발표 슬라이드 19 "웹 작업인데 안드로이드 검증 스킬을 불러와요")
@@ -311,6 +311,7 @@
   - 내려받은 저장소의 `checks.json` run이 자동으로 실행된다는 점을 문서와 doctor에 적는다
   - 관찰되면 한다: 바뀐 파일이 수백 개(codemod, 이름 바꾸기)일 때의 리뷰 규칙
   - 완료 기준: iOS 시험장에서 지금과 같은 리뷰 결과가 나오고, 묶음 규칙을 바꾸면 리뷰 항목이 따라 바뀐다
+  - 결과(2026-11-06, 0.11.0): 리뷰어 지시문에서 iOS를 빼고, iOS 항목은 `rules/harness/ios/review.md`로 옮겼다. 생성 파일은 `project.json`의 `generated` 글롭으로 받아 편집을 막고 리뷰 대상에서 뺀다. 공통 권한에 배포 명령 ask와 Android·npm 비밀 파일 deny, `.env`를 Bash로 읽기 deny를 더했다. doctor가 `passed`가 아닌 run을 알린다(ADR 0022). ReadSharp HEAD로 만든 임시 워크트리에서 `claude -p --plugin-dir`로 `harness:reviewer`를 불러 `@unchecked Sendable`을 `ios/review.md` 근거로 차단했고, `review.md`에 `print(` 항목을 더하니 그 항목으로 차단했다(둘 다 review.json 기록). 바뀐 파일이 수백 개일 때의 규칙은 관찰되면 한다
 - [ ] **26. 묶음 없는 저장소**
   - 빌드·e2e가 없는 저장소에서 `record`, `passed`, `wiki`, 리뷰만으로 돈다(발표의 LLM Wiki 저장소)
   - 시험장: 이 하네스 저장소 자체(`bash tests/run.sh`)

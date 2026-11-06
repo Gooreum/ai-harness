@@ -77,10 +77,15 @@ done
 # - run이 "scripts/harness/passed <이름>"이면 그 결과를 만드는 것이 있어야 한다:
 #   scripts/harness/<이름> 스크립트, prompt의 "record <이름>", 또는 리뷰 서브에이전트(review 결과는 훅이 쓴다).
 checks_file="$root/.harness/checks.json"
+auto_runs=""   # Stop 훅이 그대로 실행하는 run 중 scripts/harness/passed가 아닌 것. 결과 끝에 참고로 보여 준다
 if [ -f "$checks_file" ] && jq empty "$checks_file" 2> /dev/null; then
   while IFS=$'\t' read -r name run prompt; do
     [ -n "$run" ] || continue
     cmd="${run%% *}"
+    case "$run" in
+      scripts/harness/passed\ *) ;;
+      *) auto_runs="${auto_runs:+$auto_runs; }$name: $run" ;;
+    esac
     if [ "${cmd#*/}" != "$cmd" ]; then
       [ -x "$root/$cmd" ] || problem "checks.json의 '$name' run 명령이 없다: $cmd" "run을 고치거나 하네스 저장소에서 scripts/sync <이 프로젝트>"
     elif ! command -v "$cmd" > /dev/null 2>&1; then
@@ -184,8 +189,12 @@ fi
 # --- 결과 ---------------------------------------------------------------------
 
 label="하네스 ${installed_version:-?}"
+# checks.json의 run은 단계를 넘길 때 Stop 훅이 묻지 않고 실행한다. 내려받은 저장소라면 무엇이 도는지 알아야 한다.
+auto_note=""
+[ -z "$auto_runs" ] || auto_note="  참고: 단계를 넘길 때 훅이 checks.json의 run을 묻지 않고 실행한다 — $auto_runs"
 if [ "$problems" -eq 0 ] && [ "$warnings" -eq 0 ]; then
   echo "✓ doctor · 문제 없음 · $label"
+  [ -z "$auto_note" ] || echo "$auto_note"
   exit 0
 fi
 if [ "$problems" -eq 0 ]; then
@@ -194,4 +203,5 @@ else
   echo "✕ doctor · 문제 $problems · 주의 $warnings · $label"
 fi
 printf '%s' "$report"
+[ -z "$auto_note" ] || echo "$auto_note"
 [ "$problems" -eq 0 ]
