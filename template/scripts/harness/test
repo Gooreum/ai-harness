@@ -86,6 +86,10 @@ if [ -n "$summary" ]; then
   failed="$(printf '%s' "$summary" | jq '.failedTests // 0')"
   skipped="$(printf '%s' "$summary" | jq '.skippedTests // 0')"
 fi
+# 돌린 테스트 수를 남긴다. unit-test가 "테스트 0개"를 따로 알릴 때 읽는다.
+jq -n --argjson code "$code" --arg scheme "$scheme" --argjson total "$total" --argjson failed "$failed" --argjson skipped "$skipped" \
+  '{passed: ($code == 0), scheme: $scheme, total: $total, failed: $failed, skipped: $skipped, ran: ($total - $skipped)}' \
+  > "$out_dir/test.json"
 note=""
 if [ "$generated_now" = 1 ]; then note=" (generate 포함)"; fi
 skip_note=""

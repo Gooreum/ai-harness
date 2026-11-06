@@ -67,20 +67,22 @@ scripts/harness/test --only CoreTrackingTests/LeanAngleAnalyzerTests   # 일부�
 ## unit-test
 
 ```bash
-scripts/harness/unit-test               # 커밋하지 않은 변경을 검증
+scripts/harness/unit-test               # 작업 중이면 작업을 시작한 커밋 이후, 아니면 커밋하지 않은 변경을 검증
 scripts/harness/unit-test --base main   # main에서 갈라진 뒤의 모든 변경을 검증 (PR 전)
 scripts/harness/unit-test --all         # 앱과 테스트가 있는 모든 모듈
 scripts/harness/unit-test --plan        # 실행하지 않고 무엇을 할지만 출력
 ```
 
-- 바뀐 파일(기본: HEAD 대비 수정 + 새 파일)을 모듈별로 묶는다.
+- 바뀐 파일을 모듈별로 묶는다.
+  - 기본은 작업 중이면(`task.json`의 stage가 `done`이 아님) 작업을 시작한 커밋(`.harness/state/task.base`) 이후의 변경과, 작업을 시작한 뒤 고친 추적 안 된 파일이다. 작업 중에 커밋해도 빠지지 않는다. 작업 중이 아니면 HEAD 대비 수정 + 새 파일이다.
+  - 문서(`*.md`, `docs/`), e2e 시나리오(`.maestro/`), 에이전트 지침·규칙(`.claude/`, `.agents/`)은 빌드에 영향이 없어 뺀다. 이것만 바뀌었으면 "코드 변경 없음"으로 통과한다.
   - 파일이 속한 모듈은 `modules.manifest`(Project.swift)가 있는 가장 가까운 상위 디렉터리다.
   - 앱 디렉터리(`app.path`)의 변경은 앱 단위 테스트로 이어진다.
   - `Tuist/`, `Workspace.swift`, 루트 manifest가 바뀌면 영향 범위를 알 수 없어서 전체를 테스트한다.
   - 모듈 구조가 없는 프로젝트(xcodeproj 단일 앱)는 모든 변경을 앱 변경으로 본다.
 - 앱을 먼저 빌드하고, 성공하면 바뀐 모듈의 테스트를 실행한다.
   - 앱을 먼저 빌드하는 이유: 모듈끼리의 컴파일 오류는 앱 빌드가 먼저 잡는다. 또 선언하지 않은 의존(implicit import) 때문에 모듈 스킴만으로는 빌드가 깨지는 프로젝트도 있다.
-  - 바뀐 모듈에 의존하는 다른 모듈의 테스트는 돌리지 않는다. 이런 테스트 회귀가 실제로 문제가 되면 그때 추가한다.
+- 바뀐 모듈을 쓰는 모듈도 테스트한다. 다른 모듈(과 앱)의 manifest에 바뀐 모듈 이름(`"이름"`)이 나오면 쓰는 것으로 보고, 더 늘지 않을 때까지 반복한다. 이름만 보므로 많이 넣는 쪽으로 틀린다.
 - 테스트할 대상이 있는지는 생성된 스킴 파일의 테스트 액션으로 판단한다. `Tests` 폴더만 있고 테스트 타깃이 없는 모듈도 있어서다. 스킴 파일이 없으면 `modules.testsDir` 폴더로 판단한다.
 - 단계마다 build·test가 한 줄씩 출력하고, 마지막 줄에 전체 결과를 출력한다.
   ```
@@ -88,7 +90,7 @@ scripts/harness/unit-test --plan        # 실행하지 않고 무엇을 할지�
   ✓ test CoreTracking · 통과 20 · 7s
   ✓ unit-test · 통과: CoreTracking · 29s
   ```
-- 결과 파일 `.harness/out/unit-test.json`: `passed`, `summary`. 시작할 때 먼저 `passed: false`로 적고 끝나면 결과로 바꾼다. 중간에 끊겨도 이전 실행의 통과가 남지 않는다. `--plan`은 남기지 않는다. `checks.json`의 run이 이 파일을 본다([ADR 0012](decisions/0012-run-gate.md)).
+- 결과 파일 `.harness/out/unit-test.json`: `passed`, `summary`, `tests`(돌린 테스트 수). 테스트가 하나도 돌지 않았으면 요약 첫머리에 "테스트 0개"를 적는다. 통과 여부는 바꾸지 않는다. 시작할 때 먼저 `passed: false`로 적고 끝나면 결과로 바꾼다. 중간에 끊겨도 이전 실행의 통과가 남지 않는다. `--plan`은 남기지 않는다. `checks.json`의 run이 이 파일을 본다([ADR 0012](decisions/0012-run-gate.md)).
 
 ## lint
 

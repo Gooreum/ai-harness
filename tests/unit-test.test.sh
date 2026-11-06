@@ -101,9 +101,30 @@ echo '// changed' >> "$p/Modules/CoreB/Sources/B.swift"
 assert_eq "plan: 테스트 타깃이 없는 모듈은 건너뛴다" "  건너뜀 (테스트 없음): CoreB" "$(plan | sed -n 3p)"
 reset
 
-echo '// changed' >> "$p/README.md"
+echo 'x' > "$p/Scripts.sh"
 assert_eq "plan: 모듈 밖 파일만 바뀌면 빌드만" "2" "$(plan | wc -l | tr -d ' ')"
 reset
+
+echo '// changed' >> "$p/README.md"
+mkdir -p "$p/docs" "$p/.maestro" && echo x > "$p/docs/a.md" && echo x > "$p/.maestro/a.yaml"
+assert_eq "plan: 문서·시나리오만 바뀌면 빌드·테스트하지 않는다" "✓ unit-test · 코드 변경 없음 (문서·시나리오·지침만 바뀜)" "$(plan)"
+echo '// changed' >> "$p/Modules/FeatureA/Sources/A.swift"
+assert_eq "plan: 코드와 문서가 같이 바뀌면 코드만 센다" "· unit-test 계획 · 바뀐 파일 1개" "$(plan | sed -n 1p)"
+reset
+
+# 바뀐 모듈을 쓰는 모듈(manifest에 이름이 나오는 모듈)도 테스트한다
+echo 'let deps = [.project(target: "CoreB", path: "../CoreB")]' >> "$p/Modules/FeatureA/Project.swift"
+(cd "$p" && git -c user.name=t -c user.email=t@t commit -qam deps)
+echo '// changed' >> "$p/Modules/CoreB/Sources/B.swift"
+assert_eq "plan: 바뀐 모듈을 쓰는 모듈도 테스트" "$(printf '  test FeatureA (FeatureA)\n  건너뜀 (테스트 없음): CoreB')" "$(plan | sed -n '3,4p')"
+reset
+echo 'let deps = [.project(target: "FeatureA", path: "../Modules/FeatureA")]' >> "$p/App/Project.swift"
+(cd "$p" && git -c user.name=t -c user.email=t@t commit -qam appdeps)
+echo '// changed' >> "$p/Modules/CoreB/Sources/B.swift"
+assert_eq "plan: 거꾸로 따라가 앱까지 넓힌다 (CoreB → FeatureA → 앱)" "  test 앱 (App: AppTests)" "$(plan | sed -n 3p)"
+reset
+echo '// manifest' > "$p/App/Project.swift"; echo '// manifest' > "$p/Modules/FeatureA/Project.swift"
+(cd "$p" && git -c user.name=t -c user.email=t@t commit -qam undeps)
 
 echo '// changed' >> "$p/Tuist/Helpers.swift"
 assert_eq "plan: 생성 설정이 바뀌면 전체" "$(printf '  test 앱 (App: AppTests)\n  test FeatureA (FeatureA)\n  건너뜀 (테스트 없음): CoreB')" "$(plan | sed -n '3,5p')"
@@ -153,5 +174,17 @@ assert_eq "result: --plan은 결과 파일을 남기지 않는다" "no" "$([ -f 
 (cd "$p" && git checkout -q -- App/App.swift)
 assert_eq "result: 바뀐 파일이 없으면 통과로 남긴다" "true|바뀐 파일 없음" \
   "$( (cd "$p" && "$unit_test" > /dev/null) && jq -r '"\(.passed)|\(.summary)"' "$p/.harness/out/unit-test.json")"
+
+# --- 돌린 테스트 수 (build·test는 가짜로 바꾼다) ------------------------------------
+fake="$work/fake"
+mkdir -p "$fake"
+cp "$here/../template/scripts/harness/unit-test" "$here/../template/scripts/harness/lib.sh" "$fake/"
+printf '#!/usr/bin/env bash\nexit 0\n' > "$fake/build"
+printf '#!/usr/bin/env bash\necho "{\\"ran\\": $FAKE_RAN}" > "$HARNESS_ROOT/.harness/out/test.json"\n' > "$fake/test"
+chmod +x "$fake/build" "$fake/test"
+echo '// changed' >> "$p/App/App.swift"
+run_fake() { (cd "$p" && FAKE_RAN="$1" "$fake/unit-test" > /dev/null) || true; jq -r "$2" "$p/.harness/out/unit-test.json"; }
+assert_eq "tests: 테스트가 0개 돌면 요약 첫머리에 적는다" "true|테스트 0개 · 통과: 앱|0" "$(run_fake 0 '"\(.passed)|\(.summary)|\(.tests)"')"
+assert_eq "tests: 돌린 수를 남긴다" "true|통과: 앱|7" "$(run_fake 7 '"\(.passed)|\(.summary)|\(.tests)"')"
 
 finish
