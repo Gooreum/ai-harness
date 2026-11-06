@@ -28,6 +28,12 @@ assert_eq "단서가 없으면 없다고 한다" "yes" "$(has "단서:
   (없다)")"
 assert_eq "사용자에게 묻게 한다" "yes" "$(has "AskUserQuestion")"
 assert_eq "record로 돌리게 한다" "yes" "$(has "scripts/harness/record test")"
+assert_eq "E2E가 없으면 둘지 묻게 한다" "yesyes" "$(has "E2E):
+  (찾지 못했다")$(has "테스트(E2E)가 없습니다. 둘까요?")"
+mkdir -p "$p/.maestro"
+out="$(cd "$p" && scripts/harness/setup)"
+assert_eq "Maestro 시나리오가 있으면 E2E 단서로 보여 준다" "yes" "$(has ".maestro/ (Maestro 시나리오)")"
+rmdir "$p/.maestro"
 
 echo '{"schemaVersion":1,"checks":[]}' > "$p/.harness/checks.json"
 out="$(cd "$p" && scripts/harness/setup)"
@@ -36,6 +42,7 @@ assert_eq "이미 있으면 바꿀 부분만 묻게 한다" "yes" "$(has "이미
 rm "$p/package.json" "$p/.harness/checks.json"
 out="$(cd "$p" && scripts/harness/setup)"
 assert_eq "찾은 것이 없으면 사용자에게 묻게 한다" "yes" "$(has "찾지 못했다")"
+assert_eq "찾은 명령이 없어도 E2E 단서 확인이 실패하지 않는다" "yes" "$(has "앱을 띄워 확인하는 테스트(E2E):")"
 
 mkdir -p "$p/App.xcodeproj"
 out="$(cd "$p" && scripts/harness/setup)"

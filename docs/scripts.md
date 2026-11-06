@@ -98,6 +98,7 @@ scripts/harness/doctor
   - 하네스 추천 검사: `common-checks.json`의 review
   - 저장소에서 찾은 명령과 근거: package.json scripts(lock 파일로 npm·pnpm·yarn·bun을 고른다), jest·vitest가 있으면 바뀐 파일과 관련된 테스트만 도는 명령, Makefile, pytest·ruff, go, cargo, gradlew, `tests/run.sh`·`tests/run-all.sh`, `*.bats`, `Package.swift`, 그리고 `scripts/` 아래의 실행 파일(`scripts/harness/`와 `.sh`는 뺀다)
   - 생성 파일·보호할 파일의 단서: Tuist manifest, XcodeGen `project.yml`, xcodeproj(pbxproj), Expo이고 git이 무시하는 `ios/`·`android/`, OpenAPI·GraphQL·codegen 설정
+  - 앱을 띄워 확인하는 테스트(E2E)의 단서: 찾은 명령의 e2e, `.maestro/`, Playwright·Cypress·Detox 설정. 없으면 없다고 보여 준다
 - 묻는 것(AskUserQuestion, 한 번에 4개까지)과 쓰는 곳
 
   | 묻는 것 | 쓰는 곳 |
@@ -106,6 +107,7 @@ scripts/harness/doctor
   | 자동 생성 파일 | `.harness/project.json`의 `generated` |
   | 에이전트가 직접 고치면 안 되는 파일 | `.claude/settings.json`의 `permissions.deny`에 `Edit(<글롭>)`. 예: `Edit(**/*.pbxproj)` |
   | 출력이 너무 길거나 여러 단계를 거치는 명령 | 감싸는 스크립트를 이 저장소의 `scripts/`에 만든다. `scripts/harness/`는 하네스가 관리하므로 피한다 |
+  | E2E가 없으면 둘지 (앱·웹·서버처럼 띄워 볼 수 있는 저장소만) | 도구와 앱을 띄우는 방법을 묻고, 시나리오 하나를 통과시킨 뒤 `checks.json`에 e2e 검사로 적는다 |
   | (정한 결과) 빌드·테스트 명령 | AGENTS.md 프로젝트 영역의 "빌드·테스트" |
 
 - 단서는 보여 주기만 한다. 맞는지는 사용자에게 묻고, 정하는 것은 사용자의 답이다.

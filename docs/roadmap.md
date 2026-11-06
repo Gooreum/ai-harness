@@ -366,6 +366,10 @@
   - 정함(2026-11-07): 회귀 묶음 전체는 `regression` 검사 하나로 두고, 배포 전·리팩터링 뒤에 작업을 시작하며 사용자가 고른다. 하네스가 따로 돌리는 때(훅·CI·git 훅)는 만들지 않는다
   - 할 일: setup 안내와 `docs/checks.md`에 `regression` 검사 형태를 적는다. 시험장 두 곳 `checks.json`에 넣는다
   - 완료 기준: `bash tests/run.sh` 통과. 시험장 `checks.json`에 `regression`이 있고 `record regression`·`passed regression`이 통과한다
+- [x] **33. setup이 E2E가 없으면 묻는다**
+  - 관찰(2026-11-07): PetCycle을 setup하니 검사 후보가 typecheck·test·review뿐이었다. setup은 찾은 명령만 후보로 내고, PetCycle에는 E2E 명령도 시나리오도 없어 앱을 띄워 보는 검사를 아무도 묻지 않았다. 발표는 동작 확인(E2E)을 검증의 한 축으로 둔다(슬라이드 56·80)
+  - 할 일: setup이 E2E 단서(찾은 e2e 명령, `.maestro/`, Playwright·Cypress·Detox 설정)를 보여 주고, 없으면 앱·웹·서버 저장소에 한해 둘지 묻는다. 두면 시나리오 하나를 통과시킨 뒤 e2e 검사로 적는다
+  - 완료 기준: `bash tests/run.sh` 통과. PetCycle에서 setup을 다시 돌리면 E2E를 묻는다
 - 범용 하네스에서 관찰되면 할 것
   - 가짜 응답 서버: 스트리밍 응답(SSE), 요청 본문 기록
   - 위키 폴더가 `dist/`·`out/`·`build/` 무시 규칙에 걸리는지 `wiki check`에서 본다(11-03에 한 번 겪었다)
