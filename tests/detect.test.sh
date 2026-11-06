@@ -87,6 +87,9 @@ assert_eq "xcodeproj: 번들 ID" '"com.example.Sample"' "$(field "$out" .app.bun
 assert_eq "xcodeproj: UI 테스트는 빼고 단위 테스트만" '["SampleTests"]' "$(field "$out" .app.unitTestTargets)"
 assert_eq "xcodeproj: 모듈 없음" 'null' "$(field "$out" .modules)"
 assert_eq "xcodeproj: 스킴 파일이 없으면 테스트 스킴 없음" 'null' "$(field "$out" .app.testScheme)"
+echo "pod 'A'" > "$p/Podfile"
+assert_eq "xcodeproj: Podfile이 있으면 pod install" '"pod install"' "$(field "$(run_detect "$p")" .commands.install)"
+rm "$p/Podfile"
 
 # --- 앱 테스트 스킴 ---------------------------------------------------------------
 # 공유 스킴 파일. $1: 프로젝트, $2: 스킴 이름, $3: 테스트 액션 구성, $4: 테스트 액션에 넣을 타깃

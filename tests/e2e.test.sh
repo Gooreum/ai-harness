@@ -141,6 +141,56 @@ assert_eq "network: 상태 코드가 다르면 실패" "false" "$(e2e_check_netw
 echo '{}' > "$work/n3.json"
 assert_eq "network: expect가 없으면 실패" "false|network.json에 expect 목록이 없습니다" "$(e2e_check_network "$work/n3.json" "$work/req.ndjson" 0 9000 | jq -r '"\(.passed)|\(.error)"')"
 
+# --- e2e_network_port: 서버가 남긴 포트가 떠 있으면 그것을 쓴다 -----------------------------
+root="$work/net"; state_dir="$root/.harness/state"; mkdir -p "$state_dir"
+assert_eq "port: 남긴 포트가 없으면 설정 포트" "18787" "$(e2e_network_port 18787)"
+python3 -c 'import socket,time,sys; s=socket.socket(); s.bind(("127.0.0.1",0)); s.listen(); print(s.getsockname()[1], flush=True); time.sleep(20)' > "$work/listen.port" &
+listener=$!
+for _ in $(seq 1 50); do [ -s "$work/listen.port" ] && break; sleep 0.1; done
+lp="$(cat "$work/listen.port")"
+echo "$lp" > "$state_dir/network.port"
+assert_eq "port: 남긴 포트에 서버가 떠 있으면 그 포트" "$lp" "$(e2e_network_port 18787)"
+kill "$listener" 2>/dev/null || true; wait "$listener" 2>/dev/null || true
+assert_eq "port: 남긴 포트에 서버가 없으면 설정 포트" "18787" "$(e2e_network_port 18787)"
+echo "abc" > "$state_dir/network.port"
+assert_eq "port: 숫자가 아니면 설정 포트" "18787" "$(e2e_network_port 18787)"
+
+# --- e2e_stale_source: --no-build로 설치할 앱이 바뀐 코드보다 오래됐는지 -----------------------
+root="$work/stale"; state_dir="$root/.harness/state"
+mkdir -p "$root/App" "$root/docs" "$root/Build/A.app" "$state_dir"
+echo 'a' > "$root/App/A.swift"
+(cd "$root" && git init -q -b main && git add -A && git -c user.name=t -c user.email=t@t commit -qm init)
+echo 'plist' > "$root/Build/A.app/Info.plist"
+touch -t 202601010100 "$root/Build/A.app" "$root/Build/A.app/Info.plist"
+echo 'b' >> "$root/App/A.swift"; touch -t 202601010000 "$root/App/A.swift"
+assert_eq "stale: 앱이 바뀐 코드보다 새것이면 빈 값" "" "$(e2e_stale_source "$root/Build/A.app")"
+touch -t 202601010200 "$root/App/A.swift"
+assert_eq "stale: 앱보다 나중에 고친 코드를 알린다" "App/A.swift" "$(e2e_stale_source "$root/Build/A.app")"
+touch -t 202601010000 "$root/App/A.swift"
+echo 'x' > "$root/docs/a.md"; mkdir -p "$root/.maestro" && echo 'x' > "$root/.maestro/a.yaml"
+assert_eq "stale: 문서·시나리오는 보지 않는다" "" "$(e2e_stale_source "$root/Build/A.app")"
+
+# --- 시뮬레이터 잠금: 워크트리 두 곳이 같은 기기를 동시에 쓰지 않게 ---------------------------------
+export HARNESS_SIM_LOCK_DIR="$work/simlocks"
+root="$work/wt1"
+claimed_simulator=""
+harness_claim_simulator U1 && r=0 || r=1
+assert_eq "lock: 빈 기기는 잡는다" "0|$work/wt1" "$r|$(sed -n 1p "$HARNESS_SIM_LOCK_DIR/U1/owner")"
+sleep 30 & other=$!
+mkdir -p "$HARNESS_SIM_LOCK_DIR/U2" && printf '%s\n%s\n' "$work/wt2" "$other" > "$HARNESS_SIM_LOCK_DIR/U2/owner"
+harness_claim_simulator U2 && r=0 || r=1
+assert_eq "lock: 다른 워크트리가 쓰는 중이면 실패하고 누가 쓰는지 알린다" "1|$work/wt2" "$r|$sim_busy_owner"
+kill "$other" 2>/dev/null || true; wait "$other" 2>/dev/null || true
+harness_claim_simulator U2 && r=0 || r=1
+assert_eq "lock: 프로세스가 끝난 잠금은 무시한다" "0" "$r"
+harness_release_simulator
+assert_eq "lock: 놓으면 잠금을 지운다" "no" "$([ -d "$HARNESS_SIM_LOCK_DIR/U2" ] && echo yes || echo no)"
+unset HARNESS_SIM_LOCK_DIR
+
+sims='{"devices":{"com.apple.CoreSimulator.SimRuntime.iOS-26-2":[{"udid":"A","name":"iPhone 17 Pro"},{"udid":"B","name":"iPhone 17"},{"udid":"P","name":"iPad Pro"}],
+  "com.apple.CoreSimulator.SimRuntime.iOS-18-0":[{"udid":"C","name":"iPhone 16"}]}}'
+assert_eq "candidates: 고른 기기가 먼저, 같은 런타임의 iPhone만" "A iPhone 17 Pro|B iPhone 17" "$(printf '%s' "$sims" | simulator_candidates A | paste -sd'|' -)"
+
 # --- 인자 ----------------------------------------------------------------------
 out="$("$e2e" --bogus 2>&1)" && code=0 || code=$?
 assert_eq "e2e: 알 수 없는 인자는 2" "2" "$code"

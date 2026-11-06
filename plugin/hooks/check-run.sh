@@ -56,11 +56,12 @@ new="$(printf '%s' "$input" | jq -r --arg old "$old" '
 [ -n "$tool" ] && [ -n "$new" ] || exit 0
 
 # 넘어가는지 판단: verify 단계를 지나 finish·done으로 가는가
-gate="$(jq -rn --arg old "$old" --arg new "$new" '
+# 모드별 단계 순서는 flows.json 한 곳에 둔다(stage-context.sh와 같다). 마지막 단계 다음은 done이다.
+flows="$(cat "$(dirname "$0")/flows.json" 2>/dev/null)" || exit 0
+gate="$(jq -rn --arg old "$old" --arg new "$new" --argjson flows "$flows" '
   ($new | fromjson) as $n
   | (try ($old | fromjson) catch {}) as $o
-  | { plan: ["plan", "implement", "verify", "finish", "done"], simple: ["implement", "verify", "finish", "done"] } as $flows
-  | ($flows[$n.mode] // null) as $flow
+  | (($flows[$n.mode] // null) | if . then . + ["done"] else null end) as $flow
   | if $flow == null then empty
     else ($flow | index("verify")) as $v
       | ($flow | index($n.stage)) as $ni

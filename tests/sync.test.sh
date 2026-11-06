@@ -73,13 +73,23 @@ assert_eq "existing: template의 deny 규칙이 모두 들어간다" "true" \
 assert_eq "existing: 두 번째 실행은 바뀐 것이 없다" "✓ sync · 바뀐 것 없음 · $q" "$("$install" "$q" | sed -n 1p)"
 
 # --- template에서 사라진 하네스 규칙은 지운다 -----------------------------------------------
+assert_eq "record: 설치한 파일 목록을 남긴다" "true" "$(jq '.files | index("scripts/harness/passed") != null' "$p/.harness/harness.json")"
 echo '# old' > "$p/.claude/rules/harness/old-rule.md"
 echo '# mine' > "$p/.claude/rules/project/mine.md"
 printf '#!/usr/bin/env bash\n' > "$p/scripts/harness/verify"
+printf '#!/usr/bin/env bash\n' > "$p/scripts/harness/team-tool"
+# verify와 old-rule.md는 지난번에 하네스가 설치했던 파일이라고 적는다(이름이 바뀐 경우)
+jq '.files += ["scripts/harness/verify", ".claude/rules/harness/old-rule.md", "../outside"]' "$p/.harness/harness.json" > "$work/h.json" && mv "$work/h.json" "$p/.harness/harness.json"
 "$install" "$p" > /dev/null
-assert_eq "scripts: template에 없는(이름이 바뀐) 스크립트는 지운다" "no" "$([ -f "$p/scripts/harness/verify" ] && echo yes || echo no)"
-assert_eq "rules: template에 없는 하네스 규칙은 지운다" "no" "$([ -f "$p/.claude/rules/harness/old-rule.md" ] && echo yes || echo no)"
-assert_eq "rules: 프로젝트 규칙은 지키지 않는다" "yes" "$([ -f "$p/.claude/rules/project/mine.md" ] && echo yes || echo no)"
+assert_eq "scripts: 지난번에 설치했는데 template에서 사라진 스크립트는 지운다" "no" "$([ -f "$p/scripts/harness/verify" ] && echo yes || echo no)"
+assert_eq "rules: template에서 사라진 하네스 규칙은 지운다" "no" "$([ -f "$p/.claude/rules/harness/old-rule.md" ] && echo yes || echo no)"
+assert_eq "scripts: 팀이 넣은 스크립트는 지우지 않는다" "yes" "$([ -f "$p/scripts/harness/team-tool" ] && echo yes || echo no)"
+assert_eq "rules: 프로젝트 규칙은 지우지 않는다" "yes" "$([ -f "$p/.claude/rules/project/mine.md" ] && echo yes || echo no)"
+jq 'del(.files)' "$p/.harness/harness.json" > "$work/h.json" && mv "$work/h.json" "$p/.harness/harness.json"
+printf '#!/usr/bin/env bash\n' > "$p/scripts/harness/verify"
+"$install" "$p" > /dev/null
+assert_eq "scripts: 목록이 없는 첫 갱신에서는 지우지 않는다" "yes" "$([ -f "$p/scripts/harness/verify" ] && echo yes || echo no)"
+rm -f "$p/scripts/harness/verify" "$p/scripts/harness/team-tool"
 
 # --- 플러그인 등록과 설치 기록 -----------------------------------------------------------
 version="$(jq -r .version "$here/../plugin/.claude-plugin/plugin.json")"

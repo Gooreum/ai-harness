@@ -17,7 +17,7 @@ template 안의 경로가 그대로 프로젝트 루트 기준 경로가 된다.
 | `scripts/harness/*` | 프로젝트 스크립트(build·test·unit-test·lint·wiki·e2e, lib.sh) | 통째로 바꾼다 |
 | `.harness/.gitignore` | `.harness/`에서 설정 파일과 설치 기록만 커밋되게 함 | 통째로 바꾼다 |
 
-`.harness/harness.json`(설치 기록)은 template에 없다. init·sync가 설치한 하네스 버전(`plugin.json`의 `version`)을 `{"version": "0.3.0"}` 형태로 쓴다. 커밋해서 팀원의 doctor도 같은 값과 비교하게 한다.
+`.harness/harness.json`(설치 기록)은 template에 없다. init·sync가 설치한 하네스 버전(`plugin.json`의 `version`)과 설치한 파일 목록을 `{"version": "0.9.8", "files": [...]}` 형태로 쓴다. 다음 sync는 이 목록에 있었는데 template에서 사라진 파일만 지운다. 팀이 `scripts/harness/`에 넣은 파일은 남는다. 커밋해서 팀원의 doctor도 같은 값과 비교하게 한다.
 
 `.harness/project.json`은 template에 없다. 설치할 때 하네스 저장소의 `scripts/detect`가 프로젝트를 보고 만들고, 이후에는 `detect --write --force`로만 다시 만든다.
 

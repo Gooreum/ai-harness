@@ -35,6 +35,17 @@
 
 ## 기록
 
+### 2026-11-06 — e2e가 "$destination_label을"에서 unbound variable로 멈췄다
+- 프로젝트·작업: ReadSharp 확인용 워크트리, 단위 21 시뮬레이터 잠금 확인
+- 무슨 일이 있었나
+  - 다른 워크트리가 기기를 잡은 상태로 `e2e`를 돌리자 `destination_label�: unbound variable`로 멈췄다.
+  - 같은 형태가 기기를 켜지 못했을 때의 오류 문구(`$destination_label을`)에도 있었다. 그 경로는 지금까지 한 번도 지나지 않아 몰랐다.
+- 원인: Execution — 변수 바로 뒤에 한글을 붙이면 bash가 로케일에 따라 한글 바이트까지 변수 이름으로 읽는다.
+- 조치
+  - `${이름}을`처럼 중괄호로 감쌌다.
+  - 스크립트 전체에서 이 형태를 찾는 회귀 테스트(`tests/script-style.test.sh`)를 넣었다.
+- 상태: 반영됨 (단위 21)
+
 ### 2026-11-06 — Xcode를 새로 받은 뒤 선택된 옛 Xcode의 런타임이 지워져 빌드가 막혔다
 - 프로젝트·작업: IntervalTimer #10 재작업 e2e, ReadSharp `doctor`
 - 무슨 일이 있었나: Xcode 26.4.1이 설치되고 iOS 26.2 시뮬레이터 런타임이 지워졌는데 `xcode-select`는 Xcode 26.3(SDK 26.2)을 가리켰다. `build`가 "iOS 26.2 is not installed"로 실패했고, 설정의 iPhone 16 Pro도 사라져 `doctor`가 시뮬레이터 없음을 냈다. 에이전트는 실행할 때만 `DEVELOPER_DIR`을 지정해 넘어갔고, 사람에게 `sudo xcode-select`를 하라고 했다.

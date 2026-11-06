@@ -103,4 +103,24 @@ if out="$(harness_ensure_generated force)"; then code=0; else code=$?; fi
 assert_eq "generate: 실패하면 1을 반환" "1" "$code"
 assert_eq "generate: 실패 요약 첫 줄" "✗ generate 실패 (echo boom; exit 3)" "$(printf '%s\n' "$out" | sed -n 1p)"
 
+# --- install만 있는 프로젝트 (CocoaPods를 쓰는 xcodeproj) ----------------------------
+p="$work/pods"
+mkdir -p "$p/.harness"
+(cd "$p" && git init -q && echo "pod 'A'" > Podfile)
+jq -n '{ schemaVersion: 1, generator: "xcodeproj",
+  commands: { install: "mkdir -p Pods && echo i >> install-calls", generate: null },
+  workspace: "App.xcworkspace", project: "App.xcodeproj", app: { scheme: "App" }, modules: null }' > "$p/.harness/project.json"
+HARNESS_ROOT="$p"
+harness_init
+harness_ensure_generated
+assert_eq "install: generate가 없어도 실행" "1" "$(calls install-calls)"
+harness_ensure_generated
+assert_eq "install: 그대로면 건너뛴다" "1" "$(calls install-calls)"
+echo "A (1.0)" > "$p/Podfile.lock"
+harness_ensure_generated
+assert_eq "install: Podfile.lock이 바뀌면 다시 실행" "2" "$(calls install-calls)"
+rm -rf "$p/Pods"
+harness_ensure_generated
+assert_eq "install: Pods/가 없으면 다시 실행" "3" "$(calls install-calls)"
+
 finish

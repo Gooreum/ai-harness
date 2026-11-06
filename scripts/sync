@@ -8,7 +8,7 @@ usage() {
 사용법: scripts/sync [--dev] <프로젝트 경로>
 
   설치된 하네스를 이 저장소의 버전으로 맞춘다. 처음 설치는 scripts/init으로 한다.
-  - scripts/harness/, .harness/.gitignore, .claude/rules/harness/는 template과 같게 맞춘다 (template에 없는 스크립트·규칙은 지운다)
+  - scripts/harness/, .harness/.gitignore, .claude/rules/harness/는 template과 같게 맞춘다 (지난번에 설치했는데 template에서 사라진 것만 지운다)
   - AGENTS.md는 하네스 관리 블록만 넣거나 바꾸고, 프로젝트 영역은 건드리지 않는다
   - .claude/settings.json에 권한 규칙을 합치고, GitHub 마켓플레이스와 플러그인을 등록한다 (기존 내용 유지)
   - .harness/harness.json에 설치한 하네스 버전을 적는다
@@ -131,24 +131,20 @@ while IFS= read -r rel_path; do
 done < "$tmp_dir/managed"
 
 # 템플릿에서 사라진 하네스 규칙과 스크립트는 프로젝트에서도 지운다(이름이 바뀐 스크립트가 남지 않게).
-installed_dirs=""
-for d in .claude/rules/harness scripts/harness; do
-  [ -d "$target_project_dir/$d" ] && installed_dirs="$installed_dirs $d"
-done
-if [ -n "$installed_dirs" ]; then
-  (
-    cd "$target_project_dir"
-    # shellcheck disable=SC2086
-    find $installed_dirs -type f ! -name '.DS_Store'
-  ) | LC_ALL=C sort > "$tmp_dir/installed-rules"
-
-  while IFS= read -r rel_path; do
-    if ! grep -qxF "$rel_path" "$tmp_dir/managed"; then
-      rm "$target_project_dir/$rel_path"
-      changed "$rel_path (삭제: template에 없음)"
-    fi
-  done < "$tmp_dir/installed-rules"
-fi
+# 지난번에 하네스가 설치한 파일(.harness/harness.json의 files)만 지운다. 팀이 scripts/harness/에 넣은 파일은 남긴다.
+# 목록이 없으면(목록을 적기 전 버전에서 처음 갱신) 지우지 않는다.
+jq -r '.files // [] | .[]' "$target_project_dir/.harness/harness.json" 2>/dev/null | LC_ALL=C sort > "$tmp_dir/installed-before" || : > "$tmp_dir/installed-before"
+while IFS= read -r rel_path; do
+  case "$rel_path" in
+    scripts/harness/* | .claude/rules/harness/* | .harness/*) ;;
+    *) continue ;;  # 목록이 잘못돼도 하네스 폴더 밖은 지우지 않는다
+  esac
+  case "$rel_path" in */../* | ../*) continue ;; esac
+  if ! grep -qxF "$rel_path" "$tmp_dir/managed" && [ -f "$target_project_dir/$rel_path" ]; then
+    rm "$target_project_dir/$rel_path"
+    changed "$rel_path (삭제: template에 없음)"
+  fi
+done < "$tmp_dir/installed-before"
 
 if [ ! -d "$target_project_dir/.claude/rules/project" ]; then
   install_file ".claude/rules/project/.gitkeep"
@@ -283,7 +279,9 @@ fi
 # --- 7. 설치 기록: .harness/harness.json ----------------------------------------------
 # 프로젝트 파일이 어느 하네스 버전인지 남긴다. doctor가 설치된 플러그인 버전과 비교한다.
 
-jq -n --arg version "$harness_version" '{ version: $version }' > "$tmp_dir/harness"
+# files: 이번에 설치한 하네스 파일. 다음 갱신 때 template에서 사라진 것만 지우는 데 쓴다.
+jq -n --arg version "$harness_version" --rawfile files "$tmp_dir/managed" \
+  '{ version: $version, files: ($files | split("\n") | map(select(. != ""))) }' > "$tmp_dir/harness"
 write_if_changed "$target_project_dir/.harness/harness.json" "$tmp_dir/harness" ".harness/harness.json ($harness_version)"
 
 # --- 결과 ---------------------------------------------------------------------

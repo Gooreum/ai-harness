@@ -4,7 +4,8 @@
 # 발표 슬라이드 29: run은 가장 최근 실행이 통과했는지 확인한다.
 # 결과가 최신인지 보는 기준은 발표에 없어 ai-bouncer의 `bouncer passed`(result_fresh)를 따른다.
 #   - 결과 파일이 이번 작업을 시작하기 전 것이면 실패
-#   - 바뀐 파일 중 결과 파일보다 나중에 고친 것이 있으면 실패
+#   - 바뀐 파일 중 결과 파일보다 나중에 고친 것이 있으면 실패. 바뀐 파일은 작업을 시작한 커밋부터 본다
+#     (작업 중에 커밋해도 빠지지 않는다, ai-bouncer의 base_sha)
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -35,7 +36,7 @@ result="$out_dir/$name.json"
 rel=".harness/out/$name.json"
 
 if [ ! -f "$result" ]; then
-  echo "결과가 없다: ${rel} — 검사를 먼저 실행한다 (scripts/harness/${name})"
+  echo "결과가 없다: ${rel} — .harness/checks.json에 적힌 ${name} 검사의 prompt대로 먼저 실행한다"
   exit 2
 fi
 if ! jq -e '.passed == true' "$result" > /dev/null 2>&1; then
@@ -44,17 +45,16 @@ if ! jq -e '.passed == true' "$result" > /dev/null 2>&1; then
   exit 2
 fi
 
-mtime() { stat -f %m "$1" 2> /dev/null || stat -c %Y "$1" 2> /dev/null; }
-rt="$(mtime "$result")"
+rt="$(harness_mtime "$result")"
 started="$state_dir/task.started"
-if [ -f "$started" ] && [ "$(mtime "$started")" -gt "$rt" ]; then
+if [ -f "$started" ] && [ "$(harness_mtime "$started")" -gt "$rt" ]; then
   echo "결과(${rel})가 이번 작업을 시작하기 전 것이다 — 검사를 다시 실행한다"
   exit 2
 fi
 if git -C "$root" rev-parse --git-dir > /dev/null 2>&1; then
   while IFS= read -r f; do
     [ -n "$f" ] && [ -f "$root/$f" ] || continue
-    if [ "$(mtime "$root/$f")" -gt "$rt" ]; then
+    if [ "$(harness_mtime "$root/$f")" -gt "$rt" ]; then
       echo "결과(${rel})가 ${f}보다 오래됐다 — 고친 뒤 검사를 다시 실행한다"
       exit 2
     fi

@@ -75,19 +75,51 @@ harness_derived_data_path() {
   echo "$HOME/Library/Developer/Xcode/DerivedData/$(basename "$1")-harness-$(printf '%s' "$1" | shasum -a 256 | cut -c1-8)"
 }
 
-# 바뀐 파일 목록(루트 기준 경로, 한 줄에 하나). unit-test·lint가 같은 기준을 쓴다.
-# 인자가 없으면 커밋하지 않은 변경(HEAD 대비 수정 + 새 파일), $1이 있으면 그 브랜치에서 갈라진 뒤의 모든 변경.
+# 진행 중인 작업(task.json의 stage가 done이 아님)을 시작한 커밋. 없으면 빈 값.
+# 시작 커밋은 단계 훅(stage-context.sh)이 새 작업을 시작할 때 .harness/state/task.base에 적는다(ai-bouncer의 base_sha).
+harness_task_base() {
+  local stage sha
+  [ -f "$state_dir/task.json" ] && [ -f "$state_dir/task.base" ] || return 0
+  stage="$(jq -r '.stage // ""' "$state_dir/task.json" 2>/dev/null)" || return 0
+  [ -n "$stage" ] && [ "$stage" != done ] || return 0
+  sha="$(cat "$state_dir/task.base")"
+  git -C "$root" cat-file -e "$sha^{commit}" 2>/dev/null && printf '%s\n' "$sha"
+  return 0
+}
+
+# 파일($1)의 수정 시각(초)
+harness_mtime() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null; }
+
+# 바뀐 파일 목록(루트 기준 경로, 한 줄에 하나). unit-test·lint·passed가 같은 기준을 쓴다.
+# $1이 있으면 그 브랜치에서 갈라진 뒤의 모든 변경.
+# 없으면, 작업 중이면 작업을 시작한 커밋 이후의 변경(작업 중에 커밋해도 빠지지 않는다)과, 추적 안 된 파일 중
+# 작업을 시작한 뒤에 고친 것. 작업 중이 아니면 커밋하지 않은 변경(HEAD 대비 수정 + 새 파일).
 # 하네스 산출물(.harness/)은 뺀다. 지운 파일도 목록에 남으므로 필요하면 호출한 쪽에서 거른다.
 harness_changed_files() {
-  local base="${1:-}" merge_base=""
+  local base="${1:-}" from="HEAD" started=""
   if [ -n "$base" ]; then
-    merge_base="$(git -C "$root" merge-base "$base" HEAD 2>/dev/null)" \
+    from="$(git -C "$root" merge-base "$base" HEAD 2>/dev/null)" \
       || harness_die "--base $base: 기준 커밋을 찾지 못했습니다"
+  else
+    base="$(harness_task_base)"
+    if [ -n "$base" ]; then
+      from="$base"
+      [ -f "$state_dir/task.started" ] && started="$(harness_mtime "$state_dir/task.started")"
+    fi
   fi
   (cd "$root" && {
-      if [ -n "$merge_base" ]; then git diff --name-only "$merge_base"; else git diff --name-only HEAD; fi
-      git ls-files -o --exclude-standard
+      git diff --name-only "$from"
+      git ls-files -o --exclude-standard | while IFS= read -r f; do
+        # 작업 전부터 있던 추적 안 된 파일은 이번 작업의 변경이 아니다.
+        if [ -n "$started" ] && [ "$(harness_mtime "$f")" -lt "$started" ]; then continue; fi
+        printf '%s\n' "$f"
+      done
     } | { grep -v '^\.harness/' || true; } | LC_ALL=C sort -u)
+}
+
+# 목록(stdin)에서 앱 빌드·테스트에 영향이 없는 파일(문서, e2e 시나리오, 에이전트 지침·규칙)을 뺀다.
+harness_not_code() {
+  grep -vE '\.md$|^docs/|^\.maestro/|^\.claude/|^\.agents/' || true
 }
 
 # 설정 값을 읽는다. 없거나 null이면 빈 문자열.
@@ -183,7 +215,7 @@ generate_fingerprint() {
 deps_fingerprint() {
   (
     cd "$root" || exit 0
-    for f in Tuist/Package.swift Tuist/Package.resolved Package.resolved; do
+    for f in Tuist/Package.swift Tuist/Package.resolved Package.resolved Podfile Podfile.lock; do
       if [ -f "$f" ]; then shasum -a 256 "$f"; fi
     done | shasum -a 256 | cut -d' ' -f1
   )
@@ -196,19 +228,20 @@ harness_report_step_failure() { # 단계 명령 로그
   echo "  로그: ${3#$root/}"
 }
 
-# 생성기 프로젝트면 필요할 때만 install·generate를 실행한다. $1이 force면 항상 실행한다.
-# 실행했으면 generated_now=1. 실패하면 요약을 출력하고 1을 반환한다.
+# 필요할 때만 install·generate를 실행한다. $1이 force면 항상 실행한다.
+# install은 generate와 따로 판단한다. CocoaPods를 쓰는 xcodeproj 프로젝트는 generate 없이 pod install만 있다.
+# 실행했으면 generated_now=1(generate를 실행했을 때). 실패하면 요약을 출력하고 1을 반환한다.
 harness_ensure_generated() {
   local force="${1:-}" gen install target fp dfp
   generated_now=0
   gen="$(cfg .commands.generate)"
-  [ -n "$gen" ] || return 0
   install="$(cfg .commands.install)"
-  target="$root/$(cfg '.workspace // .project')"
 
   if [ -n "$install" ]; then
     dfp="$(deps_fingerprint)"
-    if [ "$force" = force ] || [ "$(cat "$state_dir/install.fingerprint" 2>/dev/null || true)" != "$dfp" ]; then
+    # Pods/를 지웠으면 선언이 그대로여도 다시 설치한다.
+    if [ "$force" = force ] || [ "$(cat "$state_dir/install.fingerprint" 2>/dev/null || true)" != "$dfp" ] \
+      || { [ -f "$root/Podfile" ] && [ ! -d "$root/Pods" ]; }; then
       if ! (cd "$root" && bash -c "$install") > "$out_dir/install.log" 2>&1; then
         harness_report_step_failure install "$install" "$out_dir/install.log"
         return 1
@@ -216,6 +249,9 @@ harness_ensure_generated() {
       printf '%s\n' "$dfp" > "$state_dir/install.fingerprint"
     fi
   fi
+
+  [ -n "$gen" ] || return 0
+  target="$root/$(cfg '.workspace // .project')"
 
   fp="$(generate_fingerprint)"
   if [ "$force" != force ] && [ -e "$target" ] \
@@ -640,6 +676,72 @@ e2e_built_ids() {
     ids="$ids${ids:+, }$(/usr/libexec/PlistBuddy -c 'Print :CFBundleIdentifier' "$app/Info.plist" 2>/dev/null || echo '?')"
   done
   echo "${ids:-없음}"
+}
+
+# 가짜 응답 서버 포트. 설정의 포트($1)가 기본이고, 서버가 .harness/state/network.port에 남긴 포트에 서버가
+# 떠 있으면 그것을 쓴다. 서버는 적힌 포트를 다른 워크트리가 쓰고 있으면 빈 포트로 띄운다.
+e2e_network_port() {
+  local actual
+  actual="$(cat "$state_dir/network.port" 2>/dev/null || true)"
+  case "$actual" in
+    "" | *[!0-9]*) ;;
+    *) if nc -z 127.0.0.1 "$actual" 2>/dev/null; then echo "$actual"; return 0; fi ;;
+  esac
+  echo "$1"
+}
+
+# 앱($1, .app 폴더)보다 나중에 고친 코드 파일 중 첫 것. 없으면 빈 값.
+# --no-build로 예전에 빌드한 앱을 설치하면 바뀐 코드 없이 통과할 수 있어 막는 데 쓴다.
+# 코드가 아닌 파일(harness_not_code)은 앱에 들어가지 않으니 보지 않는다.
+e2e_stale_source() {
+  local built=0 t f
+  for f in "$1" "$1"/*; do
+    [ -e "$f" ] || continue
+    t="$(harness_mtime "$f")"
+    [ "$t" -gt "$built" ] && built="$t"
+  done
+  harness_changed_files "" | harness_not_code | while IFS= read -r f; do
+    [ -f "$root/$f" ] || continue
+    if [ "$(harness_mtime "$root/$f")" -gt "$built" ]; then echo "$f"; break; fi
+  done
+}
+
+# --- 시뮬레이터 잠금 ---
+# 워크트리 두 곳이 같은 시뮬레이터를 골라 동시에 e2e를 돌리면 앱 설치·실행이 서로 덮어쓴다.
+# 기기마다 잠금 폴더(사용자 임시 폴더)에 워크트리 경로와 프로세스 번호를 적는다. 프로세스가 끝난 잠금은 무시한다.
+harness_sim_lock_dir() { echo "${HARNESS_SIM_LOCK_DIR:-${TMPDIR:-/tmp}/ios-harness-simulators}"; }
+
+# 기기($1)를 잡는다. 성공하면 claimed_simulator에 잠금 경로를 둔다.
+# 다른 살아 있는 프로세스가 잡고 있으면 1을 반환하고 sim_busy_owner에 그 워크트리 경로를 둔다.
+harness_claim_simulator() {
+  local dir lock pid me="${HARNESS_SIM_PID:-$$}"
+  dir="$(harness_sim_lock_dir)"
+  mkdir -p "$dir"
+  lock="$dir/$1"
+  if ! mkdir "$lock" 2>/dev/null; then
+    pid="$(sed -n 2p "$lock/owner" 2>/dev/null || true)"
+    if [ -n "$pid" ] && [ "$pid" != "$me" ] && kill -0 "$pid" 2>/dev/null; then
+      sim_busy_owner="$(sed -n 1p "$lock/owner" 2>/dev/null || true)"
+      return 1
+    fi
+  fi
+  printf '%s\n%s\n' "$root" "$me" > "$lock/owner"
+  claimed_simulator="$lock"
+}
+
+# 잡은 기기를 놓는다. 이 프로세스가 잡은 것만 지운다.
+harness_release_simulator() {
+  [ -n "${claimed_simulator:-}" ] || return 0
+  [ "$(sed -n 2p "$claimed_simulator/owner" 2>/dev/null || true)" = "${HARNESS_SIM_PID:-$$}" ] && rm -rf "$claimed_simulator"
+  claimed_simulator=""
+}
+
+# simctl JSON(stdin)에서 기기($1)와 같은 런타임의 iPhone들을 "<udid> <이름>"으로. 기기 자신이 맨 앞이다.
+simulator_candidates() {
+  jq -r --arg u "$1" '
+    [ .devices | to_entries[] | select(any(.value[]; .udid == $u)) ][0].value // []
+    | (map(select(.udid == $u)) + map(select(.udid != $u and (.name | startswith("iPhone")))))[]
+    | "\(.udid) \(.name)"'
 }
 
 # 스킴($1)의 실행(Run) 빌드 구성. xcodebuild build는 이 구성으로 빌드한다.

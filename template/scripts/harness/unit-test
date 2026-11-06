@@ -43,9 +43,10 @@ export HARNESS_ROOT="$root"
 start=$SECONDS
 
 # 결과 파일. checks.json의 run이 이 파일로 통과 여부를 확인한다(발표 슬라이드 29).
-record() { # passed(true|false) 요약
+record() { # passed(true|false) 요약 [돌린 테스트 수]
   [ "$plan" = 1 ] && return 0
-  jq -n --argjson passed "$1" --arg summary "$2" '{passed: $passed, summary: $summary}' > "$out_dir/unit-test.json"
+  jq -n --argjson passed "$1" --arg summary "$2" --argjson tests "${3:-null}" \
+    '{passed: $passed, summary: $summary} + (if $tests == null then {} else {tests: $tests} end)' > "$out_dir/unit-test.json"
 }
 
 app_scheme="$(cfg .app.scheme)"
@@ -70,6 +71,13 @@ if [ "$all" = 0 ]; then
   if [ -z "$changed" ]; then
     echo "✓ unit-test · 바뀐 파일 없음"
     record true "바뀐 파일 없음"
+    exit 0
+  fi
+  # 문서·시나리오·지침만 바꿨으면 빌드·테스트하지 않는다.
+  changed="$(printf '%s\n' "$changed" | harness_not_code)"
+  if [ -z "$changed" ]; then
+    echo "✓ unit-test · 코드 변경 없음 (문서·시나리오·지침만 바뀜)"
+    record true "코드 변경 없음 (문서·시나리오·지침만 바뀜)"
     exit 0
   fi
 fi
@@ -126,6 +134,40 @@ else
 $changed
 EOF
   modules="$(printf '%s' "$modules" | { grep -v '^$' || true; } | LC_ALL=C sort -u)"
+
+  # 바뀐 모듈을 쓰는 모듈도 테스트한다. 다른 모듈의 manifest에 바뀐 모듈 이름("이름")이 나오면 쓰는 것으로 보고,
+  # 더 늘지 않을 때까지 반복한다. 이름만 보므로 많이 넣는 쪽으로 틀린다(빠뜨리는 것보다 낫다).
+  if [ -n "$modules" ]; then
+    every="$(all_module_dirs)"
+    while :; do
+      added=""
+      while IFS= read -r dir; do
+        [ -n "$dir" ] || continue
+        printf '%s\n' "$modules" | grep -qxF "$dir" && continue
+        while IFS= read -r used; do
+          [ -n "$used" ] || continue
+          if grep -qF "\"$(basename "$used")\"" "$root/$dir/$manifest" 2>/dev/null; then
+            added="$added$dir"$'\n'
+            break
+          fi
+        done <<USED
+$modules
+USED
+      done <<EVERY
+$every
+EVERY
+      [ -n "$added" ] || break
+      modules="$(printf '%s%s' "$modules"$'\n' "$added" | { grep -v '^$' || true; } | LC_ALL=C sort -u)"
+    done
+    # 앱이 바뀐 모듈을 쓰면 앱 테스트도 돌린다.
+    if [ "$test_app" = 0 ] && [ -n "$app_path" ] && [ -f "$root/$app_path/$manifest" ]; then
+      while IFS= read -r used; do
+        if [ -n "$used" ] && grep -qF "\"$(basename "$used")\"" "$root/$app_path/$manifest"; then test_app=1; break; fi
+      done <<USED
+$modules
+USED
+    fi
+  fi
 fi
 
 # 실행 계획: "표시이름<TAB>스킴" 줄. 스킴이 비어 있으면 앱 단위 테스트(test 기본 동작)다.
@@ -187,12 +229,15 @@ fi
 passed=""
 failed=""
 first_failure=0
+ran=0
 while IFS=$'\t' read -r label scheme; do
   if [ -z "$label" ]; then continue; fi
   set +e
+  rm -f "$out_dir/test.json"
   if [ -z "$scheme" ]; then "$here/test"; else "$here/test" --scheme "$scheme"; fi
   rc=$?
   set -e
+  ran=$((ran + $(jq -r '.ran // 0' "$out_dir/test.json" 2>/dev/null || echo 0)))
   if [ "$rc" -eq 0 ]; then
     passed="$passed $label"
   else
@@ -208,11 +253,13 @@ detail=""
 if [ -n "$passed" ]; then detail="$detail · 통과:$passed"; fi
 if [ -n "$untested" ]; then detail="$detail · 테스트 없음:$untested"; fi
 if [ -z "$passed$failed" ]; then detail="$detail · 실행할 테스트 없음 (빌드만 확인)"; fi
+# 테스트가 하나도 돌지 않았으면 통과와 구분되게 맨 앞에 적는다. 통과 여부는 바꾸지 않는다(테스트가 없는 프로젝트도 있다).
+if [ "$ran" -eq 0 ]; then detail=" · 테스트 0개$detail"; fi
 
 if [ -n "$failed" ]; then
   echo "✗ unit-test · 실패:$failed$detail · ${elapsed}s"
-  record false "실패:$failed$detail"
+  record false "실패:$failed$detail" "$ran"
   exit "$first_failure"
 fi
 echo "✓ unit-test$detail · ${elapsed}s"
-record true "${detail# · }"
+record true "${detail# · }" "$ran"

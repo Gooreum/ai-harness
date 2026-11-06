@@ -22,7 +22,7 @@ first() { printf '%s\n' "$1" | sed -n 1p; }
 
 out="$(run unit-test)"
 assert_eq "결과 파일이 없으면 2" "rc=2" "$(last "$out")"
-assert_eq "  이유" "결과가 없다: .harness/out/unit-test.json — 검사를 먼저 실행한다 (scripts/harness/unit-test)" "$(first "$out")"
+assert_eq "  이유" "결과가 없다: .harness/out/unit-test.json — .harness/checks.json에 적힌 unit-test 검사의 prompt대로 먼저 실행한다" "$(first "$out")"
 
 echo '{"passed": false, "summary": "실패: 앱"}' > "$r"
 out="$(run unit-test)"
@@ -50,6 +50,21 @@ out="$(run unit-test)"
 assert_eq "작업을 시작하기 전 결과면 2" "rc=2" "$(last "$out")"
 touch -t 202601010600 "$r"
 assert_eq "작업 시작 뒤 결과면 0" "rc=0" "$(run unit-test)"
+
+# 작업 중에 커밋해도 작업을 시작한 커밋부터 본다 (ai-bouncer base_sha)
+echo '{"title":"c","mode":"simple","stage":"verify"}' > "$p/.harness/state/task.json"
+git -C "$p" rev-parse HEAD > "$p/.harness/state/task.base"
+touch -t 202601010600 "$r"
+echo '// c' >> "$p/App/A.swift"; touch -t 202601010700 "$p/App/A.swift"
+git -C "$p" add App/A.swift; git -C "$p" -c user.name=t -c user.email=t@t commit -qm mid
+out="$(run unit-test)"
+assert_eq "작업 중에 커밋한 파일도 본다" "rc=2" "$(last "$out")"
+assert_eq "  커밋한 파일을 알린다" "결과(.harness/out/unit-test.json)가 App/A.swift보다 오래됐다 — 고친 뒤 검사를 다시 실행한다" "$(first "$out")"
+echo '{"title":"c","mode":"simple","stage":"done"}' > "$p/.harness/state/task.json"
+assert_eq "작업이 끝났으면 HEAD 기준" "rc=0" "$(last "$(run unit-test)")"
+echo '{"title":"c","mode":"simple","stage":"verify"}' > "$p/.harness/state/task.json"
+touch -t 202601010800 "$r"
+assert_eq "다시 돌린 결과면 0" "rc=0" "$(last "$(run unit-test)")"
 
 assert_eq "이름에 경로를 쓰면 거절" "rc=2" "$(last "$(run ../x)")"
 assert_eq "이름이 없으면 2" "rc=2" "$(last "$(run)")"

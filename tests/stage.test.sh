@@ -68,19 +68,44 @@ assert_eq "owner: 고친 세션을 주인으로 적는다" "s-1" "$(cat "$p/.har
 jq -n --arg f "$p/.harness/state/task.json" '{session_id: "s-2", cwd: "/", tool_input: {file_path: $f}}' | "$hook" > /dev/null
 assert_eq "owner: 다른 세션이 다시 저장하면 그 세션이 이어받는다" "s-2" "$(cat "$p/.harness/state/task.owner")"
 
-# 작업 시작 표시: 새 작업(제목·모드)일 때만 다시 적는다 (scripts/harness/passed가 읽는다)
-sfile="$p/.harness/state/task.started"; rm -f "$sfile"
+# 작업 시작 표시: 새 작업일 때만 시각과 시작 커밋을 다시 적는다 (scripts/harness/passed가 읽는다)
+sfile="$p/.harness/state/task.started"; bfile="$p/.harness/state/task.base"
+rm -f "$sfile" "$bfile" "$p/.harness/state/task.seen"
+(cd "$p" && git init -q -b main && git -c user.name=t -c user.email=t@t commit -q --allow-empty -m init)
+head1="$(git -C "$p" rev-parse HEAD)"
 ctx '{"title":"A","mode":"simple","stage":"implement"}' > /dev/null
-assert_eq "started: 작업을 시작하면 적는다" "A|simple" "$(cat "$sfile")"
+assert_eq "started: 작업을 시작하면 적는다" "yes" "$([ -f "$sfile" ] && echo yes || echo no)"
+assert_eq "base: 시작 커밋을 적는다" "$head1" "$(cat "$bfile")"
 touch -t 202601010000 "$sfile"
+(cd "$p" && git -c user.name=t -c user.email=t@t commit -q --allow-empty -m mid)
 ctx '{"title":"A","mode":"simple","stage":"verify"}' > /dev/null
 assert_eq "started: 단계만 바뀌면 그대로 둔다" "202601010000" "$(stat -f %Sm -t %Y%m%d%H%M "$sfile")"
+assert_eq "base: 작업 중 커밋해도 그대로 둔다" "$head1" "$(cat "$bfile")"
 ctx '{"title":"B","mode":"simple","stage":"implement"}' > /dev/null
-assert_eq "started: 새 작업이면 다시 적는다" "B|simple" "$(cat "$sfile")"
+assert_eq "started: 끝나지 않은 작업은 제목이 바뀌어도 이어서 본다" "202601010000" "$(stat -f %Sm -t %Y%m%d%H%M "$sfile")"
+ctx '{"title":"A","mode":"simple","stage":"done"}' > /dev/null
+assert_eq "started: done이 돼도 그대로 둔다" "202601010000" "$(stat -f %Sm -t %Y%m%d%H%M "$sfile")"
+ctx '{"title":"A","mode":"simple","stage":"implement"}' > /dev/null
+assert_eq "started: 끝난 뒤 같은 제목으로 다시 시작해도 새로 적는다" "no" "$([ "$(stat -f %Sm -t %Y%m%d%H%M "$sfile")" = 202601010000 ] && echo yes || echo no)"
+assert_eq "base: 새 작업이면 지금 커밋을 적는다" "$(git -C "$p" rev-parse HEAD)" "$(cat "$bfile")"
+rm -rf "$p/.git"
 
 rm "$p/.harness/checks.json"
 out="$(ctx '{"title":"x","mode":"simple","stage":"verify","checks":["lint"]}')"
 assert_eq "checks.json이 없어도 동작하고 없는 검사를 알린다" "yes" "$(has "- lint: .harness/checks.json에 없는 검사다" "$out")"
+
+# 단계 순서는 flows.json 한 곳에서 읽는다 (check-run.sh도 같은 파일)
+cp -R "$here/../plugin/hooks" "$work/hooks"
+echo '{"plan":["plan","implement","verify","finish"],"simple":["implement","verify","qa","finish"]}' > "$work/hooks/flows.json"
+printf '%s' '{"mode":"simple","stage":"x"}' > "$p/.harness/state/task.json"
+out="$(jq -n --arg f "$p/.harness/state/task.json" '{cwd: "/", tool_input: {file_path: $f}}' | "$work/hooks/stage-context.sh" | jq -r '.hookSpecificOutput.additionalContext')"
+assert_eq "flows: flows.json의 단계 순서를 쓴다" "yes" "$(has "implement → verify → qa → finish" "$out")"
+mkdir -p "$p/.harness/out"
+echo '{"checks":[{"name":"lint","prompt":"x","run":"false"}]}' > "$p/.harness/checks.json"
+printf '%s' '{"mode":"simple","stage":"verify","checks":["lint"]}' > "$p/.harness/state/task.json"
+gate() { jq -n --arg f "$p/.harness/state/task.json" '{tool_name: "Write", cwd: "/", tool_input: {file_path: $f, content: "{\"mode\":\"simple\",\"stage\":\"qa\",\"checks\":[\"lint\"]}"}}' | "$1" > /dev/null 2>&1 && echo 0 || echo $?; }
+assert_eq "flows: check-run.sh도 flows.json을 읽는다 (verify 다음 단계로 가면 run을 돌린다)" "2" "$(gate "$work/hooks/check-run.sh")"
+assert_eq "flows: 원래 flows.json에는 qa가 없어 막지 않는다" "0" "$(gate "$here/../plugin/hooks/check-run.sh")"
 
 # --- 끼어들지 않는 경우 --------------------------------------------------------
 assert_eq "다른 파일은 무시" "" "$(ctx '{"mode":"simple","stage":"implement"}' "$p/App/A.swift")"

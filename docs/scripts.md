@@ -20,6 +20,8 @@
 - **프로젝트 생성(Tuist·XcodeGen)**: 빌드 전에 생성이 필요한지 스스로 판단한다.
   - 생성 입력의 지문이 지난번과 다르면 install·generate를 다시 실행한다. 지문은 git이 보는 파일 목록과 manifest 내용으로 만든다.
   - 그래서 파일을 추가·삭제·이동하거나 manifest를 바꾸면 자동으로 다시 생성된다. 소스 내용만 바뀌었을 때는 건너뛴다.
+- **의존성 설치(`commands.install`)**: generate와 따로 판단한다. 의존성 선언(`Tuist/Package.swift`, `Package.resolved`, `Podfile`, `Podfile.lock`)의 지문이 지난번과 다르거나, `Podfile`이 있는데 `Pods/`가 없으면 실행한다.
+  - CocoaPods를 쓰는 xcodeproj 프로젝트는 generate 없이 `pod install`만 있다. 전에는 generate가 있을 때만 install이 돌아 `pod install`이 돌지 않았다.
   - 생성된 프로젝트 파일이 없으면 항상 생성한다. `--generate`를 주면 무조건 다시 생성한다.
   - Tuist가 생성 뒤 Xcode를 여는 동작은 `TUIST_GENERATE_OPEN=false`로 끈다.
 - **시뮬레이터**: 기본은 실행할 때마다 설치된 최신 iPhone(최신 iOS 런타임, 번호가 가장 큰 Pro)이다. 설정에 기기 이름을 적었으면 그 기기를 쓰고, 설치돼 있지 않으면 최신 iPhone을 쓰고 한 줄 알린다. 기기 이름을 설정에 적어 커밋하면 다른 사람과 다른 Xcode에서도 그 기기로 고정되므로 `detect`는 적지 않는다. iPhone 시뮬레이터가 하나도 없을 때만 멈춘다.
@@ -65,20 +67,22 @@ scripts/harness/test --only CoreTrackingTests/LeanAngleAnalyzerTests   # 일부�
 ## unit-test
 
 ```bash
-scripts/harness/unit-test               # 커밋하지 않은 변경을 검증
+scripts/harness/unit-test               # 작업 중이면 작업을 시작한 커밋 이후, 아니면 커밋하지 않은 변경을 검증
 scripts/harness/unit-test --base main   # main에서 갈라진 뒤의 모든 변경을 검증 (PR 전)
 scripts/harness/unit-test --all         # 앱과 테스트가 있는 모든 모듈
 scripts/harness/unit-test --plan        # 실행하지 않고 무엇을 할지만 출력
 ```
 
-- 바뀐 파일(기본: HEAD 대비 수정 + 새 파일)을 모듈별로 묶는다.
+- 바뀐 파일을 모듈별로 묶는다.
+  - 기본은 작업 중이면(`task.json`의 stage가 `done`이 아님) 작업을 시작한 커밋(`.harness/state/task.base`) 이후의 변경과, 작업을 시작한 뒤 고친 추적 안 된 파일이다. 작업 중에 커밋해도 빠지지 않는다. 작업 중이 아니면 HEAD 대비 수정 + 새 파일이다.
+  - 문서(`*.md`, `docs/`), e2e 시나리오(`.maestro/`), 에이전트 지침·규칙(`.claude/`, `.agents/`)은 빌드에 영향이 없어 뺀다. 이것만 바뀌었으면 "코드 변경 없음"으로 통과한다.
   - 파일이 속한 모듈은 `modules.manifest`(Project.swift)가 있는 가장 가까운 상위 디렉터리다.
   - 앱 디렉터리(`app.path`)의 변경은 앱 단위 테스트로 이어진다.
   - `Tuist/`, `Workspace.swift`, 루트 manifest가 바뀌면 영향 범위를 알 수 없어서 전체를 테스트한다.
   - 모듈 구조가 없는 프로젝트(xcodeproj 단일 앱)는 모든 변경을 앱 변경으로 본다.
 - 앱을 먼저 빌드하고, 성공하면 바뀐 모듈의 테스트를 실행한다.
   - 앱을 먼저 빌드하는 이유: 모듈끼리의 컴파일 오류는 앱 빌드가 먼저 잡는다. 또 선언하지 않은 의존(implicit import) 때문에 모듈 스킴만으로는 빌드가 깨지는 프로젝트도 있다.
-  - 바뀐 모듈에 의존하는 다른 모듈의 테스트는 돌리지 않는다. 이런 테스트 회귀가 실제로 문제가 되면 그때 추가한다.
+- 바뀐 모듈을 쓰는 모듈도 테스트한다. 다른 모듈(과 앱)의 manifest에 바뀐 모듈 이름(`"이름"`)이 나오면 쓰는 것으로 보고, 더 늘지 않을 때까지 반복한다. 이름만 보므로 많이 넣는 쪽으로 틀린다.
 - 테스트할 대상이 있는지는 생성된 스킴 파일의 테스트 액션으로 판단한다. `Tests` 폴더만 있고 테스트 타깃이 없는 모듈도 있어서다. 스킴 파일이 없으면 `modules.testsDir` 폴더로 판단한다.
 - 단계마다 build·test가 한 줄씩 출력하고, 마지막 줄에 전체 결과를 출력한다.
   ```
@@ -86,7 +90,7 @@ scripts/harness/unit-test --plan        # 실행하지 않고 무엇을 할지�
   ✓ test CoreTracking · 통과 20 · 7s
   ✓ unit-test · 통과: CoreTracking · 29s
   ```
-- 결과 파일 `.harness/out/unit-test.json`: `passed`, `summary`. 시작할 때 먼저 `passed: false`로 적고 끝나면 결과로 바꾼다. 중간에 끊겨도 이전 실행의 통과가 남지 않는다. `--plan`은 남기지 않는다. `checks.json`의 run이 이 파일을 본다([ADR 0012](decisions/0012-run-gate.md)).
+- 결과 파일 `.harness/out/unit-test.json`: `passed`, `summary`, `tests`(돌린 테스트 수). 테스트가 하나도 돌지 않았으면 요약 첫머리에 "테스트 0개"를 적는다. 통과 여부는 바꾸지 않는다. 시작할 때 먼저 `passed: false`로 적고 끝나면 결과로 바꾼다. 중간에 끊겨도 이전 실행의 통과가 남지 않는다. `--plan`은 남기지 않는다. `checks.json`의 run이 이 파일을 본다([ADR 0012](decisions/0012-run-gate.md)).
 
 ## lint
 
@@ -137,8 +141,9 @@ scripts/harness/e2e --no-build              # 이미 빌드된 앱으로
 ```
 
 - 앱을 빌드(`build`)해 설정의 시뮬레이터에 설치하고 Maestro 시나리오를 돌린다. 시뮬레이터가 꺼져 있으면 켠다.
+  - 돌리는 동안 기기에 잠금을 건다(`$TMPDIR/ios-harness-simulators/<udid>`, 워크트리 경로와 프로세스 번호). 다른 워크트리가 같은 기기로 돌리는 중이면 같은 런타임의 다른 iPhone을 쓰고 한 줄 알린다. 남은 기기가 없으면 어느 워크트리가 쓰는지 알리고 멈춘다. 프로세스가 끝난 잠금은 무시한다.
   - 설치하는 앱은 `app.scheme`의 실행(Run) 빌드 구성으로 빌드된 앱 중 번들 ID가 `app.bundleId`인 것이다. 구성은 공유된 스킴 파일(`xcshareddata/xcschemes/<스킴>.xcscheme`)의 `LaunchAction`에서 읽는다. 그런 앱이 없으면 멈춘다. 스킴과 번들 ID가 다른 앱을 가리키면, 다른 구성으로 예전에 빌드된 앱을 설치해 바뀐 코드 없이 통과하기 때문이다(IntervalTimer #13에서 관찰).
-  - `--no-build`이면 구성을 가리지 않고 번들 ID가 맞는 가장 최근 앱을 설치한다.
+  - `--no-build`이면 구성을 가리지 않고 번들 ID가 맞는 가장 최근 앱을 설치한다. 앱이 바뀐 코드 파일보다 오래됐으면 멈춘다. 예전 앱으로 바뀐 코드 없이 통과할 수 있어서다(문서·시나리오는 보지 않는다).
   - Maestro가 쓸 Java가 없으면 돌리기 전에 멈춘다. Maestro는 `JAVA_HOME`이 있으면 그 java를, 없으면 PATH의 java를 쓴다. macOS의 `/usr/bin/java`는 JDK가 없어도 있으므로 실행해 확인한다.
   - 설치할 앱은 이 워크트리의 DerivedData에서 `app.bundleId`가 맞는 가장 최근 시뮬레이터용 `.app`이다. 앱 스킴의 빌드 구성(Debug·Release)을 따른다.
 - 시나리오는 `appId: ${APP_ID}`로 쓴다. 스크립트가 `-e APP_ID=<app.bundleId>`를 넘긴다. 비밀 값은 `MAESTRO_`로 시작하는 환경 변수로 넘기면 Maestro가 읽는다.
@@ -160,7 +165,7 @@ scripts/harness/e2e --no-build              # 이미 빌드된 앱으로
   - 실패 출력: `  .maestro/profile-empty.yaml: 행동 로그 tab_select 1회 (기대 2회), onboarding_complete 1회 (기대 0회)`
   - 시험 실행의 이벤트도 실제 Firebase 프로젝트로 올라간다(디버그 표시가 붙어 DebugView에 보인다).
 - 서버 응답 바꾸기: `.harness/project.json`에 `e2e.network.port`가 있으면 maestro에 `NETWORK_BASE_URL=http://127.0.0.1:<포트>`를 넘긴다. 시나리오가 `launchApp`의 `"-HarnessNetworkBaseURL": "${NETWORK_BASE_URL}"`로 앱에 준다.
-  - 응답은 플러그인 MCP `harness-network`가 준다([plugin.md](plugin.md)). 서버가 그 포트에 떠 있지 않으면 한 줄로 알린다(막지는 않는다).
+  - 응답은 플러그인 MCP `harness-network`가 준다([plugin.md](plugin.md)). 서버가 `.harness/state/network.port`에 남긴 포트에 떠 있으면 그 포트를 쓴다. 서버가 그 포트에 떠 있지 않으면 한 줄로 알린다(막지는 않는다).
   - `tags: [network]` 시나리오(가짜 응답 서버가 필요한 것)는 사용자가 원할 때만 돈다. 인자 없이 돌리거나 다른 태그로 돌리면 `--exclude-tags network`로 뺀다. 파일을 직접 주거나 `--tag network`면 돈다.
   - 서버 응답 판정: 시나리오 옆 `<이름>.network.json`의 `expect`(`match`·`status`)마다, 그 흐름 동안 서버 기록(`.harness/state/network-requests.ndjson`)에 같은 응답이 한 번 이상 있어야 한다. 없으면 그 흐름은 실패다.
     - 실패 출력: `  .maestro/analyze-server-error.yaml: 서버 응답 POST …/v1beta 500 응답이 없었다 — mock_set으로 응답을 걸고 돌린다 (받은 요청: POST …:generateContent 404)`

@@ -84,7 +84,7 @@ scripts/sync ~/path/to/MyApp     # 하네스를 고친 뒤 갱신
 1. `.harness/project.json`이 없으면 `scripts/detect`가 프로젝트를 훑어 초안을 만든다.
    - 생성기 종류(Tuist / XcodeGen / xcodeproj / SPM), 워크스페이스, 앱 스킴, bundle ID, 단위 테스트 타깃, 모듈 구조를 찾는다. 시뮬레이터는 적지 않는다(커밋되면 다른 사람과 다른 Xcode에서도 그 기기로 고정된다).
 2. `template/`의 파일을 프로젝트에 맞춘다.
-   - `scripts/harness/`, `.claude/rules/harness/`, `.harness/.gitignore`는 template과 똑같이 맞춘다. template에서 사라진 하네스 규칙은 지운다.
+   - `scripts/harness/`, `.claude/rules/harness/`, `.harness/.gitignore`는 template과 똑같이 맞춘다. 지난번에 설치했는데 template에서 사라진 파일만 지운다. 팀이 넣은 스크립트는 남는다.
    - `AGENTS.md`는 하네스 관리 블록만 넣거나 바꾼다. 프로젝트가 쓴 부분은 건드리지 않는다.
    - `.claude/settings.json`에는 권한 규칙을 중복 없이 합친다. 프로젝트의 기존 설정은 유지한다.
 3. `.claude/settings.json`에 GitHub 마켓플레이스(`Gooreum/ios-ai-harness`)를 등록하고 플러그인 `ios-harness`를 켠다. 설치한 하네스 버전은 `.harness/harness.json`에 적는다.

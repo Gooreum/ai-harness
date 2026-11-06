@@ -20,6 +20,7 @@ paths:
 
 - 네트워크, 현재 시각, 난수, 위치·센서, 파일 시스템, UserDefaults 같은 외부 상태에 직접 의존하지 않는다. 프로토콜 기반 fake/mock을 주입한다.
 - 프로덕션 코드에 테스트 전용 분기를 넣지 않는다. 의존성 주입으로 바꿔 끼울 수 있게 만든다.
+  - 예외: E2E 시나리오가 넘기는 실행 인자(상태 넣기, `-HarnessNetworkBaseURL`)를 읽는 코드. `#if DEBUG` 안에 두고 `maestro.md`를 따른다.
 - 비동기 코드는 async 테스트에서 `await`, `fulfillment(of:)`, `confirmation`으로 기다린다. `sleep`이나 고정 대기로 타이밍을 맞추지 않는다.
 
 ## 수정
