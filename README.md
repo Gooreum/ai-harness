@@ -242,7 +242,9 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `scripts/harness/e2e` | Execution + Validation | 앱을 설치하고 Maestro 시나리오를 돌려 흐름별 결과를 요약한다. 회귀 묶음, 화면 녹화, 행동 로그 판정 |
 | `scripts/harness/wiki` | Context + Validation | 정책·결정 기록(`docs/wiki/`)을 찾고 형식을 검사한다 |
 | `scripts/harness/doctor` | Validation | 하네스가 이 프로젝트에서 돌 수 있는지 점검한다: 도구, 설정 파일, 지침 연결, 플러그인 버전 |
-| `scripts/harness/lib.sh` | Execution | 스크립트 공용 함수: 설정 읽기, 바뀐 파일 목록, 시뮬레이터 찾기, 생성 지문, DerivedData 경로, `xcresulttool` 결과 정리, 컨벤션 변환 |
+| `scripts/harness/record` | Execution + Validation | 하네스 스크립트가 없는 명령(typecheck, jest 등)을 돌려 결과를 `.harness/out/<이름>.json`에 남긴다. run은 `passed <이름>` |
+| `scripts/harness/lib.sh` | Execution | 공통 함수: 설정 읽기, 바뀐 파일 목록, 작업 시작 커밋, 위키 형식 |
+| `scripts/harness/ios.sh` | Execution | iOS 함수: Xcode·시뮬레이터 찾기, 생성 지문, DerivedData 경로, `xcresulttool` 결과 정리, 컨벤션 변환 |
 | `.claude/rules/harness/conventions.md` | Context | 컨벤션 목록을 열 때 읽히는 규칙: 규칙 후보는 사람이 고르고, 통과하려고 규칙을 완화하지 않는다 |
 | `.claude/rules/harness/maestro.md` | Context | 시나리오를 열 때 읽히는 팀 작성 규칙 |
 | `.claude/rules/harness/wiki.md` | Context | 기록을 열 때 읽히는 규칙: 두 종류의 형식, 쓰는 때, 기록과 반대되는 요청은 묻기 |
@@ -293,6 +295,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `e2e.test.sh` | Maestro JUnit 결과 읽기, 설치할 앱 찾기, 행동 로그 판정, 서버 응답 판정 |
 | `network-mcp.test.sh` | 가짜 응답 MCP: 켠 프로젝트에서만 도구, 상태·지연·본문 응답, 구체적인 match 우선, 프로젝트끼리 독립 |
 | `wiki.test.sh` | 기록 찾기·검색 로그·형식 검사 |
+| `record.test.sh` | record의 결과·로그·출력, iOS 스크립트 없이 record·passed만으로 검증 게이트가 판정하는지 |
 | `stage.test.sh` | 단계 지시 훅이 상태 파일이 바뀔 때만, 고른 검사의 지시만 넣는지 |
 | `hooks.test.sh` | 훅이 막을 것만 막고, 판단할 수 없으면 통과시키는지 |
 | `sync.test.sh` | init·sync의 파일 배치, AGENTS.md 관리 블록 교체, 설정 병합, 플러그인 등록, `--dev`, 반복 실행 |
@@ -347,8 +350,10 @@ MyApp/
 │       ├── harness/*.md           하네스 경로 규칙 (하네스가 관리)
 │       └── project/*.md           프로젝트 고유 규칙 (프로젝트가 관리)
 └── scripts/harness/
-    ├── build, test, unit-test, lint, wiki, e2e
-    └── lib.sh
+    ├── build, test, unit-test, lint, e2e, doctor   (iOS)
+    ├── record, passed, wiki                        (공통)
+    ├── lib.sh                                      공통 함수
+    └── ios.sh                                      iOS 함수
 ```
 
 ## 직접 해 보기

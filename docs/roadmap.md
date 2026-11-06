@@ -3,7 +3,7 @@
 여러 프로젝트에서 재사용할 하네스를 작업 단위로 나눠 하나씩 쌓아간다. 단위 1~20은 iOS용으로 만들었고, 단위 21부터는 어떤 플랫폼에서든 쓰는 범용 하네스로 넓힌다.
 단위 하나는 세션 하나 분량이다. 커밋 1~3개로 마무리하고, 끝나면 여기 체크박스를 갱신한다.
 
-지금: 22
+지금: 23
 
 (위 줄은 로드맵 패널이 읽는다. 작업 단위를 바꾸면 함께 고친다.)
 
@@ -266,7 +266,7 @@
     - 회귀 e2e 4개 통과(행동 로그 4)
     - IntervalTimer 확인용 워크트리(0.9.4 → 0.9.8): 문서만 바꾸면 건너뜀, 작업 중 커밋한 코드로 generate·빌드·테스트 130개 통과, `passed` 통과, 회귀 e2e 3개 통과
     - 두 시험장(`EnglishStudy-harness`, `IntervalTimer-harness`)은 열린 세션이 끝나면 0.9.8로 올린다
-- [ ] **22. 공통 핵심 떼어 내기와 `record`**
+- [x] **22. 공통 핵심 떼어 내기와 `record`**
   - `lib.sh`를 공통과 iOS로 나눈다. `harness_init`이 Xcode를 고르고 `simctl`을 부르지 않게 한다. 지금은 `passed`·`wiki`도 이 과정을 거친다
   - `scripts/harness/record <이름> <명령>`: 어떤 명령이든 실행하고 `.harness/out/<이름>.json`을 남긴다(ai-bouncer `bouncer record`)
     - 결과 형식은 JSON(`passed`, `summary`, 종료 코드)으로 둔다. ai-bouncer는 로그 끝에 `exit: N`을 쓴다. 이 차이는 ADR에 남긴다
@@ -278,6 +278,7 @@
   - jq가 없으면 모든 훅이 조용히 꺼진다. doctor와 단계 지시에서 알린다
   - ADR: 공통 핵심 + 플랫폼 묶음 구조
   - 완료 기준: iOS 스크립트 없이 `record`와 `passed`만으로 `checks.json`의 검사가 게이트를 통과·실패한다
+  - 결과(2026-11-06): `tests/record.test.sh`에서 결과 없음·실패는 막고, 통과는 넘기고, 고친 뒤 낡은 결과는 다시 막았다. IntervalTimer 임시 워크트리(0.9.9)에서 `record`·`passed`·`wiki`가 `xcrun`을 부르지 않았고, unit-test(테스트 130)·`passed`·lint가 그대로 통과했다. ADR 0018
 - [ ] **23. 플랫폼 묶음과 설치**
   - 묶음 구조: 묶음마다 스크립트, 규칙(`rules/harness/<묶음>/`), 권한, 생성 파일 목록, AGENTS.md 관리 블록 조각, doctor 항목을 둔다
   - 한 프로젝트가 묶음을 여러 개 고를 수 있다. 고른 묶음을 설치 기록에 남기고, sync가 그 기록으로 설치하고 지울 것을 계산한다
