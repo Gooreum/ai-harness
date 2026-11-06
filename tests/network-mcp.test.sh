@@ -53,6 +53,7 @@ start b 6
 start off 7
 
 assert_eq "initialize: 서버 이름" "harness-network" "$(rpc a 1 initialize '{"protocolVersion":"2025-06-18"}' | jq -r .result.serverInfo.name)"
+assert_eq "initialize: 버전은 plugin.json에서 읽는다" "$(jq -r .version "$here/../plugin/.claude-plugin/plugin.json")" "$(rpc a 901 initialize '{"protocolVersion":"2025-06-18"}' | jq -r .result.serverInfo.version)"
 assert_eq "켠 프로젝트: 도구 4개" "mock_set,mock_list,mock_clear,requests" "$(rpc a 2 tools/list | jq -r '[.result.tools[].name] | join(",")')"
 assert_eq "안 켠 프로젝트: 도구 없음" "0" "$(rpc off 2 tools/list | jq '.result.tools | length')"
 assert_eq "안 켠 프로젝트: 부르면 오류" "true" "$(call off 3 mock_list | jq .result.isError)"

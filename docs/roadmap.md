@@ -250,13 +250,13 @@
     - → `task.base` 이후 바뀐 파일과, 추적 안 된 파일 중 작업 시작 뒤에 고친 것만 넣는다
   - [x] 단계 순서 한 곳: 단계 순서(plan/simple)가 `stage-context.sh`와 `check-run.sh` 두 곳에 따로 있다
     - → `plugin/hooks/flows.json` 한 곳에 두고 둘이 읽는다
-  - [ ] doctor 규칙 폴더 확인: 규칙 폴더 git 무시 여부를 `swift.md`로 확인해 Swift가 아닌 프로젝트에서 틀린다
+  - [x] doctor 규칙 폴더 확인: 규칙 폴더 git 무시 여부를 `swift.md`로 확인해 Swift가 아닌 프로젝트에서 틀린다
     - → 어느 프로젝트에나 있는 `wiki.md`로 확인한다
   - [ ] sync 지우는 범위: `scripts/harness/`·`.claude/rules/harness/`에서 template에 없는 파일을 지워, 팀이 넣은 스크립트도 지워진다
     - → 설치한 파일 목록을 `.harness/harness.json`에 적고, 그 목록에 있었는데 template에서 사라진 것만 지운다. 목록이 없는 첫 갱신에서는 지우지 않는다
-  - [ ] testing.md 예외: "프로덕션 코드에 테스트 전용 분기를 넣지 않는다"가 `maestro.md`의 테스트용 실행 인자(`-HarnessNetworkBaseURL`)와 충돌한다
+  - [x] testing.md 예외: "프로덕션 코드에 테스트 전용 분기를 넣지 않는다"가 `maestro.md`의 테스트용 실행 인자(`-HarnessNetworkBaseURL`)와 충돌한다
     - → `testing.md`에 예외를 적는다: e2e 실행 인자를 읽는 코드는 `#if DEBUG` 안에 두고 `maestro.md`를 따른다
-  - [ ] 응답 서버 버전: 가짜 응답 서버의 `VERSION`이 0.9.2에 머물러 있다
+  - [x] 응답 서버 버전: 가짜 응답 서버의 `VERSION`이 0.9.2에 머물러 있다
     - → 손으로 맞추지 않고 `plugin.json`의 버전을 읽는다
   - 완료 기준: 고친 것마다 회귀 테스트가 있고, ReadSharp·IntervalTimer에서 기존 작업 흐름이 그대로 통과한다
 - [ ] **22. 공통 핵심 떼어 내기와 `record`**

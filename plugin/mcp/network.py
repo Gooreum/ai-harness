@@ -17,7 +17,19 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 SERVER_NAME = "harness-network"
-VERSION = "0.9.2"
+
+
+def plugin_version():
+    """플러그인 버전. 손으로 맞추면 어긋나서(0.9.2에 머물렀다) plugin.json에서 읽는다."""
+    path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".claude-plugin", "plugin.json")
+    try:
+        with open(path, encoding="utf-8") as f:
+            return str(json.load(f).get("version") or "0")
+    except (OSError, ValueError):
+        return "0"
+
+
+VERSION = plugin_version()
 MAX_REQUESTS = 200
 METHODS = ("GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "OPTIONS")
 

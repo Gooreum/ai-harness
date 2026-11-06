@@ -79,4 +79,10 @@ assert_eq "broken: CLAUDE.md import가 없으면 문제다" "yes" "$(has "✕ CL
 assert_eq "broken: settings.json이 무시되면 주의를 준다" "yes" "$(has "! .claude/settings.json이 git에서 무시돼")"
 assert_eq "broken: 요약 줄에 개수를 쓴다" "✕ doctor · 문제 1 · 주의 1 · 하네스 $version" "$(printf '%s\n' "$out" | head -1)"
 
+# 규칙 폴더가 무시되는지는 어느 프로젝트에나 있는 wiki.md로 본다 (swift.md는 Swift 프로젝트에만 있다)
+printf '.claude/*\n' >> "$p/.gitignore"
+rm -f "$p/.claude/rules/harness/swift.md"
+run_doctor
+assert_eq "rules ignored: swift.md가 없어도 규칙 폴더가 무시되면 주의를 준다" "yes" "$(has "! .claude/rules/가 git에서 무시돼")"
+
 finish

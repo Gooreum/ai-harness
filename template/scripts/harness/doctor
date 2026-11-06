@@ -95,7 +95,7 @@ grep -qx '@AGENTS.md' "$root/CLAUDE.md" 2> /dev/null \
   || problem "CLAUDE.md가 AGENTS.md를 불러오지 않는다 (@AGENTS.md 줄이 없다)" "Claude Code가 하네스 지침을 읽지 않는다. CLAUDE.md에 @AGENTS.md를 넣는다"
 if [ ! -d "$root/.claude/rules/harness" ]; then
   problem ".claude/rules/harness/가 없다" "하네스 저장소에서 scripts/sync <이 프로젝트>"
-elif ignored .claude/rules/harness/swift.md; then
+elif ignored .claude/rules/harness/wiki.md; then
   warn ".claude/rules/가 git에서 무시돼 하네스 규칙이 커밋되지 않는다" ".gitignore를 .claude/* 와 !.claude/rules/ 형태로 바꾼다"
 fi
 if ignored .claude/settings.json; then
