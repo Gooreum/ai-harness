@@ -1,4 +1,4 @@
-# ios-ai-harness
+# ai-harness
 
 여러 iOS 프로젝트에서 재사용하는 **AI 코딩 에이전트용 하네스**다.
 처음 보는 사람이 이 문서 하나로 전체 구조와 동작 방식을 파악할 수 있게 썼다. 세부 스펙은 문서마다 링크로 연결해 두었다.
@@ -40,7 +40,7 @@ AI 코딩 에이전트(Claude Code, Codex 등)는 iOS 프로젝트에서 자주 
 |---|---|---|
 | Context (가이드) | 행동하기 전에 알려준다 | `AGENTS.md`, 경로 규칙 |
 | Execution (실행 도구) | 에이전트가 일을 하는 손 | `scripts/harness/build`·`test`·`unit-test`·`lint` |
-| Validation (센서) | 결과가 맞는지 판정한다 | 결정적: 빌드·테스트 결과 요약 / 추론적: `ios-reviewer` 코드 리뷰 |
+| Validation (센서) | 결과가 맞는지 판정한다 | 결정적: 빌드·테스트 결과 요약 / 추론적: `reviewer` 코드 리뷰 |
 | Enforcement (강제) | 모델 판단과 상관없이 막는다 | 생성 파일 편집 차단 훅, 권한 규칙 |
 | State (설정·상태) | 위 계층이 함께 쓰는 데이터 | `.harness/project.json`, 실패 기록 |
 
@@ -52,7 +52,7 @@ AI 코딩 에이전트(Claude Code, Codex 등)는 iOS 프로젝트에서 자주 
 저장소는 세 덩어리로 나뉜다. **복사해서 설치하는 것**, **플러그인으로 켜는 것**, **설치하는 도구**다.
 
 ```
-ios-ai-harness (이 저장소)                         대상 iOS 프로젝트
+ai-harness (이 저장소)                         대상 iOS 프로젝트
 ───────────────────────────                       ─────────────────────────────
 scripts/detect ─────────── 프로젝트를 훑어서 ───────▶ .harness/project.json
 scripts/init·sync ──────┐
@@ -63,7 +63,7 @@ template/ ──────────────┴────────�
                                                     scripts/harness/*
                                                     .harness/.gitignore, harness.json
 
-plugin/ ─── GitHub 마켓플레이스에서 설치 (복사 안 함) ──▶ 훅, task 스킬, ios-reviewer, 가짜 응답 MCP
+plugin/ ─── GitHub 마켓플레이스에서 설치 (복사 안 함) ──▶ 훅, task 스킬, reviewer, 가짜 응답 MCP
             (.claude/settings.json에 등록)
 ```
 
@@ -88,7 +88,7 @@ scripts/sync ~/path/to/MyApp     # 하네스를 고친 뒤 갱신
    - `AGENTS.md`는 하네스 관리 블록만 넣거나 바꾼다. 프로젝트가 쓴 부분은 건드리지 않는다.
    - `.claude/settings.json`에는 권한 규칙을 중복 없이 합친다. 프로젝트의 기존 설정은 유지한다. 지난번에 하네스가 넣었는데 이제 없는 규칙만 지운다.
    - `.harness/checks.json`은 쓰지 않는다. 없으면 Claude 세션에서 `scripts/harness/setup` 안내대로 사용자와 검사를 정하라고 알린다(찾은 명령과 묶음 추천 검사를 보여 주고 묻는다).
-3. `.claude/settings.json`에 GitHub 마켓플레이스(`Gooreum/ios-ai-harness`)를 등록하고 플러그인 `ios-harness`를 켠다. 설치한 하네스 버전은 `.harness/harness.json`에 적는다.
+3. `.claude/settings.json`에 GitHub 마켓플레이스(`Gooreum/ai-harness`)를 등록하고 플러그인 `harness`를 켠다. 설치한 하네스 버전은 `.harness/harness.json`에 적는다.
    - `--dev`를 주면 `.claude/settings.local.json`에서 이 저장소 디렉터리를 마켓플레이스로 덮어쓴다. 하네스를 고치며 시험장에서 바로 확인할 때 쓴다.
 4. 바꾼 파일 목록과 사람이 직접 할 일을 출력한다. 예: "AGENTS.md 프로젝트 영역을 채운다", "project.json 값을 확인한다"
 
@@ -187,9 +187,9 @@ scripts/harness/test --scheme CoreTracking
 - 검사 목록은 프로젝트의 `.harness/checks.json`에 있다. 훅은 검사 내용을 모르고 이 파일의 글을 옮길 뿐이다([docs/checks.md](docs/checks.md), [ADR 0007](docs/decisions/0007-task-flow.md)).
 - 검증 단계를 지나 넘어가려 하면 훅 `check-run.sh`가 고른 검사의 `run`(결과 파일 확인)을 돌린다. 실패하면 넘어가지 못한다(발표 슬라이드 29, [ADR 0012](docs/decisions/0012-run-gate.md)). 끝내려 할 때는 Stop 훅 `stop-gate.sh`가 작업을 시작한 세션만 done 전에 막는다. 계획 승인은 Plan 모드로 받는다.
 
-### 7. 리뷰: ios-reviewer
+### 7. 리뷰: reviewer
 
-PR을 만들기 전에 메인 에이전트가 플러그인의 서브에이전트 `ios-reviewer`에게 변경 검토를 맡긴다.
+PR을 만들기 전에 메인 에이전트가 플러그인의 서브에이전트 `reviewer`에게 변경 검토를 맡긴다.
 
 1. `git diff HEAD`, `git status --porcelain`으로 바뀐 파일을 찾는다.
 2. 바뀐 파일을 하나씩 연다. 이때 경로 규칙이 함께 들어와서 그 규칙에 비춰 본다.
@@ -217,7 +217,7 @@ PR을 만들기 전에 메인 에이전트가 플러그인의 서브에이전트
 | `README.md` | 이 문서. 처음 보는 사람을 위한 개요 |
 | `AGENTS.md` | **이 저장소를 개발할 때** 에이전트가 따르는 지침. 대상 프로젝트에 설치되는 지침은 `template/AGENTS.md`다 |
 | `CLAUDE.md` | `@AGENTS.md`를 불러온다 |
-| `.claude-plugin/marketplace.json` | 이 저장소를 마켓플레이스 `ios-ai-harness`로 만든다. 플러그인 위치는 `./plugin` |
+| `.claude-plugin/marketplace.json` | 이 저장소를 마켓플레이스 `ai-harness`로 만든다. 플러그인 위치는 `./plugin` |
 
 ### template/ — 대상 프로젝트에 복사되는 원본
 
@@ -262,23 +262,23 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `ios/settings.json` | iOS 권한 규칙(인증서·프로비저닝 읽기 deny, pbxproj 편집 deny) |
 | `ios/agents-commands.md`, `agents-notes.md`, `agents-rules.md` | AGENTS.md 관리 블록의 `<!-- harness:pack … -->` 자리에 들어갈 명령 표 줄, 안내, 규칙 표 줄 |
 
-### plugin/ — Claude Code 플러그인 ios-harness
+### plugin/ — Claude Code 플러그인 harness
 
 복사하지 않는다. Claude Code가 GitHub 마켓플레이스(이 저장소)에서 설치한다. 구성은 [docs/plugin.md](docs/plugin.md)에 있다.
 
 | 파일 | 계층 | 역할 |
 |---|---|---|
-| `.claude-plugin/plugin.json` | — | 플러그인 이름(`ios-harness`)과 버전 |
+| `.claude-plugin/plugin.json` | — | 플러그인 이름(`harness`)과 버전 |
 | `hooks/hooks.json` | Enforcement + Context | 모든 도구 전에 `tool-count.sh`, 편집 직전에 `protect-generated.sh`·`check-run.sh`, 편집 직후에 `stage-context.sh`, Read 직후·서브에이전트가 끝날 때 `review-record.sh`, 끝낼 때 `stop-gate.sh`를 실행하도록 등록 |
 | `hooks/protect-generated.sh` | Enforcement | 생성 파일·pbxproj 편집을 막는 훅 |
 | `hooks/check-run.sh` | Enforcement + Validation | 검증 단계를 넘기려 할 때 고른 검사의 `run`을 돌려 실패하면 막는 훅 |
 | `hooks/stop-gate.sh` | Enforcement | 작업 주인 세션이 done 전에 끝내지 못하게 막는 훅 (반복 방지는 ai-bouncer와 같다. 백그라운드 서브에이전트를 기다리는 동안은 막지 않는다) |
 | `hooks/tool-count.sh` | State | 작업 주인 세션의 도구 호출 수를 세는 훅 (stop-gate.sh가 쓴다) |
 | `hooks/stage-context.sh` | Context | 작업 상태 파일(`.harness/state/task.json`)이 바뀌면 그 단계의 지시를 `.harness/checks.json`에서 꺼내 넣는 훅 |
-| `hooks/review-record.sh` | Validation | ios-reviewer가 Read로 연 파일과 보고서의 차단 수로 `.harness/out/review.json`을 남기는 훅. `passed review`가 이 파일을 본다 |
+| `hooks/review-record.sh` | Validation | reviewer가 Read로 연 파일과 보고서의 차단 수로 `.harness/out/review.json`을 남기는 훅. `passed review`가 이 파일을 본다 |
 | `skills/task/SKILL.md` | State | 작업 시작: 계획 여부(plan/simple)와 검사를 사용자에게 묻고 상태 파일을 만든다 |
 | `.mcp.json`, `mcp/network.py` | Validation 보조 | 가짜 응답 서버 MCP `harness-network`. AI가 건 지연·400·500·빈 응답을 실제 서버 대신 앱에 돌려준다. `e2e.network.port`를 적은 프로젝트에서만 켜진다 |
-| `agents/ios-reviewer.md` | Validation (추론적) | 읽기 전용 리뷰 서브에이전트의 지시문 |
+| `agents/reviewer.md` | Validation (추론적) | 읽기 전용 리뷰 서브에이전트의 지시문 |
 
 ### scripts/ — 하네스를 설치하는 도구
 
@@ -300,7 +300,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `lib.sh` | `assert_eq`, `finish` 같은 테스트 도우미 |
 | `detect.test.sh` | 생성기(Tuist·XcodeGen·xcodeproj·SPM)별로 detect가 만든 초안 |
 | `build.test.sh` | build가 쓰는 공용 함수: 시뮬레이터 선택, 에러 요약 형식, 다시 생성할지 판단 |
-| `review-record.test.sh` | 리뷰 기록 훅: ios-reviewer의 Read만 적기, 안 연 파일·차단 수로 판정, `passed review`의 최신 판정 |
+| `review-record.test.sh` | 리뷰 기록 훅: reviewer의 Read만 적기, 안 연 파일·차단 수로 판정, `passed review`의 최신 판정 |
 | `unit-test.test.sh` | test·unit-test의 공용 함수(실패 요약 등)와 unit-test의 실행 계획: 바뀐 파일 → 모듈 → 돌릴 테스트 |
 | `lint.test.sh` | 컨벤션 파일 검사, SwiftLint 설정 변환, 점수 판정, 주석·문자열 제외, 바뀐 파일 고르기 |
 | `lint-kinds.test.sh` | 규칙 종류 format(swift-format 설정·결과 거르기)과 dependency(모듈 그래프·숨은 import 판정, 위치, 언제 도는지, 규칙에 없는 모듈 알림) |
@@ -345,6 +345,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `decisions/0018-core-and-packs.md` | 공통 핵심과 플랫폼 묶음으로 나누고, 아무 명령의 결과를 record로 남기는 이유 |
 | `decisions/0019-pack-install.md` | 묶음을 pack.json 목록으로 정하고, 설정의 플랫폼 값을 묶음 이름 아래로 옮긴 이유 |
 | `decisions/0020-install-checks-permissions-root.md` | 검사 목록은 setup 안내로 사용자와 정하고, sync가 넣었던 권한 규칙을 지우고, 스크립트가 가장 가까운 설정을 루트로 쓰는 이유 |
+| `decisions/0021-rename.md` | 이름에서 iOS를 빼고(플러그인 `harness`, 리뷰어 `reviewer`), sync가 예전 이름의 항목을 지우는 이유 |
 | `decisions/0007-task-flow.md` | 사람이 고른 모드·검사와 단계 지시 훅으로 작업 흐름을 만들고, 강제는 미룬 이유 |
 
 ## 설치하면 대상 프로젝트는 이렇게 된다
@@ -397,7 +398,7 @@ claude plugin validate plugin
 
 ## 진행 상황
 
-- 단위 1~8 완료: 저장소 구조, 프로젝트 설정 파일·detect, build·test·verify, 경로 규칙, AGENTS.md 템플릿, 훅·권한·플러그인, ios-reviewer
+- 단위 1~8 완료: 저장소 구조, 프로젝트 설정 파일·detect, build·test·verify, 경로 규칙, AGENTS.md 템플릿, 훅·권한·플러그인, reviewer
 - 단위 9 완료: MotoTrace에 설치해 확인한 뒤 시험장을 ReadSharp로 옮겼다. 실패 기록 14개를 계층별로 분류해 이후 순서를 정했다
 - 후보 11 완료: 팀 컨벤션 목록과 `lint`(SwiftLint + 점수 판정). 레이어 의존·형식 검사는 후보 20에서 더했다(ADR 0014)
 - 후보 12 완료: 사람이 모드·검사를 고르는 작업 흐름(`task` 스킬 + 단계 지시 훅)
