@@ -94,6 +94,19 @@ rm "$p/.harness/checks.json"
 out="$(ctx '{"title":"x","mode":"simple","stage":"verify","checks":["lint"]}')"
 assert_eq "checks.json이 없어도 동작하고 없는 검사를 알린다" "yes" "$(has "- lint: .harness/checks.json에 없는 검사다" "$out")"
 
+# 단계 순서는 flows.json 한 곳에서 읽는다 (check-run.sh도 같은 파일)
+cp -R "$here/../plugin/hooks" "$work/hooks"
+echo '{"plan":["plan","implement","verify","finish"],"simple":["implement","verify","qa","finish"]}' > "$work/hooks/flows.json"
+printf '%s' '{"mode":"simple","stage":"x"}' > "$p/.harness/state/task.json"
+out="$(jq -n --arg f "$p/.harness/state/task.json" '{cwd: "/", tool_input: {file_path: $f}}' | "$work/hooks/stage-context.sh" | jq -r '.hookSpecificOutput.additionalContext')"
+assert_eq "flows: flows.json의 단계 순서를 쓴다" "yes" "$(has "implement → verify → qa → finish" "$out")"
+mkdir -p "$p/.harness/out"
+echo '{"checks":[{"name":"lint","prompt":"x","run":"false"}]}' > "$p/.harness/checks.json"
+printf '%s' '{"mode":"simple","stage":"verify","checks":["lint"]}' > "$p/.harness/state/task.json"
+gate() { jq -n --arg f "$p/.harness/state/task.json" '{tool_name: "Write", cwd: "/", tool_input: {file_path: $f, content: "{\"mode\":\"simple\",\"stage\":\"qa\",\"checks\":[\"lint\"]}"}}' | "$1" > /dev/null 2>&1 && echo 0 || echo $?; }
+assert_eq "flows: check-run.sh도 flows.json을 읽는다 (verify 다음 단계로 가면 run을 돌린다)" "2" "$(gate "$work/hooks/check-run.sh")"
+assert_eq "flows: 원래 flows.json에는 qa가 없어 막지 않는다" "0" "$(gate "$here/../plugin/hooks/check-run.sh")"
+
 # --- 끼어들지 않는 경우 --------------------------------------------------------
 assert_eq "다른 파일은 무시" "" "$(ctx '{"mode":"simple","stage":"implement"}' "$p/App/A.swift")"
 mkdir -p "$work/other/.harness/state"

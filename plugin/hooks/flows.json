@@ -1,0 +1,4 @@
+{
+  "plan": ["plan", "implement", "verify", "finish"],
+  "simple": ["implement", "verify", "finish"]
+}

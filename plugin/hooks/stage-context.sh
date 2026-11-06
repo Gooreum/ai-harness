@@ -58,9 +58,10 @@ else
   checks=""
 fi
 
-context="$(jq -r --slurpfile conf <(if [ -n "$checks" ]; then cat "$checks"; else echo '{}'; fi) '
+# 모드별 단계 순서는 flows.json 한 곳에 둔다. check-run.sh도 같은 파일을 읽는다.
+flows="$(cat "$(dirname "$0")/flows.json" 2>/dev/null)" || exit 0
+context="$(jq -r --argjson flows "$flows" --slurpfile conf <(if [ -n "$checks" ]; then cat "$checks"; else echo '{}'; fi) '
   ($conf[0]) as $c
-  | { plan: ["plan", "implement", "verify", "finish"], simple: ["implement", "verify", "finish"] } as $flows
   | {
       plan: "계획만 세운다. 승인 전에는 코드를 고치지 않는다. 먼저 EnterPlanMode를 호출한다. 바꿀 파일, 바꾸는 방법, 확인 방법을 계획에 담고 ExitPlanMode로 사용자 승인을 받는다. 승인되면 다음 단계로 넘어간다. 거부되면 피드백을 반영해 계획을 다시 쓴다. ExitPlanMode가 에러를 내면 승인되지 않은 것이다.",
       implement: "구현한다. 계획 단계를 거쳤으면 승인받은 계획대로 한다. 검사는 다음 단계에서 한다.",
