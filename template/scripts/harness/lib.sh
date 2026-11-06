@@ -2,7 +2,7 @@
 # Xcode·시뮬레이터 함수는 ios.sh에 있다(ADR 0018).
 #
 # harness_init 이후 쓸 수 있는 변수
-#   root          프로젝트 루트 (HARNESS_ROOT 또는 현재 디렉터리의 git 루트)
+#   root          프로젝트 루트 (HARNESS_ROOT, 아니면 현재 디렉터리에서 가장 가까운 .harness/project.json, 없으면 git 루트)
 #   config        .harness/project.json 경로
 #   state_dir     .harness/state — 스크립트가 남기는 로컬 상태
 #   out_dir       .harness/out — 마지막 실행의 로그와 결과
@@ -13,9 +13,24 @@ harness_die() {
   exit 2
 }
 
+# 프로젝트 루트: 현재 디렉터리에서 위로 올라가며 .harness/project.json을 찾는다. 훅과 같은 기준이다.
+# 모노레포의 하위 폴더(apps/ios 등)에 설치해도 그 폴더가 루트가 된다. git 최상위를 넘어가지 않는다.
+# 못 찾으면 git 최상위, 그것도 없으면 현재 디렉터리. ai-bouncer의 bouncer_project_root와 같다.
+harness_find_root() {
+  local top d
+  top="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+  d="$(pwd -P)"
+  while :; do
+    [ -f "$d/.harness/project.json" ] && { printf '%s\n' "$d"; return 0; }
+    { [ "$d" = "$top" ] || [ "$d" = / ]; } && break
+    d="$(dirname "$d")"
+  done
+  printf '%s\n' "${top:-$(pwd)}"
+}
+
 harness_init() {
   command -v jq >/dev/null 2>&1 || harness_die "jq가 필요합니다 (macOS에는 /usr/bin/jq로 기본 포함)"
-  root="${HARNESS_ROOT:-$(git rev-parse --show-toplevel 2>/dev/null || pwd)}"
+  root="${HARNESS_ROOT:-$(harness_find_root)}"
   root="$(cd "$root" && pwd)"
   config="$root/.harness/project.json"
   [ -f "$config" ] || harness_die ".harness/project.json이 없습니다. 하네스 저장소의 scripts/detect --write <프로젝트 경로>로 만드세요"
@@ -40,7 +55,7 @@ harness_task_base() {
 # 파일($1)의 수정 시각(초)
 harness_mtime() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null; }
 
-# 바뀐 파일 목록(루트 기준 경로, 한 줄에 하나). unit-test·lint·passed가 같은 기준을 쓴다.
+# 바뀐 파일 목록(루트 기준 경로, 한 줄에 하나). 루트가 git 하위 폴더면 그 안의 변경만 본다(--relative). unit-test·lint·passed가 같은 기준을 쓴다.
 # $1이 있으면 그 브랜치에서 갈라진 뒤의 모든 변경.
 # 없으면, 작업 중이면 작업을 시작한 커밋 이후의 변경(작업 중에 커밋해도 빠지지 않는다)과, 추적 안 된 파일 중
 # 작업을 시작한 뒤에 고친 것. 작업 중이 아니면 커밋하지 않은 변경(HEAD 대비 수정 + 새 파일).
@@ -58,7 +73,7 @@ harness_changed_files() {
     fi
   fi
   (cd "$root" && {
-      git diff --name-only "$from"
+      git diff --name-only --relative "$from"
       git ls-files -o --exclude-standard | while IFS= read -r f; do
         # 작업 전부터 있던 추적 안 된 파일은 이번 작업의 변경이 아니다.
         if [ -n "$started" ] && [ "$(harness_mtime "$f")" -lt "$started" ]; then continue; fi

@@ -72,6 +72,34 @@ for f in checks.json conventions.json; do
   [ ! -f "$root/.harness/$f" ] || jq empty "$root/.harness/$f" 2> /dev/null || problem ".harness/${f}가 올바른 JSON이 아니다"
 done
 
+# 검사 목록의 run이 실제로 돌 수 있는지 본다. 안 되면 verify 단계를 영영 넘지 못하거나, 결과가 없어 늘 막힌다.
+# - run의 첫 낱말(명령)이 프로젝트 안의 실행 파일이거나 PATH에 있어야 한다.
+# - run이 "scripts/harness/passed <이름>"이면 그 결과를 만드는 것이 있어야 한다:
+#   scripts/harness/<이름> 스크립트, prompt의 "record <이름>", 또는 리뷰 서브에이전트(review 결과는 훅이 쓴다).
+checks_file="$root/.harness/checks.json"
+if [ -f "$checks_file" ] && jq empty "$checks_file" 2> /dev/null; then
+  while IFS=$'\t' read -r name run prompt; do
+    [ -n "$run" ] || continue
+    cmd="${run%% *}"
+    if [ "${cmd#*/}" != "$cmd" ]; then
+      [ -x "$root/$cmd" ] || problem "checks.json의 '$name' run 명령이 없다: $cmd" "run을 고치거나 하네스 저장소에서 scripts/sync <이 프로젝트>"
+    elif ! command -v "$cmd" > /dev/null 2>&1; then
+      problem "checks.json의 '$name' run 명령을 찾지 못했다: $cmd" "설치하거나 run을 고친다"
+    fi
+    case "$run" in
+      scripts/harness/passed\ *) ;;
+      *) continue ;;
+    esac
+    result="$(printf '%s' "${run#scripts/harness/passed }" | awk '{ print $1 }')"
+    if [ "$result" = review ] || [ -x "$root/scripts/harness/$result" ]; then continue; fi
+    case "$prompt" in
+      *"record $result "* | *"record $result") ;;
+      *) problem "checks.json의 '$name'이 결과 '$result'를 확인하지만 만드는 곳이 없다" \
+           "prompt에 scripts/harness/record $result <명령>을 적거나 scripts/harness/${result}를 둔다" ;;
+    esac
+  done < <(jq -r '.checks // [] | .[] | [.name // "?", .run // "", .prompt // ""] | map(gsub("[\t\n]"; " ")) | @tsv' "$checks_file")
+fi
+
 # --- 설치된 파일 -----------------------------------------------------------------
 
 installed_version=""
