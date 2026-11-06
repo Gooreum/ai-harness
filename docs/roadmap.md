@@ -1,16 +1,16 @@
 # 로드맵
 
-여러 iOS 프로젝트에서 재사용할 범용 하네스를 작업 단위로 나눠 하나씩 쌓아간다.
+여러 프로젝트에서 재사용할 하네스를 작업 단위로 나눠 하나씩 쌓아간다. 단위 1~20은 iOS용으로 만들었고, 단위 21부터는 어떤 플랫폼에서든 쓰는 범용 하네스로 넓힌다.
 단위 하나는 세션 하나 분량이다. 커밋 1~3개로 마무리하고, 끝나면 여기 체크박스를 갱신한다.
 
-지금: 없음 — 남은 단위가 없다. 화면 검증(후보 10)은 Figma 시안이 있는 프로젝트가 생기면 한다
+지금: 21. 지금 있는 문제 먼저 고치기 (범용 하네스)
 
 (위 줄은 로드맵 패널이 읽는다. 작업 단위를 바꾸면 함께 고친다.)
 
 ## 정해진 것
 
 - 에이전트: Claude Code만 지원한다. Codex 어댑터(후보 16)는 뺐다(2026-11-05).
-- 스크립트: bash + jq로 작성한다. 둘 다 macOS에 기본으로 들어 있어 따로 설치할 필요가 없다.
+- 스크립트: bash + jq로 작성한다. 둘 다 macOS에 기본으로 들어 있어 따로 설치할 필요가 없다. Linux 지원 여부는 범용 하네스의 단위 30에서 정한다.
 - 설계 근거: 레퍼런스에서 도출한 범용 원칙을 따른다. 출처는 OpenAI, Anthropic, Böckeler, HumanLayer, Sentry 등이다.
 - 시험장: ReadSharp(`~/Code/EnglishStudy`, xcodeproj 단일 앱)의 `~/Code/EnglishStudy-harness` 워크트리에서 각 단위를 실제로 돌려본다.
   - 시험장에 이미 있는 하네스 구성은 설계 근거로 삼지 않는다.
@@ -188,6 +188,141 @@
   - ~~`ios-build-fix`, `tuist-change` 스킬~~: 뺐다(2026-11-05). 첫 로드맵에 이름만 있었고, 발표·ai-bouncer에 근거가 없으며, 시험장에서 이 스킬이 없어 생긴 실패가 없다
   - 진행 (2026-11-05): IntervalTimer에 모듈 의존 4개·형식 3개, ReadSharp에 형식 3개를 넣었다. 기존 코드는 통과했고, 일부러 넣은 Feature 사이 의존·`try!`·`String!`·소문자 타입 이름을 모두 잡았다. 의존 위반은 그 모듈을 선언한 `Project.swift` 줄로 나온다
 
+## 범용 하네스 (2026-11-06~)
+
+어떤 플랫폼(iOS, React Native, Android, 웹, 서버, 앱이 아닌 저장소)이든 이 하네스로 개발하게 넓힌다.
+
+- 근거: 발표 슬라이드 19·21·38. v1이 다른 플랫폼에서 못 쓴다는 피드백을 받았고, v2는 "하네스도 훅도 그대로, 저장소마다 config만 다르게" 했다. 웹 저장소는 lint·typecheck·unit-test·build, LLM Wiki 저장소는 bats를 검사로 썼다.
+- 구조: **공통 핵심 + 플랫폼 묶음**이다.
+  - 공통 핵심: 단계 훅, Stop 게이트, `task` 스킬, `checks.json`, `passed`, `wiki`, 리뷰 절차.
+  - 플랫폼 묶음: 빌드·테스트·e2e 스크립트, 규칙, 권한, 생성 파일 목록, 리뷰 확인 항목, doctor 항목.
+  - 한 프로젝트가 묶음을 여러 개 쓸 수 있다. React Native는 JS, iOS, Android를 함께 쓴다.
+- 검증 방식은 플랫폼마다 다르다. 특히 e2e가 그렇다.
+  - 공통 규칙: 기능 시나리오와 영향 시나리오를 나누고, 조건은 시나리오 안에서 만들고, 증거를 남기고, 배포 전에 회귀 묶음을 돌린다.
+  - 도구: 모바일(iOS, Android, RN, Flutter)은 Maestro를 함께 쓰고 앱 설치만 simctl·adb로 나눈다. 웹은 Playwright, 서버는 HTTP 시나리오를 쓴다.
+- 순서: 지금 있는 문제(21) → 공통 핵심(22) → 묶음 구조(23) → 이름 변경(24) → 리뷰어·권한(25) → 묶음 없는 저장소(26) → RN(27·28).
+  - 웹(29)과 Linux(30)는 필요해지면 한다.
+  - 각 묶음은 실제 시험장에서 막히는 것을 보고 만든다. 미리 다 대비하지 않는다(진행 원칙 1).
+- 점검 기록: 2026-11-06에 코드를 읽어 특이점 100개를 찾았다. 아래 단위의 할 일이 그 목록이다. "관찰되면 한다"에 둔 것은 시험장에서 실제로 막힐 때 한다.
+- 정할 것 (해당 단위를 시작할 때 묻는다)
+  - 새 이름(저장소·플러그인·마켓플레이스): 단위 24
+  - RN 시험장 프로젝트와 Expo·bare 여부, RN iOS를 `xcodebuild`로 빌드할지 `expo run:ios`로 할지: 단위 27
+  - 컨벤션 검사 방식: andcon처럼 규칙에서 도구 설정을 만들지, 프로젝트의 기존 eslint 등을 그대로 쓸지. 단위 27
+  - 웹 e2e를 Maestro(웹 지원)로 할지 Playwright로 할지: 단위 29
+  - 지원 OS(macOS만인지 Linux까지인지): 단위 30
+  - detect가 알아볼 범위(Flutter, KMP, nx·turborepo 모노레포), 한 저장소에 앱이 여럿일 때 쓸 설정: 단위 23
+
+- [ ] **21. 지금 있는 문제 먼저 고치기** (iOS 시험장에서 확인)
+  - `passed`
+    - 최신인지 볼 때 HEAD가 아니라 작업을 시작한 커밋 기준으로 바뀐 파일을 본다. 작업 중에 커밋하면 옛 결과가 통과한다(ai-bouncer `result_fresh`의 `base_sha`)
+    - 새 작업인지 "제목+모드"로 구분한다. 같은 제목으로 다시 시작하면 지난 결과가 통과한다. 작업마다 시작 시각을 새로 적는다
+    - 결과가 없을 때 `scripts/harness/<이름>`을 실행하라고 안내하는데, review 같은 검사에는 틀린 안내다. 검사의 prompt를 따르라고 바꾼다
+  - unit-test
+    - 바뀐 모듈만 테스트하고 그 모듈에 의존하는 모듈은 테스트하지 않는다. 의존 관계를 거꾸로 따라 넓힌다
+    - 문서만 바꿔도 앱 전체를 빌드·테스트한다. 코드가 아닌 파일은 거른다
+    - 테스트가 하나도 돌지 않아도 통과로 친다. 따로 표시한다
+  - e2e
+    - `--no-build`는 예전에 빌드한 앱으로 통과할 수 있다. 앱의 빌드 시각도 비교한다
+    - 워크트리 두 곳이 같은 시뮬레이터를 골라 동시에 돌리면 서로 덮어쓴다
+    - 가짜 응답 포트가 커밋되는 `project.json`에 있어 같은 프로젝트의 워크트리끼리 겹친다(ReadSharp 원본과 harness 워크트리가 둘 다 18787)
+  - 의존성 설치
+    - `commands.install`은 `generate`가 있을 때만 돈다. CocoaPods를 쓰는 xcodeproj 프로젝트는 `pod install`이 돌지 않는다
+    - 설치 지문이 Tuist 파일만 본다. `Podfile.lock`도 본다
+  - 리뷰 대상에 작업 전부터 있던 추적 안 된 파일이 섞인다
+  - 단계 순서(plan/simple)가 `stage-context.sh`와 `check-run.sh` 두 곳에 따로 있다. 한 곳에서 읽게 한다
+  - doctor가 규칙 폴더 git 무시 여부를 `swift.md`로 확인한다. 공통 파일로 확인한다
+  - sync가 `scripts/harness/`에서 template에 없는 파일을 지운다. 팀이 넣은 스크립트도 지워진다
+  - `testing.md`("프로덕션 코드에 테스트 전용 분기를 넣지 않는다")와 `maestro.md`(테스트용 실행 인자, `-HarnessNetworkBaseURL`)가 충돌한다. 예외를 적는다
+  - 가짜 응답 서버의 `VERSION`이 0.9.2에 머물러 있다
+  - 완료 기준: 고친 것마다 회귀 테스트가 있고, ReadSharp·IntervalTimer에서 기존 작업 흐름이 그대로 통과한다
+- [ ] **22. 공통 핵심 떼어 내기와 `record`**
+  - `lib.sh`를 공통과 iOS로 나눈다. `harness_init`이 Xcode를 고르고 `simctl`을 부르지 않게 한다. 지금은 `passed`·`wiki`도 이 과정을 거친다
+  - `scripts/harness/record <이름> <명령>`: 어떤 명령이든 실행하고 `.harness/out/<이름>.json`을 남긴다(ai-bouncer `bouncer record`)
+    - 결과 형식은 JSON(`passed`, `summary`, 종료 코드)으로 둔다. ai-bouncer는 로그 끝에 `exit: N`을 쓴다. 이 차이는 ADR에 남긴다
+    - 전체 로그는 `.harness/out/<이름>.log`에 두고, 화면에는 끝부분만 보여 준다(성공은 짧게, 실패는 첫 에러부터). ai-bouncer는 전부 보여 준다. 이 차이도 ADR에 남긴다
+    - `CI=1`을 넣어 감시 모드(watch)로 떠서 끝나지 않는 일을 막는다
+    - 검사 이름은 영문·숫자·`-`·`_`만 허용한다(ai-bouncer와 같다)
+    - 10분 넘게 걸리는 명령(Gradle, e2e)은 백그라운드로 돌리고 결과 파일을 보라고 안내한다
+  - 파일을 고치는 검사(`--fix`, 포매터, 설치)는 다른 검사보다 먼저 돌리라고 규칙에 적는다. 나중에 돌리면 앞 결과가 낡은 것이 된다
+  - jq가 없으면 모든 훅이 조용히 꺼진다. doctor와 단계 지시에서 알린다
+  - ADR: 공통 핵심 + 플랫폼 묶음 구조
+  - 완료 기준: iOS 스크립트 없이 `record`와 `passed`만으로 `checks.json`의 검사가 게이트를 통과·실패한다
+- [ ] **23. 플랫폼 묶음과 설치**
+  - 묶음 구조: 묶음마다 스크립트, 규칙(`rules/harness/<묶음>/`), 권한, 생성 파일 목록, AGENTS.md 관리 블록 조각, doctor 항목을 둔다
+  - 한 프로젝트가 묶음을 여러 개 고를 수 있다. 고른 묶음을 설치 기록에 남기고, sync가 그 기록으로 설치하고 지울 것을 계산한다
+  - `project.json`: `platforms` 필드를 두고 iOS 키(`app.scheme`, `bundleId` …)를 iOS 아래로 옮긴다. `schemaVersion`을 올리고 ReadSharp·IntervalTimer 설정을 옮긴다
+  - detect가 파일을 보고 묶음을 고른다(Xcode, package.json, gradlew, pyproject, Cargo, go.mod)
+  - 검사 목록 초안: init이 저장소에서 찾은 명령으로 `checks.json` 초안을 만든다. 지금은 아무도 만들지 않는다(ai-bouncer `setup.sh`)
+  - sync가 권한 규칙을 더하기만 하고 지우지 않는다. 하네스가 넣은 항목은 지울 수 있게 한다
+  - 하위 폴더 프로젝트(모노레포)
+    - 스크립트는 git 최상위를 루트로, 훅은 가장 가까운 `.harness/project.json`을 루트로 쓴다. 맞춘다
+    - `git diff --name-only`가 저장소 루트 기준 경로를 내서 리뷰가 "바뀐 파일 0개"로 통과한다. `--relative`를 쓴다
+  - AGENTS.md 제목을 `app.scheme`이 아니라 폴더 이름으로 한다
+  - doctor가 `checks.json`의 run 명령과 결과 이름이 실제로 있는지 확인한다
+  - 완료 기준: iOS 묶음으로 ReadSharp·IntervalTimer를 sync했을 때 지금과 같게 돈다
+- [ ] **24. 이름 바꾸기와 이전**
+  - 저장소, 플러그인(`ios-harness`), 마켓플레이스(`ios-ai-harness`, owner `woong`), 리뷰어(`ios-reviewer`) 이름
+  - 이미 설치한 곳이 깨지지 않게 한다: `enabledPlugins` 키, doctor에 박힌 id, 리뷰 기록 훅의 이름 비교, 시험장 `checks.json` 지시문의 `ios-harness:ios-reviewer`. sync가 옛 항목을 지우고 새 항목을 넣는다. 둘이 같이 켜지면 훅이 두 번 돈다
+  - README, `docs/*`, AGENTS.md·CLAUDE.md, `plugin.json`·`marketplace.json`의 설명
+  - 완료 기준: 시험장 두 곳이 sync 한 번으로 새 이름의 플러그인을 쓰고, 옛 플러그인이 꺼져 있다
+- [ ] **25. 공통 리뷰어와 권한**
+  - 리뷰어는 공통 절차(바뀐 파일 열기, 기존 영향 찾기, 보고 형식)만 두고, 확인 항목과 편법 목록은 묶음 규칙에서 읽는다
+    - 편법 예: 스냅샷 갱신(`-u`), `@ts-ignore`, `eslint-disable`, `any`, tsconfig strict 끄기, `@Suppress`
+    - 리뷰어 설명과 관리 블록이 늘 iOS를 말하면 RN에서 JS만 고칠 때도 iOS 지시가 섞인다(발표 슬라이드 19 "웹 작업인데 안드로이드 검증 스킬을 불러와요")
+  - 리뷰어가 열지 않아도 되는 파일(lock 파일, 스냅샷, 생성 코드, `webp`·`woff2`·`ico`·`jar`·`aar`·`so`·`wasm`)을 묶음이 정한다
+  - 생성 파일 보호(`protect-generated.sh`)도 목록을 묶음과 설정에서 받는다. 예: Expo prebuild의 `ios/`·`android/`, GraphQL·OpenAPI codegen, Prisma client, lock 파일
+  - 묻는 명령(ask)을 묶음이 더한다: `npm publish`, `eas submit`·`eas update`, `fastlane`, gradle publish, `firebase deploy`, `vercel`. `git -C`처럼 `npm --prefix`, `yarn --cwd`, `gradle -p` 변형도 넣는다
+  - 비밀 파일 막기(deny)를 묶음이 더한다: `*.jks`, `*.keystore`, `keystore.properties`, `local.properties`, `.npmrc`, Expo `credentials.json`. `.env`는 Read뿐 아니라 Bash로 읽는 것도 막는다
+  - 내려받은 저장소의 `checks.json` run이 자동으로 실행된다는 점을 문서와 doctor에 적는다
+  - 관찰되면 한다: 바뀐 파일이 수백 개(codemod, 이름 바꾸기)일 때의 리뷰 규칙
+  - 완료 기준: iOS 시험장에서 지금과 같은 리뷰 결과가 나오고, 묶음 규칙을 바꾸면 리뷰 항목이 따라 바뀐다
+- [ ] **26. 묶음 없는 저장소**
+  - 빌드·e2e가 없는 저장소에서 `record`, `passed`, `wiki`, 리뷰만으로 돈다(발표의 LLM Wiki 저장소)
+  - 시험장: 이 하네스 저장소 자체(`bash tests/run.sh`)
+  - 앱이 없는 iOS 저장소(SPM 라이브러리)도 doctor가 문제로 치지 않게 한다
+  - 완료 기준: 이 저장소에서 `task`로 시작한 작업이 `record`로 남긴 테스트 결과로 게이트를 통과한다
+- [ ] **27. JS·React Native 묶음** (시험장: RN 프로젝트)
+  - 바뀐 것만 테스트: `jest --findRelatedTests`, `vitest related`
+  - 의존성: 설치 지문에 `package-lock.json`·`yarn.lock`·`pnpm-lock.yaml`을 넣고 `node_modules`를 설치한다. 패키지 매니저는 lock 파일로 고른다(ai-bouncer `setup.sh`)
+  - Expo prebuild는 `generate` 자리에 둔다
+  - RN iOS: CocoaPods, `ios/.xcode.env`의 node 경로
+  - doctor: node 버전(`.nvmrc`·volta), 비대화형 셸에서 nvm이 불러와지는지, CocoaPods
+  - 규칙: `testing.md`의 경로(`__tests__`, `*.test.ts`)와 내용을 공통·묶음으로 나눈다. 컨벤션 검사 방식은 위 "정할 것"대로
+  - 완료 기준: RN 시험장에서 `task` 작업 하나가 lint·typecheck·unit-test·review를 고르고 게이트를 통과한다
+- [ ] **28. 모바일 e2e를 Android·RN으로**
+  - 앱 id가 플랫폼마다 다르다(bundleId, applicationId). `--platform`과 앱 id 두 개를 둔다. 결과는 `e2e-ios`·`e2e-android`로 나눈다
+  - Android
+    - 빌드 변형(debug/release, flavor)이 iOS 스킴에 해당한다. debug의 `applicationIdSuffix` 때문에 앱 id가 달라지니 빌드 결과에서 읽는다
+    - 기기를 고를 때 버전을 고정하지 않는다. 켜진 에뮬레이터를 먼저 쓰고, 없으면 최신 AVD를 띄운다
+    - doctor: JAVA_HOME, ANDROID_HOME, adb
+  - RN 디버그 빌드는 Metro가 떠 있어야 한다. 워크트리마다 포트를 나눈다(DerivedData를 워크트리별로 나눈 것과 같다)
+  - 가짜 응답 서버
+    - Android 에뮬레이터에서는 Mac이 `10.0.2.2`로 보인다(또는 `adb reverse`)
+    - Android 9 이상은 `http://` 평문을 막는다. 디버그 `network_security_config`를 안내한다
+    - 앱 쪽 약속을 묶음별로 둔다: iOS 실행 인자, Android intent extra, RN JS 설정
+  - Maestro 규칙의 요소 id 표현을 묶음별로 쓴다(RN `testID`, Android `testTag`·`resource-id`). 클립보드 규칙은 iOS 묶음으로 옮긴다
+  - 관찰되면 한다: 행동 로그(logcat), 녹화(`adb screenrecord`는 3분 제한), 계측 테스트(`connectedAndroidTest`), 에뮬레이터 부하로 생기는 흔들림과 재시도 규칙
+  - 완료 기준: RN 시험장에서 같은 시나리오가 iOS 시뮬레이터와 Android 에뮬레이터에서 통과한다
+- [ ] **29. 웹 묶음** (웹 시험장이 생기면)
+  - e2e는 위 "정할 것"대로(Playwright 또는 Maestro)
+  - dev 서버를 띄우고, 워크트리마다 포트를 나눈다
+  - 가짜 응답 서버: CORS를 응답한다(지금은 OPTIONS에도 404). Playwright `page.route`로 충분하면 MCP를 쓰지 않는다
+  - 위키 경로를 설정으로 받는다. Docusaurus·VitePress 같은 문서 사이트는 `docs/` 아래를 그대로 공개한다
+  - 관찰되면 한다: 서버 e2e(DB·docker), 화면 검증(후보 10)
+- [ ] **30. Linux 지원** (정하면)
+  - jq가 기본으로 없고, `shasum`·`nc`·BSD `sed` 문법을 쓴다. `passed`의 `stat -f %m`이 GNU stat에서 깨질 것으로 보인다(확인 필요, ai-bouncer도 같은 코드)
+  - 가짜 응답 서버의 `python3` 이름
+  - Linux CI를 둔다. 지금은 CI가 없고 테스트가 이 Mac에서만 돈다
+- 범용 하네스에서 관찰되면 할 것
+  - 가짜 응답 서버: 스트리밍 응답(SSE), 요청 본문 기록
+  - 위키 폴더가 `dist/`·`out/`·`build/` 무시 규칙에 걸리는지 `wiki check`에서 본다(11-03에 한 번 겪었다)
+  - 검사가 많아져 질문이 길어질 때 묶음별 기본 선택
+  - 진행 중인 작업을 새 세션에 알리는 세션 시작 훅(ai-bouncer `session-start.sh`)
+  - `passed e2e`가 어떤 시나리오를 돌렸는지 보지 않는 문제
+  - 묶음마다 다른 하네스 버전
+  - macOS·iPad·watch 앱, Flutter·KMP 묶음
+  - Codex 지원은 단위 16에서 뺀 그대로 둔다
+
 ## 만들지 않는 것
 
 발표 팀이 써 본 뒤 걷어낸 것이다. 실패가 관찰되기 전에는 넣지 않는다.
@@ -199,6 +334,6 @@
 
 ## 단위마다 확인하는 방법
 
-- 완료 기준은 시험장 워크트리(`~/Code/EnglishStudy-harness`)에서 실행해 확인한다.
+- 완료 기준은 시험장 워크트리(`~/Code/EnglishStudy-harness`)에서 실행해 확인한다. 범용 하네스 단위는 그 단위에 적은 시험장(이 저장소, RN 프로젝트 등)에서 확인한다.
 - 스크립트와 훅은 입력 픽스처를 넣는 셸 테스트(`tests/`)로 회귀를 막는다.
 - 중요한 결정은 `docs/decisions/`에 ADR로 남긴다.
