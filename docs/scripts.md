@@ -185,6 +185,20 @@ scripts/harness/doctor
 - 문제(✕)가 있으면 1, 주의(!)만 있거나 문제가 없으면 0으로 끝난다. 문제마다 고치는 방법을 한 줄 붙인다.
 - 설치 직후, 팀원이 처음 프로젝트를 받았을 때, 훅이나 스킬이 동작하지 않을 때 돌린다.
 
+## record
+
+```bash
+scripts/harness/record typecheck npm run typecheck
+scripts/harness/record lint "npm run lint -- --max-warnings 0"   # 하나로 묶으면 bash -c로 실행
+```
+
+- 하네스 스크립트가 없는 검사(typecheck, jest, bats 등)를 돌리고 결과를 남긴다. ai-bouncer `bouncer record`와 같은 짝이다([ADR 0018](decisions/0018-core-and-packs.md)).
+- 프로젝트 루트에서 `CI=1`, 입력 없이 실행한다. 감시 모드나 질문으로 멈추지 않게 한다.
+- 결과 파일 `.harness/out/<이름>.json`: `passed`, `summary`, `exit`(종료 코드), `command`, `seconds`. 시작할 때 이전 결과를 지운다.
+- 전체 출력은 `.harness/out/<이름>.log`. 화면에는 성공하면 한 줄, 실패하면 끝 30줄(`HARNESS_RECORD_TAIL`)과 로그 경로를 보여 준다.
+- 검사 이름은 영문·숫자·`-`·`_`만 쓴다. 종료 코드는 명령의 종료 코드, 인자 오류는 2.
+- `checks.json`에는 prompt에 `record <이름> <명령>`을, run에 `passed <이름>`을 적는다.
+
 ## passed
 
 ```bash

@@ -85,4 +85,9 @@ rm -f "$p/.claude/rules/harness/swift.md"
 run_doctor
 assert_eq "rules ignored: swift.md가 없어도 규칙 폴더가 무시되면 주의를 준다" "yes" "$(has "! .claude/rules/가 git에서 무시돼")"
 
+rc=0; out="$(cd "$p" && env PATH="$(nojq_path "$work")" /bin/bash scripts/harness/doctor)" || rc=$?
+assert_eq "jq가 없으면 문제로 알린다" "1" "$rc"
+case "$out" in *'jq가 없다'*) ok=yes ;; *) ok="$out" ;; esac
+assert_eq "  jq가 없으면 훅이 꺼진다고 알린다" "yes" "$ok"
+
 finish

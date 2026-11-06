@@ -5,7 +5,7 @@ set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
 . "$here/lib.sh"
-. "$here/../template/scripts/harness/lib.sh"
+. "$here/../template/scripts/harness/ios.sh"
 unit_test="$here/../template/scripts/harness/unit-test"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
@@ -178,7 +178,7 @@ assert_eq "result: 바뀐 파일이 없으면 통과로 남긴다" "true|바뀐 
 # --- 돌린 테스트 수 (build·test는 가짜로 바꾼다) ------------------------------------
 fake="$work/fake"
 mkdir -p "$fake"
-cp "$here/../template/scripts/harness/unit-test" "$here/../template/scripts/harness/lib.sh" "$fake/"
+cp "$here/../template/scripts/harness/unit-test" "$here/../template/scripts/harness/lib.sh" "$here/../template/scripts/harness/ios.sh" "$fake/"
 printf '#!/usr/bin/env bash\nexit 0\n' > "$fake/build"
 printf '#!/usr/bin/env bash\necho "{\\"ran\\": $FAKE_RAN}" > "$HARNESS_ROOT/.harness/out/test.json"\n' > "$fake/test"
 chmod +x "$fake/build" "$fake/test"

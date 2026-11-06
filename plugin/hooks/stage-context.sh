@@ -10,7 +10,15 @@
 set -uo pipefail
 
 input="$(cat)"
-command -v jq >/dev/null 2>&1 || exit 0
+# jq가 없으면 하네스의 훅이 모두 아무것도 하지 않는다. 상태 파일을 고친 때만 jq 없이 고정 문구로 알린다.
+if ! command -v jq >/dev/null 2>&1; then
+  case "$input" in
+    *'.harness/state/task.json'*)
+      printf '%s\n' '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":"jq가 없어 ios-harness의 훅(단계 지시, Stop 게이트, 생성 파일 보호)이 모두 꺼져 있다. 사용자에게 jq를 설치하라고 알린다(macOS 15 이상은 /usr/bin/jq 기본 포함). scripts/harness/doctor로 확인한다."}}'
+      ;;
+  esac
+  exit 0
+fi
 
 file="$(printf '%s' "$input" | jq -r '.tool_input.file_path // empty' 2>/dev/null)" || exit 0
 case "$file" in
@@ -65,7 +73,7 @@ context="$(jq -r --argjson flows "$flows" --slurpfile conf <(if [ -n "$checks" ]
   | {
       plan: "계획만 세운다. 승인 전에는 코드를 고치지 않는다. 먼저 EnterPlanMode를 호출한다. 바꿀 파일, 바꾸는 방법, 확인 방법을 계획에 담고 ExitPlanMode로 사용자 승인을 받는다. 승인되면 다음 단계로 넘어간다. 거부되면 피드백을 반영해 계획을 다시 쓴다. ExitPlanMode가 에러를 내면 승인되지 않은 것이다.",
       implement: "구현한다. 계획 단계를 거쳤으면 승인받은 계획대로 한다. 검사는 다음 단계에서 한다.",
-      verify: "아래 검사를 위에서부터 차례로 하나씩 실행하고 실제 출력으로 결과를 확인한다. 실패하면 고친 뒤 다시 실행한다. 통과했다고 말하기 전에 출력을 확인한다.",
+      verify: "아래 검사를 위에서부터 차례로 하나씩 실행하고 실제 출력으로 결과를 확인한다. 실패하면 고친 뒤 다시 실행한다. 통과했다고 말하기 전에 출력을 확인한다. 파일을 고치는 검사(포매터, --fix, 의존성 설치)는 순서와 상관없이 먼저 돌린다. 나중에 돌리면 앞 검사의 결과가 낡은 것이 된다. 10분 넘게 걸리는 검사는 백그라운드로 돌리고 끝난 뒤 결과 파일(.harness/out/<이름>.json)을 확인한다.",
       finish: "무엇을 바꿨는지, 실행한 검사와 그 결과를 실제 출력으로 보고한다. 이번 작업에서 정한 정책·결정 중 코드에 남지 않는 것(왜 이렇게 했는지, 하지 않기로 한 것)을 보고에 따로 정리한다."
     } as $base
   | . as $t

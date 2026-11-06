@@ -3,7 +3,7 @@
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
-. "$here/lib.sh"
+. "$here/ios.sh"
 
 usage() {
   cat <<'EOF'
@@ -38,7 +38,7 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-harness_init
+harness_init_ios
 export HARNESS_ROOT="$root"
 start=$SECONDS
 

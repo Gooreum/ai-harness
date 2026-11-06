@@ -19,3 +19,13 @@ finish() {
   printf '%s: 통과 %d, 실패 %d\n' "$(basename "$0")" "$TESTS_PASSED" "$TESTS_FAILED"
   [ "$TESTS_FAILED" -eq 0 ]
 }
+
+# nojq_path 폴더 — jq만 뺀 PATH. /usr/bin의 명령을 jq만 빼고 그 폴더 아래에 링크한다.
+nojq_path() {
+  local d="$1/nojq-bin"
+  if [ ! -d "$d" ]; then
+    mkdir -p "$d"
+    for f in /usr/bin/*; do [ "$(basename "$f")" = jq ] || ln -s "$f" "$d/" 2> /dev/null || true; done
+  fi
+  echo "/bin:$d"
+}

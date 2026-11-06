@@ -65,6 +65,8 @@
 
 - `project.json`은 프로젝트의 사실, `checks.json`은 팀이 정한 정책이라 나눈다(ADR 0005).
 - 검사 이름은 결과 파일 이름과 같게 둔다(`unit-test` → `.harness/out/unit-test.json` → `passed unit-test`). ai-bouncer의 `bouncer record <이름>`·`bouncer passed <이름>`과 같은 짝이다.
+- 하네스 스크립트가 없는 명령은 `scripts/harness/record <이름> <명령>`으로 돌린다. 예: `{ "name": "typecheck", "prompt": "scripts/harness/record typecheck npm run typecheck를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed typecheck" }`([scripts.md](scripts.md#record)).
+- 파일을 고치는 검사(포매터, `--fix`, 설치)는 먼저 돌린다. 나중에 돌리면 앞 검사 결과가 낡은 것이 돼 `passed`가 막는다. 10분 넘게 걸리는 검사는 백그라운드로 돌리고 결과 파일을 본다. 둘 다 verify 단계 지시에 들어 있다.
 - 검사는 `checks.json`에 적힌 순서대로 돈다(발표 슬라이드 88 "차례로 수행"). 싸고 빠른 것을 앞에, 코드를 바꿀 수 있는 리뷰를 E2E 앞에, 가장 오래 걸리는 E2E를 맨 뒤에 둔다. 그래야 리뷰를 반영한 최종 코드로 E2E를 한 번만 돌린다.
 - `verify`는 단계 이름으로만 쓴다. 빌드·단위 테스트 검사는 발표(슬라이드 38·88)대로 `unit-test`라 부른다.
 - 파일이 없어도 흐름은 동작한다. 고를 검사가 없을 뿐이다.

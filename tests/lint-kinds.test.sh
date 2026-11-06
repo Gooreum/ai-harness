@@ -5,7 +5,7 @@ set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
 . "$here/lib.sh"
-. "$here/../template/scripts/harness/lib.sh"
+. "$here/../template/scripts/harness/ios.sh"
 lint="$here/../template/scripts/harness/lint"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT

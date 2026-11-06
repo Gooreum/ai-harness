@@ -44,6 +44,7 @@ plugin/
 - PostToolUse(Edit·Write·MultiEdit)에서 고친 파일이 `<프로젝트>/.harness/state/task.json`일 때만 동작한다. 프로젝트는 `.harness/project.json`이 있어야 한다.
 - 지금 단계의 지시를 `.harness/checks.json`에서 꺼내 `additionalContext`로 넣고 0으로 끝난다. 막지 않는다.
 - `task` 스킬은 모드와 검사를 사용자에게 묻고 상태 파일을 만든다. 모드와 검사를 AI가 대신 고르지 않는다.
+- jq가 없으면 모든 훅이 아무것도 하지 않는다. 이 훅만 jq 없이 상태 파일 경로를 찾아, 훅이 꺼져 있다고 고정 문구로 알린다([ADR 0018](decisions/0018-core-and-packs.md)). doctor도 jq가 없으면 문제로 친다.
 
 ## 훅: check-run.sh
 

@@ -3,7 +3,7 @@
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
-. "$here/lib.sh"
+. "$here/ios.sh"
 
 usage() {
   cat <<'EOF'
@@ -46,7 +46,7 @@ while [ $# -gt 0 ]; do
   shift
 done
 
-harness_init
+harness_init_ios
 command -v maestro >/dev/null 2>&1 || harness_die "maestro가 필요합니다 (curl -fsSL https://get.maestro.mobile.dev | bash)"
 e2e_java_ok || harness_die "Maestro가 쓸 Java가 없습니다. JDK를 설치하고(brew install openjdk@17) JAVA_HOME을 지정하세요"
 bundle_id="$(cfg .app.bundleId)"
