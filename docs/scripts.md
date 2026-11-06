@@ -20,6 +20,8 @@
 - **프로젝트 생성(Tuist·XcodeGen)**: 빌드 전에 생성이 필요한지 스스로 판단한다.
   - 생성 입력의 지문이 지난번과 다르면 install·generate를 다시 실행한다. 지문은 git이 보는 파일 목록과 manifest 내용으로 만든다.
   - 그래서 파일을 추가·삭제·이동하거나 manifest를 바꾸면 자동으로 다시 생성된다. 소스 내용만 바뀌었을 때는 건너뛴다.
+- **의존성 설치(`commands.install`)**: generate와 따로 판단한다. 의존성 선언(`Tuist/Package.swift`, `Package.resolved`, `Podfile`, `Podfile.lock`)의 지문이 지난번과 다르거나, `Podfile`이 있는데 `Pods/`가 없으면 실행한다.
+  - CocoaPods를 쓰는 xcodeproj 프로젝트는 generate 없이 `pod install`만 있다. 전에는 generate가 있을 때만 install이 돌아 `pod install`이 돌지 않았다.
   - 생성된 프로젝트 파일이 없으면 항상 생성한다. `--generate`를 주면 무조건 다시 생성한다.
   - Tuist가 생성 뒤 Xcode를 여는 동작은 `TUIST_GENERATE_OPEN=false`로 끈다.
 - **시뮬레이터**: 기본은 실행할 때마다 설치된 최신 iPhone(최신 iOS 런타임, 번호가 가장 큰 Pro)이다. 설정에 기기 이름을 적었으면 그 기기를 쓰고, 설치돼 있지 않으면 최신 iPhone을 쓰고 한 줄 알린다. 기기 이름을 설정에 적어 커밋하면 다른 사람과 다른 Xcode에서도 그 기기로 고정되므로 `detect`는 적지 않는다. iPhone 시뮬레이터가 하나도 없을 때만 멈춘다.

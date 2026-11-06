@@ -210,7 +210,7 @@ generate_fingerprint() {
 deps_fingerprint() {
   (
     cd "$root" || exit 0
-    for f in Tuist/Package.swift Tuist/Package.resolved Package.resolved; do
+    for f in Tuist/Package.swift Tuist/Package.resolved Package.resolved Podfile Podfile.lock; do
       if [ -f "$f" ]; then shasum -a 256 "$f"; fi
     done | shasum -a 256 | cut -d' ' -f1
   )
@@ -223,19 +223,20 @@ harness_report_step_failure() { # 단계 명령 로그
   echo "  로그: ${3#$root/}"
 }
 
-# 생성기 프로젝트면 필요할 때만 install·generate를 실행한다. $1이 force면 항상 실행한다.
-# 실행했으면 generated_now=1. 실패하면 요약을 출력하고 1을 반환한다.
+# 필요할 때만 install·generate를 실행한다. $1이 force면 항상 실행한다.
+# install은 generate와 따로 판단한다. CocoaPods를 쓰는 xcodeproj 프로젝트는 generate 없이 pod install만 있다.
+# 실행했으면 generated_now=1(generate를 실행했을 때). 실패하면 요약을 출력하고 1을 반환한다.
 harness_ensure_generated() {
   local force="${1:-}" gen install target fp dfp
   generated_now=0
   gen="$(cfg .commands.generate)"
-  [ -n "$gen" ] || return 0
   install="$(cfg .commands.install)"
-  target="$root/$(cfg '.workspace // .project')"
 
   if [ -n "$install" ]; then
     dfp="$(deps_fingerprint)"
-    if [ "$force" = force ] || [ "$(cat "$state_dir/install.fingerprint" 2>/dev/null || true)" != "$dfp" ]; then
+    # Pods/를 지웠으면 선언이 그대로여도 다시 설치한다.
+    if [ "$force" = force ] || [ "$(cat "$state_dir/install.fingerprint" 2>/dev/null || true)" != "$dfp" ] \
+      || { [ -f "$root/Podfile" ] && [ ! -d "$root/Pods" ]; }; then
       if ! (cd "$root" && bash -c "$install") > "$out_dir/install.log" 2>&1; then
         harness_report_step_failure install "$install" "$out_dir/install.log"
         return 1
@@ -243,6 +244,9 @@ harness_ensure_generated() {
       printf '%s\n' "$dfp" > "$state_dir/install.fingerprint"
     fi
   fi
+
+  [ -n "$gen" ] || return 0
+  target="$root/$(cfg '.workspace // .project')"
 
   fp="$(generate_fingerprint)"
   if [ "$force" != force ] && [ -e "$target" ] \

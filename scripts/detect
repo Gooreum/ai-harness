@@ -211,6 +211,10 @@ case "$generator" in
     fi
     ;;
 esac
+# CocoaPods: 생성기와 상관없이 Podfile이 있으면 pod install을 쓴다(Makefile install이 있으면 그것).
+if [ -z "$install_cmd" ] && [ -f "$project_dir/Podfile" ]; then
+  if makefile_has_target install; then install_cmd="make install"; else install_cmd="pod install"; fi
+fi
 
 if [ -n "$generate_cmd" ]; then
   note "generate: $generate_cmd"

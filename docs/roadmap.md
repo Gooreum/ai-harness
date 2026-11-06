@@ -242,9 +242,9 @@
     - → 고른 기기에 잠금을 건다(사용자 임시 폴더, 워크트리 경로와 프로세스 번호). 다른 워크트리가 쓰는 중이면 같은 런타임의 다른 iPhone을 고르고, 남은 기기가 없으면 어느 워크트리가 쓰는지 알리고 멈춘다. 프로세스가 끝난 잠금은 무시한다
   - [ ] e2e 가짜 응답 포트: 포트가 커밋되는 `project.json`에 있어 같은 프로젝트의 워크트리끼리 겹친다(ReadSharp 원본과 harness 워크트리가 둘 다 18787)
     - → 적힌 포트가 이미 쓰이면 MCP 서버가 빈 포트를 골라 띄우고, 실제 포트를 `.harness/state/network.port`에 적는다. `e2e`는 이 파일을 먼저 읽는다
-  - [ ] install 따로 실행: `commands.install`은 `generate`가 있을 때만 돈다. CocoaPods를 쓰는 xcodeproj 프로젝트는 `pod install`이 돌지 않는다
+  - [x] install 따로 실행: `commands.install`은 `generate`가 있을 때만 돈다. CocoaPods를 쓰는 xcodeproj 프로젝트는 `pod install`이 돌지 않는다
     - → install을 generate와 따로 판단한다
-  - [ ] 설치 지문 Podfile: 설치 지문이 Tuist 파일만 본다
+  - [x] 설치 지문 Podfile: 설치 지문이 Tuist 파일만 본다
     - → `Podfile`과 `Podfile.lock`도 본다
   - [x] 리뷰 대상: 작업 전부터 있던 추적 안 된 파일이 섞인다
     - → `task.base` 이후 바뀐 파일과, 추적 안 된 파일 중 작업 시작 뒤에 고친 것만 넣는다
