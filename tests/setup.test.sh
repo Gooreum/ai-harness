@@ -10,7 +10,7 @@ trap 'rm -rf "$work"' EXIT
 
 p="$work/app"
 mkdir -p "$p/scripts/harness" "$p/.harness"
-cp "$t/lib.sh" "$t/setup" "$t/ios-checks.json" "$p/scripts/harness/"
+cp "$t/lib.sh" "$t/setup" "$t/ios-checks.json" "$t/common-checks.json" "$p/scripts/harness/"
 echo '{"schemaVersion":2,"platforms":["ios"],"ios":{}}' > "$p/.harness/project.json"
 echo '{"scripts":{"test":"jest","typecheck":"tsc"}}' > "$p/package.json"
 touch "$p/pnpm-lock.yaml"
@@ -33,6 +33,12 @@ rm "$p/package.json" "$p/.harness/checks.json"
 echo '{"schemaVersion":2,"platforms":[]}' > "$p/.harness/project.json"
 out="$(cd "$p" && scripts/harness/setup)"
 assert_eq "찾은 것이 없으면 사용자에게 묻게 한다" "yes" "$(has "찾지 못했다")"
-assert_eq "묶음이 없으면 추천 검사가 없다" "yes" "$(has "(없다)")"
+assert_eq "묶음이 없어도 공통 추천 검사(review)를 보여 준다" "yes|no" "$(has "review")|$(has "unit-test")"
+
+mkdir -p "$p/tests" && touch "$p/tests/run.sh" "$p/tests/a.bats" "$p/Package.swift"
+out="$(cd "$p" && scripts/harness/setup)"
+assert_eq "tests/run.sh를 찾는다" "yes" "$(has "bash tests/run.sh")"
+assert_eq "bats 파일을 찾는다" "yes" "$(has "bats -r .")"
+assert_eq "Swift 패키지는 swift test를 찾는다" "yes" "$(has "swift test")"
 
 finish

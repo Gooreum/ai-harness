@@ -1,7 +1,6 @@
 {
   "checks": [
-    { "name": "lint", "description": "팀 컨벤션 검사 (SwiftLint)", "prompt": "scripts/harness/lint를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed lint" },
-    { "name": "unit-test", "description": "앱 빌드와 단위 테스트", "prompt": "scripts/harness/unit-test를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed unit-test" },
-    { "name": "review", "description": "reviewer 코드 리뷰", "prompt": "harness:reviewer 서브에이전트에 변경 검토를 맡기고 차단 항목을 고친다. 고친 뒤에는 다시 맡긴다", "run": "scripts/harness/passed review" }
+    {"name": "lint", "description": "팀 컨벤션 검사 (SwiftLint)", "prompt": "scripts/harness/lint를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed lint"},
+    {"name": "unit-test", "description": "앱 빌드와 단위 테스트", "prompt": "scripts/harness/unit-test를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed unit-test"}
   ]
 }

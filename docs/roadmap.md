@@ -10,7 +10,7 @@
 ## 정해진 것
 
 - 에이전트: Claude Code만 지원한다. Codex 어댑터(후보 16)는 뺐다(2026-11-05).
-- 스크립트: bash + jq로 작성한다. 둘 다 macOS에 기본으로 들어 있어 따로 설치할 필요가 없다. Linux 지원 여부는 범용 하네스의 단위 30에서 정한다.
+- 스크립트: bash + jq로 작성한다. 둘 다 macOS에 기본으로 들어 있어 따로 설치할 필요가 없다. macOS만 지원한다(ADR 0023).
 - 설계 근거: 레퍼런스에서 도출한 범용 원칙을 따른다. 출처는 OpenAI, Anthropic, Böckeler, HumanLayer, Sentry 등이다.
 - 시험장: ReadSharp(`~/Code/EnglishStudy`, xcodeproj 단일 앱)의 `~/Code/EnglishStudy-harness` 워크트리에서 각 단위를 실제로 돌려본다.
   - 시험장에 이미 있는 하네스 구성은 설계 근거로 삼지 않는다.
@@ -210,10 +210,8 @@
 - 점검 기록: 2026-11-06에 코드를 읽어 특이점 100개를 찾았다. 아래 단위의 할 일이 그 목록이다. "관찰되면 한다"에 둔 것은 시험장에서 실제로 막힐 때 한다.
 - 정할 것 (해당 단위를 시작할 때 묻는다)
   - 새 이름(저장소·플러그인·마켓플레이스): 단위 24
-  - RN iOS를 `xcodebuild`로 빌드할지 `expo run:ios`로 할지: 단위 27
-  - 컨벤션 검사 방식: andcon처럼 규칙에서 도구 설정을 만들지, 프로젝트의 기존 eslint 등을 그대로 쓸지. 단위 27
-  - 웹 e2e를 Maestro(웹 지원)로 할지 Playwright로 할지: 단위 29
-  - 지원 OS(macOS만인지 Linux까지인지): 단위 30
+  - RN iOS 빌드 방식, 컨벤션 검사 방식, 웹 e2e 도구: 하네스가 정하지 않고 저장소가 `checks.json`에 적는다(2026-11-06, ADR 0023)
+  - 지원 OS: macOS만(2026-11-06)
   - detect가 알아볼 범위(Flutter, KMP, nx·turborepo 모노레포), 한 저장소에 앱이 여럿일 때 쓸 설정: 단위 23
 
 - [x] **21. 지금 있는 문제 먼저 고치기** (iOS 시험장에서 확인)
@@ -312,12 +310,14 @@
   - 관찰되면 한다: 바뀐 파일이 수백 개(codemod, 이름 바꾸기)일 때의 리뷰 규칙
   - 완료 기준: iOS 시험장에서 지금과 같은 리뷰 결과가 나오고, 묶음 규칙을 바꾸면 리뷰 항목이 따라 바뀐다
   - 결과(2026-11-06, 0.11.0): 리뷰어 지시문에서 iOS를 빼고, iOS 항목은 `rules/harness/ios/review.md`로 옮겼다. 생성 파일은 `project.json`의 `generated` 글롭으로 받아 편집을 막고 리뷰 대상에서 뺀다. 공통 권한에 배포 명령 ask와 Android·npm 비밀 파일 deny, `.env`를 Bash로 읽기 deny를 더했다. doctor가 `passed`가 아닌 run을 알린다(ADR 0022). ReadSharp HEAD로 만든 임시 워크트리에서 `claude -p --plugin-dir`로 `harness:reviewer`를 불러 `@unchecked Sendable`을 `ios/review.md` 근거로 차단했고, `review.md`에 `print(` 항목을 더하니 그 항목으로 차단했다(둘 다 review.json 기록). 바뀐 파일이 수백 개일 때의 규칙은 관찰되면 한다
-- [ ] **26. 묶음 없는 저장소**
+- [x] **26. 묶음 없는 저장소**
   - 빌드·e2e가 없는 저장소에서 `record`, `passed`, `wiki`, 리뷰만으로 돈다(발표의 LLM Wiki 저장소)
   - 시험장: 이 하네스 저장소 자체(`bash tests/run.sh`)
   - 앱이 없는 iOS 저장소(SPM 라이브러리)도 doctor가 문제로 치지 않게 한다
   - 완료 기준: 이 저장소에서 `task`로 시작한 작업이 `record`로 남긴 테스트 결과로 게이트를 통과한다
-- [ ] **27. JS·React Native 묶음** (시험장: PetCycle)
+  - 결과(2026-11-06, 0.11.1): 이 저장소의 사본에 묶음 없이 설치하니 setup이 `tests/run.sh`를 못 찾고, 리뷰가 iOS 추천 검사에만 있었다. setup이 `tests/run.sh`·`*.bats`·`Package.swift`를 찾고, 리뷰를 공통 추천 검사(`common-checks.json`)로 옮겼다. 앱 없는 Swift 패키지는 detect가 iOS 묶음을 고르지 않는다. 사본에서 `claude -p --plugin-dir`로 `task`(simple, test·review)를 돌려 `record test "bash tests/run.sh"`(92초 통과)와 리뷰로 done까지 갔다. 그때 리뷰 보고서 앞에 다른 문장이 있으면 "발견 없음"을 못 읽는 문제를 찾아 고쳤다(ADR 0023)
+- [ ] **27. JS·React Native 저장소** (시험장: PetCycle)
+  - 다시 정함(2026-11-06, ADR 0023): 묶음을 만들지 않는다. 빌드·테스트·컨벤션 검사는 저장소의 명령을 `checks.json`에 `record`로 적는다. 아래 원래 할 일 중 하네스가 도구를 고르거나 설정을 만드는 것은 하지 않는다. 남는 것: detect가 Expo prebuild 생성물을 `generated`로 제안, setup이 찾는 명령 확인, PetCycle에서 게이트 통과 확인
   - 바뀐 것만 테스트: `jest --findRelatedTests`, `vitest related`
   - 의존성: 설치 지문에 `package-lock.json`·`yarn.lock`·`pnpm-lock.yaml`을 넣고 `node_modules`를 설치한다. 패키지 매니저는 lock 파일로 고른다(ai-bouncer `setup.sh`)
   - Expo prebuild는 `generate` 자리에 둔다
@@ -326,6 +326,7 @@
   - 규칙: `testing.md`의 경로(`__tests__`, `*.test.ts`)와 내용을 공통·묶음으로 나눈다. 컨벤션 검사 방식은 위 "정할 것"대로
   - 완료 기준: PetCycle에서 `task` 작업 하나가 lint·typecheck·unit-test·review를 고르고 게이트를 통과한다
 - [ ] **28. 모바일 e2e를 Android·RN으로**
+  - 다시 정함(2026-11-06, ADR 0023): 하네스가 Android·RN e2e 스크립트를 만들지 않는다. 저장소가 `maestro test` 등을 `record`로 적는다. 아래 원래 할 일은 하지 않고, 가짜 응답 서버를 Android에서 쓰는 방법만 문서에 남긴다
   - 앱 id가 플랫폼마다 다르다(bundleId, applicationId). `--platform`과 앱 id 두 개를 둔다. 결과는 `e2e-ios`·`e2e-android`로 나눈다
   - Android
     - 빌드 변형(debug/release, flavor)이 iOS 스킴에 해당한다. debug의 `applicationIdSuffix` 때문에 앱 id가 달라지니 빌드 결과에서 읽는다
@@ -340,12 +341,14 @@
   - 관찰되면 한다: 행동 로그(logcat), 녹화(`adb screenrecord`는 3분 제한), 계측 테스트(`connectedAndroidTest`), 에뮬레이터 부하로 생기는 흔들림과 재시도 규칙
   - 완료 기준: PetCycle에서 같은 시나리오가 iOS 시뮬레이터와 Android 에뮬레이터에서 통과한다
 - [ ] **29. 웹 묶음** (웹 시험장이 생기면)
+  - 다시 정함(2026-11-06, ADR 0023): 웹 묶음을 만들지 않는다. e2e 도구(Playwright 등)는 저장소가 고르고 `record`로 적는다. 아래 원래 할 일은 웹 시험장에서 막히면 그때 본다
   - e2e는 위 "정할 것"대로(Playwright 또는 Maestro)
   - dev 서버를 띄우고, 워크트리마다 포트를 나눈다
   - 가짜 응답 서버: CORS를 응답한다(지금은 OPTIONS에도 404). Playwright `page.route`로 충분하면 MCP를 쓰지 않는다
   - 위키 경로를 설정으로 받는다. Docusaurus·VitePress 같은 문서 사이트는 `docs/` 아래를 그대로 공개한다
   - 관찰되면 한다: 서버 e2e(DB·docker), 화면 검증(후보 10)
 - [ ] **30. Linux 지원** (정하면)
+  - 다시 정함(2026-11-06): macOS만 지원한다(사용자 결정, ADR 0023). 아래 원래 할 일은 하지 않는다
   - jq가 기본으로 없고, `shasum`·`nc`·BSD `sed` 문법을 쓴다. `passed`의 `stat -f %m`이 GNU stat에서 깨질 것으로 보인다(확인 필요, ai-bouncer도 같은 코드)
   - 가짜 응답 서버의 `python3` 이름
   - Linux CI를 둔다. 지금은 CI가 없고 테스트가 이 Mac에서만 돈다

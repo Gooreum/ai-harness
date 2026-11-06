@@ -66,6 +66,11 @@ assert_eq "발견 없음 보고도 통과" "true|0" "$(result '"\(.passed)|\(.bl
 
 readf "$p/App/A.swift"
 readf "$p/App/C.swift"
+stopr $'검토를 마쳤습니다.\n\n발견 없음 · 검토한 파일 2개'
+assert_eq "발견 없음 줄 앞에 다른 문장이 있어도 통과" "true|0" "$(result '"\(.passed)|\(.blocking)"')"
+
+readf "$p/App/A.swift"
+readf "$p/App/C.swift"
 stopr "다 봤고 문제 없어요"
 assert_eq "요약 줄이 없으면 실패" "false|리뷰어 보고서에서 요약 줄(요약 · 차단 N)을 찾지 못했다" "$(result '"\(.passed)|\(.summary)"')"
 
