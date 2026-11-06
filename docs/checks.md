@@ -85,5 +85,6 @@
 - run은 결과 파일을 본다. `scripts/harness/passed <검사>`를 쓴다: `.harness/out/<검사>.json`의 `passed`가 참이고 결과가 최신이어야 통과다.
   - 최신이 아니라는 것은 이번 작업을 시작하기 전 결과이거나(`.harness/state/task.started`), 그 뒤에 고친 파일이 있다는 뜻이다. 바뀐 파일은 작업을 시작한 커밋(`.harness/state/task.base`)부터 본다. 작업 중에 커밋해도 빠지지 않는다. 기준은 ai-bouncer의 `bouncer passed`와 같다.
 - run 합계는 1700초(`HARNESS_RUN_BUDGET`)까지다. 넘으면 시간 초과로 막는다.
+- run은 묻지 않고 실행된다. `checks.json`은 저장소에 커밋되므로, 남의 저장소를 내려받아 하네스 작업을 하면 그 저장소가 적은 명령이 그대로 돈다. 처음에는 `checks.json`을 열어 확인한다. `scripts/harness/doctor`는 `scripts/harness/passed`가 아닌 run을 "참고"로 보여 준다.
 - 끝내려 할 때는 Stop 훅 `stop-gate.sh`가 막는다. 작업 주인 세션(상태 파일을 마지막으로 고친 세션)은 done 전에 멈추지 못한다. 다른 세션은 막지 않는다.
   - 같은 이유로 다시 막히려는데 그 사이 도구를 쓰지 않았으면 끝내게 둔다. 같은 단계에서 10번 연속 막히면 사용자에게 넘기게 한다(ai-bouncer와 같다).

@@ -15,7 +15,7 @@ template 안의 경로가 그대로 프로젝트 루트 기준 경로가 된다.
 | `.claude/rules/harness/*.md` | 공통 상황별 규칙(`wiki.md`) | 통째로 바꾼다 |
 | `.claude/rules/harness/ios/*.md` | iOS 묶음 규칙(Swift, 테스트, 프로젝트 설정, Tuist, 컨벤션, Maestro) | 통째로 바꾼다. 묶음을 빼면 지운다 |
 | `.claude/rules/project/` | 프로젝트 고유 규칙을 두는 자리 (`.gitkeep`만 있음) | 건드리지 않는다 |
-| `.claude/settings.json` | 공통 권한 규칙(`.env` 읽기 deny, 파괴적·외부 공개 git 작업 ask), 고른 묶음의 권한 규칙(`packs/<묶음>/settings.json`, iOS는 인증서 읽기·pbxproj 편집 deny)과 플러그인 등록(GitHub 마켓플레이스) | 프로젝트 설정과 합친다. 지난번에 하네스가 넣었는데 이제 없는 규칙만 지운다(설치 기록의 `permissions`) |
+| `.claude/settings.json` | 공통 권한 규칙(`.env`·서명 키 등 비밀 파일 읽기 deny, 파괴적·외부 공개 git 작업과 배포 명령 ask), 고른 묶음의 권한 규칙(`packs/<묶음>/settings.json`, iOS는 인증서 읽기·pbxproj 편집 deny)과 플러그인 등록(GitHub 마켓플레이스) | 프로젝트 설정과 합친다. 지난번에 하네스가 넣었는데 이제 없는 규칙만 지운다(설치 기록의 `permissions`) |
 | `scripts/harness/*` | 공통 스크립트(wiki·record·passed·doctor, 공통 함수 lib.sh)와 iOS 묶음 스크립트(build·test·unit-test·lint·e2e, ios.sh, ios-doctor.sh) | 통째로 바꾼다. 묶음을 빼면 그 묶음 것을 지운다 |
 | `.harness/.gitignore` | `.harness/`에서 설정 파일과 설치 기록만 커밋되게 함 | 통째로 바꾼다 |
 

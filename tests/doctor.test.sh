@@ -127,6 +127,10 @@ assert_eq "checks: 기본 검사(lint·unit-test·review)는 통과한다" "nono
 assert_eq "checks: 결과를 만드는 곳이 없으면 문제다" "yes" "$(has "'ghost'이 결과 'ghost'를 확인하지만 만드는 곳이 없다")"
 assert_eq "checks: 프로젝트 안 run 명령이 없으면 문제다" "yes" "$(has "'missing' run 명령이 없다: scripts/harness/nothing-here")"
 assert_eq "checks: PATH에 없는 run 명령은 문제다" "yes" "$(has "'nocmd' run 명령을 찾지 못했다: no-such-command-xyz")"
+assert_eq "checks: passed가 아닌 run은 자동 실행된다고 알린다" "yes" "$(has "묻지 않고 실행한다 — missing: scripts/harness/nothing-here; nocmd: no-such-command-xyz --flag")"
+cp "$work/checks.bak" "$p/.harness/checks.json"
+run_doctor
+assert_eq "checks: run이 모두 passed면 자동 실행 참고를 띄우지 않는다" "no" "$(has "묻지 않고 실행한다")"
 rm -f "$p/.harness/checks.json"
 
 rc=0; out="$(cd "$p" && env PATH="$(nojq_path "$work")" /bin/bash scripts/harness/doctor)" || rc=$?

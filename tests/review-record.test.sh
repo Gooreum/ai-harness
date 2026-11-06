@@ -77,6 +77,20 @@ stopr ""
 assert_eq "백그라운드 리뷰어: SubagentHandback으로 넘긴 보고서를 쓴다" "true|0" "$(result '"\(.passed)|\(.blocking)"')"
 assert_eq "끝나면 보고서 사본을 지운다" "no" "$([ -e "$p/.harness/state/review-a1.report" ] && echo yes || echo no)"
 
+# lock 파일·바이너리·project.json의 generated는 열지 않아도 된다
+jq '. + {generated: ["gen/*"]}' "$p/.harness/project.json" > "$p/.harness/p.tmp" && mv "$p/.harness/p.tmp" "$p/.harness/project.json"
+mkdir -p "$p/gen"
+echo '{}' > "$p/package-lock.json"
+echo 'x' > "$p/gen/api.ts"
+printf 'x' > "$p/Img/f.woff2"
+readf "$p/App/A.swift"
+readf "$p/App/C.swift"
+stopr $'발견 없음 · 검토한 파일 2개'
+assert_eq "lock 파일·글꼴·generated는 빼고 본다" "true|" "$(result '"\(.passed)|\(.missing | join(","))"')"
+assert_eq "빠진 파일은 바뀐 목록에도 없다" "no" "$(result '.changed | map(select(. == "package-lock.json" or . == "gen/api.ts" or . == "Img/f.woff2")) | if length > 0 then "yes" else "no" end')"
+rm -rf "$p/gen" "$p/package-lock.json" "$p/Img/f.woff2"
+jq 'del(.generated)' "$p/.harness/project.json" > "$p/.harness/p.tmp" && mv "$p/.harness/p.tmp" "$p/.harness/project.json"
+
 rm -f "$p/.harness/out/review.json"
 stopr "발견 없음" "Explore"
 assert_eq "다른 서브에이전트가 끝나면 결과를 쓰지 않는다" "no" "$([ -e "$p/.harness/out/review.json" ] && echo yes || echo no)"

@@ -12,7 +12,7 @@
 # - SubagentStop: 같은 리뷰어가 끝나면 바뀐 파일을 다 열었는지, 차단 항목이 있는지로 .harness/out/review.json을 쓴다.
 #   - passed: 바뀐 파일을 모두 열었고, 보고서의 차단이 0
 #   - 바뀐 파일은 scripts/harness/unit-test와 같은 기준(작업을 시작한 커밋 이후, .harness/ 제외)이고,
-#     지운 파일과 이미지·영상 같은 바이너리는 뺀다.
+#     지운 파일, 바이너리, lock 파일, project.json의 generated에 적힌 생성 파일은 뺀다.
 # - 막지 않는다. 판단할 수 없으면 아무것도 하지 않고 0으로 끝난다.
 set -uo pipefail
 
@@ -43,14 +43,30 @@ reads="$state/review-$agent_id.reads"
 
 mtime() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null; }
 
-# 목록(stdin)에서 리뷰어가 열어야 하는 파일만 남긴다: 있는 파일, 이미지·영상 같은 바이너리 제외. 루트 기준 경로.
+# 프로젝트가 정한 생성 파일(project.json의 generated, 글롭). 리뷰어가 열지 않아도 된다.
+generated=()
+while IFS= read -r g; do [ -z "$g" ] || generated+=("$g"); done \
+  < <(jq -r '.generated // [] | .[] | strings' "$root/.harness/project.json" 2>/dev/null)
+
+# 목록(stdin)에서 리뷰어가 열어야 하는 파일만 남긴다. 루트 기준 경로.
+# 빼는 것: 없는 파일, 바이너리(이미지·영상·글꼴·압축·라이브러리), lock 파일, 프로젝트가 정한 생성 파일.
 reviewable() {
-  local f
+  local f g base
   while IFS= read -r f; do
     [ -f "$f" ] || continue
     case "$f" in
-      *.png | *.jpg | *.jpeg | *.gif | *.heic | *.pdf | *.mp4 | *.mov | *.zip | *.ttf | *.otf) continue ;;
+      *.png | *.jpg | *.jpeg | *.gif | *.webp | *.heic | *.ico | *.pdf | *.mp4 | *.mov \
+        | *.zip | *.jar | *.aar | *.so | *.a | *.dylib | *.wasm | *.ttf | *.otf | *.woff | *.woff2) continue ;;
     esac
+    base="${f##*/}"
+    case "$base" in
+      package-lock.json | npm-shrinkwrap.json | yarn.lock | pnpm-lock.yaml | bun.lockb | bun.lock \
+        | Podfile.lock | Package.resolved | Gemfile.lock | Cargo.lock | go.sum | poetry.lock | uv.lock | gradle.lockfile) continue ;;
+    esac
+    for g in ${generated[@]+"${generated[@]}"}; do
+      # shellcheck disable=SC2254 # 글롭으로 맞춘다
+      case "$f" in $g) continue 2 ;; esac
+    done
     printf '%s\n' "$f"
   done
 }
