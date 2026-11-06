@@ -252,7 +252,7 @@
     - → `plugin/hooks/flows.json` 한 곳에 두고 둘이 읽는다
   - [x] doctor 규칙 폴더 확인: 규칙 폴더 git 무시 여부를 `swift.md`로 확인해 Swift가 아닌 프로젝트에서 틀린다
     - → 어느 프로젝트에나 있는 `wiki.md`로 확인한다
-  - [ ] sync 지우는 범위: `scripts/harness/`·`.claude/rules/harness/`에서 template에 없는 파일을 지워, 팀이 넣은 스크립트도 지워진다
+  - [x] sync 지우는 범위: `scripts/harness/`·`.claude/rules/harness/`에서 template에 없는 파일을 지워, 팀이 넣은 스크립트도 지워진다
     - → 설치한 파일 목록을 `.harness/harness.json`에 적고, 그 목록에 있었는데 template에서 사라진 것만 지운다. 목록이 없는 첫 갱신에서는 지우지 않는다
   - [x] testing.md 예외: "프로덕션 코드에 테스트 전용 분기를 넣지 않는다"가 `maestro.md`의 테스트용 실행 인자(`-HarnessNetworkBaseURL`)와 충돌한다
     - → `testing.md`에 예외를 적는다: e2e 실행 인자를 읽는 코드는 `#if DEBUG` 안에 두고 `maestro.md`를 따른다
