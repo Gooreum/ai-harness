@@ -86,7 +86,8 @@ scripts/sync ~/path/to/MyApp     # 하네스를 고친 뒤 갱신
 2. `template/`의 파일을 프로젝트에 맞춘다.
    - `scripts/harness/`, `.claude/rules/harness/`, `.harness/.gitignore`는 template과 똑같이 맞춘다. 묶음 파일은 `project.json`의 `platforms`에 고른 묶음(`packs/<묶음>/pack.json`)의 것만 넣는다. 지난번에 설치했는데 template에서 사라졌거나 고르지 않은 묶음의 파일만 지운다. 팀이 넣은 스크립트는 남는다.
    - `AGENTS.md`는 하네스 관리 블록만 넣거나 바꾼다. 프로젝트가 쓴 부분은 건드리지 않는다.
-   - `.claude/settings.json`에는 권한 규칙을 중복 없이 합친다. 프로젝트의 기존 설정은 유지한다.
+   - `.claude/settings.json`에는 권한 규칙을 중복 없이 합친다. 프로젝트의 기존 설정은 유지한다. 지난번에 하네스가 넣었는데 이제 없는 규칙만 지운다.
+   - `.harness/checks.json`은 쓰지 않는다. 없으면 Claude 세션에서 `scripts/harness/setup` 안내대로 사용자와 검사를 정하라고 알린다(찾은 명령과 묶음 추천 검사를 보여 주고 묻는다).
 3. `.claude/settings.json`에 GitHub 마켓플레이스(`Gooreum/ios-ai-harness`)를 등록하고 플러그인 `ios-harness`를 켠다. 설치한 하네스 버전은 `.harness/harness.json`에 적는다.
    - `--dev`를 주면 `.claude/settings.local.json`에서 이 저장소 디렉터리를 마켓플레이스로 덮어쓴다. 하네스를 고치며 시험장에서 바로 확인할 때 쓴다.
 4. 바꾼 파일 목록과 사람이 직접 할 일을 출력한다. 예: "AGENTS.md 프로젝트 영역을 채운다", "project.json 값을 확인한다"
@@ -257,7 +258,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 
 | 파일 | 역할 |
 |---|---|
-| `ios/pack.json` | template 안에서 iOS 묶음에 속한 파일 목록(build·test·unit-test·lint·e2e·`ios.sh`·`ios-doctor.sh`, `.claude/rules/harness/ios/`) |
+| `ios/pack.json` | template 안에서 iOS 묶음에 속한 파일 목록(build·test·unit-test·lint·e2e·`ios.sh`·`ios-doctor.sh`·`ios-checks.json`(setup이 보여 줄 추천 검사), `.claude/rules/harness/ios/`) |
 | `ios/settings.json` | iOS 권한 규칙(인증서·프로비저닝 읽기 deny, pbxproj 편집 deny) |
 | `ios/agents-commands.md`, `agents-notes.md`, `agents-rules.md` | AGENTS.md 관리 블록의 `<!-- harness:pack … -->` 자리에 들어갈 명령 표 줄, 안내, 규칙 표 줄 |
 
@@ -343,6 +344,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `decisions/0008-wiki.md` | 정책·결정 기록을 프로젝트 안 파일과 검색 스크립트로 시작한 이유와 비교 결과 |
 | `decisions/0018-core-and-packs.md` | 공통 핵심과 플랫폼 묶음으로 나누고, 아무 명령의 결과를 record로 남기는 이유 |
 | `decisions/0019-pack-install.md` | 묶음을 pack.json 목록으로 정하고, 설정의 플랫폼 값을 묶음 이름 아래로 옮긴 이유 |
+| `decisions/0020-install-checks-permissions-root.md` | 검사 목록은 setup 안내로 사용자와 정하고, sync가 넣었던 권한 규칙을 지우고, 스크립트가 가장 가까운 설정을 루트로 쓰는 이유 |
 | `decisions/0007-task-flow.md` | 사람이 고른 모드·검사와 단계 지시 훅으로 작업 흐름을 만들고, 강제는 미룬 이유 |
 
 ## 설치하면 대상 프로젝트는 이렇게 된다

@@ -284,15 +284,16 @@
   - [x] 한 프로젝트가 묶음을 여러 개 고를 수 있다. 고른 묶음을 설치 기록(`harness.json`의 `packs`)에 남기고, 고르지 않은 묶음의 파일은 설치 기록의 `files`로 지운다
   - [x] `project.json`: `platforms`를 두고 iOS 키를 `ios` 아래로 옮겼다. `schemaVersion` 2. 옛 설정은 sync가 옮기고, 생성 파일 보호 훅은 옛 형식도 읽는다
   - [x] detect가 Xcode 프로젝트를 보고 `ios`를 고른다. `package.json`·`gradlew`·`pyproject.toml`·`Cargo.toml`·`go.mod`는 묶음이 없다고 알리고 공통 파일만 설치한다
-  - [ ] 검사 목록 초안: init이 저장소에서 찾은 명령으로 `checks.json` 초안을 만든다. 지금은 아무도 만들지 않는다(ai-bouncer `setup.sh`)
-  - [ ] sync가 권한 규칙을 더하기만 하고 지우지 않는다. 하네스가 넣은 항목은 지울 수 있게 한다
-  - [ ] 하위 폴더 프로젝트(모노레포)
+  - [x] 검사 목록: 저장소에서 찾은 명령과 묶음 추천 검사를 `scripts/harness/setup`이 보여 주고, 에이전트가 사용자에게 물어 `checks.json`을 쓴다(ai-bouncer `setup.sh`)
+  - [x] sync가 권한 규칙을 더하기만 하고 지우지 않는다. 하네스가 넣은 항목은 지울 수 있게 한다
+  - [x] 하위 폴더 프로젝트(모노레포)
     - 스크립트는 git 최상위를 루트로, 훅은 가장 가까운 `.harness/project.json`을 루트로 쓴다. 맞춘다
     - `git diff --name-only`가 저장소 루트 기준 경로를 내서 리뷰가 "바뀐 파일 0개"로 통과한다. `--relative`를 쓴다
   - [x] AGENTS.md 제목을 `app.scheme`이 아니라 폴더 이름으로 한다
-  - [ ] doctor가 `checks.json`의 run 명령과 결과 이름이 실제로 있는지 확인한다
+  - [x] doctor가 `checks.json`의 run 명령과 결과 이름이 실제로 있는지 확인한다
   - 완료 기준: iOS 묶음으로 ReadSharp·IntervalTimer를 sync했을 때 지금과 같게 돈다
   - 결과(23-1, 0.9.10): 묶음 구조·설정 새 형식·detect. 시험장 두 곳의 HEAD로 만든 임시 워크트리에 sync하니 설정이 옮겨지고 규칙이 `rules/harness/ios/`로 옮겨졌다(옛 자리는 지움). 파일 목록이 없는 옛 설치 기록이라 옮긴 규칙의 옛 자리를 이름으로 지우게 했다
+  - 결과(23-2, 0.9.11): `checks.json`은 init이 쓰지 않고 `scripts/harness/setup` 안내로 사용자에게 물어 정한다(ai-bouncer `setup`, 처음엔 초안을 쓰게 했다가 사용자가 원하지 않아 바꿨다). sync가 지난번에 넣은 권한 규칙 중 빠진 것만 지우고, 스크립트가 가장 가까운 `.harness/project.json`을 루트로 쓴다. 시험장 두 곳의 HEAD로 만든 임시 워크트리에서 unit-test(221·130)와 `passed`가 그대로 통과했다(ADR 0020)
 - [ ] **24. 이름 바꾸기와 이전**
   - 저장소, 플러그인(`ios-harness`), 마켓플레이스(`ios-ai-harness`, owner `woong`), 리뷰어(`ios-reviewer`) 이름
   - 이미 설치한 곳이 깨지지 않게 한다: `enabledPlugins` 키, doctor에 박힌 id, 리뷰 기록 훅의 이름 비교, 시험장 `checks.json` 지시문의 `ios-harness:ios-reviewer`. sync가 옛 항목을 지우고 새 항목을 넣는다. 둘이 같이 켜지면 훅이 두 번 돈다

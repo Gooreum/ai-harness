@@ -70,6 +70,8 @@
 - 검사는 `checks.json`에 적힌 순서대로 돈다(발표 슬라이드 88 "차례로 수행"). 싸고 빠른 것을 앞에, 코드를 바꿀 수 있는 리뷰를 E2E 앞에, 가장 오래 걸리는 E2E를 맨 뒤에 둔다. 그래야 리뷰를 반영한 최종 코드로 E2E를 한 번만 돌린다.
 - `verify`는 단계 이름으로만 쓴다. 빌드·단위 테스트 검사는 발표(슬라이드 38·88)대로 `unit-test`라 부른다.
 - 파일이 없어도 흐름은 동작한다. 고를 검사가 없을 뿐이다.
+- 처음 정할 때는 Claude 세션에서 `scripts/harness/setup` 안내를 따른다. 저장소에서 찾은 명령(ai-bouncer `setup`과 같은 규칙)과 고른 묶음의 추천 검사(iOS: lint·unit-test·review)를 보여 주고, 에이전트가 사용자에게 고르게 한 뒤 이 파일을 쓴다. setup 자체는 아무것도 쓰지 않는다([ADR 0020](decisions/0020-install-checks-permissions-root.md)).
+- `scripts/harness/doctor`가 run 명령이 있는지, `passed <이름>`이 확인하는 결과를 만드는 곳(스크립트, prompt의 `record <이름>`, 리뷰)이 있는지 본다.
 
 ## run 확인 ([ADR 0012](decisions/0012-run-gate.md))
 
