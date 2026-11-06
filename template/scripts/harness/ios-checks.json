@@ -1,6 +1,0 @@
-{
-  "checks": [
-    {"name": "lint", "description": "팀 컨벤션 검사 (SwiftLint)", "prompt": "scripts/harness/lint를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed lint"},
-    {"name": "unit-test", "description": "앱 빌드와 단위 테스트", "prompt": "scripts/harness/unit-test를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed unit-test"}
-  ]
-}

@@ -8,7 +8,7 @@ here="$(cd "$(dirname "$0")" && pwd)"
 . "$here/lib.sh"
 cd "$here/.."
 
-files="$(ls template/scripts/harness/* plugin/hooks/*.sh scripts/detect scripts/init scripts/sync)"
+files="$(ls template/scripts/harness/* plugin/hooks/*.sh scripts/init scripts/sync)"
 # shellcheck disable=SC2086
 found="$(LC_ALL=C grep -nE '\$[A-Za-z_][A-Za-z0-9_]*[^ -~]' $files || true)"
 assert_eq "변수 바로 뒤에 한글을 붙이지 않는다 (\${이름}으로 쓴다)" "" "$found"

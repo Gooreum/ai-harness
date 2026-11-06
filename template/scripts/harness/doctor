@@ -47,23 +47,7 @@ warn() {
 in_git() { git -C "$root" rev-parse --git-dir > /dev/null 2>&1; }
 ignored() { in_git && git -C "$root" check-ignore -q "$1"; }
 
-# --- 묶음 (project.json의 platforms) ---------------------------------------------
-if [ "$(jq -r '.schemaVersion // 1' "$config" 2> /dev/null)" = 1 ]; then
-  problem ".harness/project.json이 옛 형식(schemaVersion 1)이다" "하네스 저장소에서 scripts/sync <이 프로젝트>로 새 형식으로 옮긴다"
-fi
-# 묶음마다 scripts/harness/<묶음>-doctor.sh가 있으면 불러 doctor_<묶음>을 부른다.
-
-platforms="$(jq -r '.platforms // [] | .[]' "$config" 2> /dev/null || true)"
-for pack in $platforms; do
-  if [ -f "$here/$pack-doctor.sh" ]; then
-    . "$here/$pack-doctor.sh"
-    "doctor_$pack"
-  else
-    problem "묶음 '$pack'의 스크립트(scripts/harness/$pack-doctor.sh)가 없다" "하네스 저장소에서 scripts/sync <이 프로젝트>"
-  fi
-done
-
-# --- 공통 도구·설정 ----------------------------------------------------------------
+# --- 도구·설정 -------------------------------------------------------------------
 
 if [ -n "$(cfg .e2e.network.port)" ] && ! command -v python3 > /dev/null 2>&1; then
   warn "python3가 없어 가짜 응답 서버(harness-network MCP)가 뜨지 않는다" "xcode-select --install"
@@ -75,7 +59,8 @@ done
 # 검사 목록의 run이 실제로 돌 수 있는지 본다. 안 되면 verify 단계를 영영 넘지 못하거나, 결과가 없어 늘 막힌다.
 # - run의 첫 낱말(명령)이 프로젝트 안의 실행 파일이거나 PATH에 있어야 한다.
 # - run이 "scripts/harness/passed <이름>"이면 그 결과를 만드는 것이 있어야 한다:
-#   scripts/harness/<이름> 스크립트, prompt의 "record <이름>", 또는 리뷰 서브에이전트(review 결과는 훅이 쓴다).
+#   prompt의 "record <이름>", prompt가 부르는 이름이 <이름>인 실행 파일(결과를 직접 남기는 저장소 도구),
+#   또는 리뷰 서브에이전트(review 결과는 훅이 쓴다).
 checks_file="$root/.harness/checks.json"
 auto_runs=""   # Stop 훅이 그대로 실행하는 run 중 scripts/harness/passed가 아닌 것. 결과 끝에 참고로 보여 준다
 if [ -f "$checks_file" ] && jq empty "$checks_file" 2> /dev/null; then
@@ -96,12 +81,18 @@ if [ -f "$checks_file" ] && jq empty "$checks_file" 2> /dev/null; then
       *) continue ;;
     esac
     result="$(printf '%s' "${run#scripts/harness/passed }" | awk '{ print $1 }')"
-    if [ "$result" = review ] || [ -x "$root/scripts/harness/$result" ]; then continue; fi
+    [ "$result" != review ] || continue
     case "$prompt" in
-      *"record $result "* | *"record $result") ;;
-      *) problem "checks.json의 '$name'이 결과 '$result'를 확인하지만 만드는 곳이 없다" \
-           "prompt에 scripts/harness/record $result <명령>을 적거나 scripts/harness/${result}를 둔다" ;;
+      *"record $result "* | *"record $result") continue ;;
     esac
+    made=""
+    for w in $(printf '%s' "$prompt" | tr -c 'A-Za-z0-9_./-' ' '); do
+      case "$w" in
+        */"$result") [ ! -x "$root/$w" ] || { made=1; break; } ;;
+      esac
+    done
+    [ -n "$made" ] || problem "checks.json의 '$name'이 결과 '$result'를 확인하지만 만드는 곳이 없다" \
+      "prompt에 scripts/harness/record $result <명령>을 적는다"
   done < <(jq -r '.checks // [] | .[] | [.name // "?", .run // "", .prompt // ""] | map(gsub("[\t\n]"; " ")) | @tsv' "$checks_file")
 fi
 

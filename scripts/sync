@@ -8,8 +8,8 @@ usage() {
 사용법: scripts/sync [--dev] <프로젝트 경로>
 
   설치된 하네스를 이 저장소의 버전으로 맞춘다. 처음 설치는 scripts/init으로 한다.
-  - .harness/project.json의 platforms에 적힌 묶음(packs/<묶음>/)과 공통 파일을 설치한다. 옛 형식 설정은 새 형식으로 옮긴다
-  - scripts/harness/, .harness/.gitignore, .claude/rules/harness/는 template과 같게 맞춘다 (지난번에 설치했는데 template에서 사라졌거나 고르지 않은 묶음의 것만 지운다)
+  - scripts/harness/, .harness/.gitignore, .claude/rules/harness/는 template과 같게 맞춘다 (지난번에 설치했는데 template에서 사라진 것만 지운다)
+  - 예전에 설치한 iOS 스크립트·규칙은 지우지 않고 scripts/ios/, .claude/rules/project/ios/로 옮겨 프로젝트 코드로 넘긴다
   - AGENTS.md는 하네스 관리 블록만 넣거나 바꾸고, 프로젝트 영역은 건드리지 않는다
   - .claude/settings.json에 권한 규칙을 합치고, GitHub 마켓플레이스와 플러그인을 등록한다 (기존 내용 유지. 지난번에 하네스가 넣었는데 이제 없는 규칙만 지운다)
   - .harness/checks.json이 없으면 Claude 세션에서 scripts/harness/setup 안내대로 사용자와 검사를 정하라고 알린다
@@ -46,7 +46,7 @@ if [ ! -d "$1" ]; then
   exit 2
 fi
 
-target_project_dir="$(cd "$1" && pwd)"                  # 하네스를 설치할 iOS 프로젝트
+target_project_dir="$(cd "$1" && pwd)"                  # 하네스를 설치할 프로젝트
 harness_repo_dir="$(cd "$(dirname "$0")/.." && pwd)"    # 이 스크립트가 있는 하네스 저장소
 template_dir="$harness_repo_dir/template"
 plugin_json="$harness_repo_dir/plugin/.claude-plugin/plugin.json"
@@ -114,53 +114,88 @@ write_if_changed() {
 
 # --- 1. 프로젝트 설정 파일 -------------------------------------------------------
 
-if [ ! -f "$target_project_dir/.harness/project.json" ]; then
-  if ! "$harness_repo_dir/scripts/detect" --write "$target_project_dir" \
-      > /dev/null 2> "$tmp_dir/detect.log"; then
-    cat "$tmp_dir/detect.log" >&2
-    exit 1
-  fi
-  changed ".harness/project.json (detect 초안)"
-  todo ".harness/project.json의 값이 맞는지 확인한다 (묶음, 스킴, 시뮬레이터, 명령)"
-fi
-
-# 옛 형식(schemaVersion 1)은 iOS 설정이 최상위에 있다. 묶음 구조(ADR 0019)에 맞게 ios 아래로 옮긴다.
-# e2e(행동 기록, 가짜 응답 포트)와 모르는 키는 그대로 위에 둔다.
 config_json="$target_project_dir/.harness/project.json"
-if [ "$(jq -r '.schemaVersion // 1' "$config_json")" = 1 ]; then
-  jq '
-    ["generator", "commands", "workspace", "project", "app", "destination", "modules"] as $ios
-    | { schemaVersion: 2, platforms: ["ios"], ios: with_entries(select(.key | IN($ios[]))) }
-      + with_entries(select(.key | IN($ios[] , "schemaVersion") | not))' \
-    "$config_json" > "$tmp_dir/config"
-  write_if_changed "$config_json" "$tmp_dir/config" ".harness/project.json (새 형식으로 옮김: iOS 설정을 ios 아래로)"
+if [ ! -f "$config_json" ]; then
+  # 하네스가 읽는 값(generated, e2e.network)은 setup에서 사용자와 정한다. 플랫폼은 묻지 않는다(ADR 0024).
+  mkdir -p "$target_project_dir/.harness"
+  echo '{ "schemaVersion": 2 }' > "$config_json"
+  changed ".harness/project.json (빈 설정)"
 fi
 
-# 고른 묶음. 하네스 저장소의 packs/<이름>/pack.json이 그 묶음의 파일을 정한다.
-packs_dir="$harness_repo_dir/packs"
-packs=()
-while IFS= read -r pack; do
-  [ -n "$pack" ] || continue
-  if [ -f "$packs_dir/$pack/pack.json" ]; then
-    packs+=("$pack")
-  else
-    todo ".harness/project.json의 platforms에 있는 '$pack' 묶음이 하네스에 없다. 있는 묶음: $(cd "$packs_dir" && ls | tr '\n' ' ')"
+# 지난번에 하네스가 설치한 파일(.harness/harness.json의 files). 목록이 없으면(목록을 적기 전 버전) 빈 파일.
+jq -r '.files // [] | .[]' "$target_project_dir/.harness/harness.json" 2>/dev/null | LC_ALL=C sort > "$tmp_dir/installed-before" || : > "$tmp_dir/installed-before"
+installed_by_harness() { # 경로 — 지난번에 하네스가 설치한 것인가. 기록이 없으면 그렇다고 본다
+  [ ! -s "$tmp_dir/installed-before" ] || grep -qxF "$1" "$tmp_dir/installed-before"
+}
+
+# --- 2. 예전 iOS 묶음을 프로젝트 코드로 넘기기 (ADR 0024) ------------------------------------
+# 하네스는 이제 플랫폼 도구를 갖지 않는다. 예전에 설치한 iOS 스크립트와 규칙은 지우지 않고 프로젝트 쪽 자리로 옮긴다.
+# 옮긴 뒤로는 그 프로젝트의 코드다. 하네스가 갱신하지 않는다.
+handed=0
+for f in build test unit-test lint e2e ios.sh; do
+  src="$target_project_dir/scripts/harness/$f"
+  [ -f "$src" ] && installed_by_harness "scripts/harness/$f" || continue
+  [ ! -e "$target_project_dir/scripts/ios/$f" ] || continue
+  mkdir -p "$target_project_dir/scripts/ios"
+  mv "$src" "$target_project_dir/scripts/ios/$f"
+  changed "scripts/harness/$f → scripts/ios/$f (프로젝트 코드로 넘김)"
+  handed=1
+done
+if [ "$handed" = 1 ]; then
+  # 옮긴 스크립트가 쓰던 공통 함수. 하네스의 lib.sh는 바뀔 수 있어 지금 것을 함께 둔다.
+  if [ ! -e "$target_project_dir/scripts/ios/lib.sh" ] && [ -f "$target_project_dir/scripts/harness/lib.sh" ]; then
+    cp -p "$target_project_dir/scripts/harness/lib.sh" "$target_project_dir/scripts/ios/lib.sh"
+    changed "scripts/ios/lib.sh (옮긴 스크립트가 쓰던 공통 함수)"
   fi
-done < <(jq -r '.platforms // [] | .[]' "$config_json")
+  # 규칙: 묶음 폴더(.claude/rules/harness/ios/)와 그 전의 자리(.claude/rules/harness/<이름>.md)
+  rules_to="$target_project_dir/.claude/rules/project/ios"
+  for path in "$target_project_dir"/.claude/rules/harness/ios/*.md \
+    "$target_project_dir"/.claude/rules/harness/{swift,swiftui,concurrency,dependencies,testing,project-settings,tuist,conventions,maestro}.md; do
+    [ -f "$path" ] || continue
+    rel="${path#"$target_project_dir"/}"
+    [ ! -e "$rules_to/$(basename "$rel")" ] || continue
+    mkdir -p "$rules_to"
+    mv "$target_project_dir/$rel" "$rules_to/"
+    changed "$rel → .claude/rules/project/ios/$(basename "$rel") (프로젝트 규칙으로 넘김)"
+  done
+  rmdir "$target_project_dir/.claude/rules/harness/ios" 2> /dev/null || true
+  for rel in scripts/harness/ios-doctor.sh scripts/harness/ios-checks.json; do
+    if [ -f "$target_project_dir/$rel" ] && installed_by_harness "$rel"; then
+      rm "$target_project_dir/$rel"
+      changed "$rel (삭제: 하네스가 iOS 도구를 갖지 않음)"
+    fi
+  done
+  # 옮긴 파일과 검사 목록이 가리키는 경로를 새 자리로 바꾼다.
+  for f in "$target_project_dir"/scripts/ios/* "$rules_to"/*.md "$target_project_dir/.harness/checks.json"; do
+    [ -f "$f" ] || continue
+    sed -E \
+      -e 's#scripts/harness/(build|test|unit-test|lint|e2e|ios\.sh)([^A-Za-z0-9_.-]|$)#scripts/ios/\1\2#g' \
+      -e 's#\.claude/rules/harness/ios/#.claude/rules/project/ios/#g' \
+      -e 's#\.claude/rules/harness/(swift|swiftui|concurrency|dependencies|testing|project-settings|tuist|conventions|maestro)\.md#.claude/rules/project/ios/\1.md#g' \
+      "$f" > "$tmp_dir/handed"
+    if ! cmp -s "$tmp_dir/handed" "$f"; then
+      cat "$tmp_dir/handed" > "$f"   # 실행 권한은 그대로 둔다
+      changed "${f#"$target_project_dir"/} (경로를 scripts/ios/로)"
+    fi
+  done
+  # Tuist·XcodeGen 결과물은 예전에 훅이 generator를 보고 막았다. 이제 generated 글롭으로 막는다.
+  case "$(jq -r '.ios.generator // .generator // empty' "$config_json")" in
+    tuist | xcodegen)
+      jq '.generated = ((.generated // []) + ["*.xcodeproj/*", "*.xcworkspace/*", "Derived/*", "*/Derived/*"] | unique)' \
+        "$config_json" > "$tmp_dir/config"
+      write_if_changed "$config_json" "$tmp_dir/config" ".harness/project.json (생성 파일을 generated에 적음)"
+      ;;
+  esac
+  todo "iOS 스크립트(scripts/ios/)와 규칙(.claude/rules/project/ios/)이 이제 이 프로젝트의 코드다. 하네스가 갱신하지 않는다." \
+    "AGENTS.md 위쪽 프로젝트 영역에 빌드·테스트 명령(scripts/ios/unit-test 등)을 적는다"
+fi
 
-# --- 2. 통째로 관리하는 파일 -------------------------------------------------------
+# --- 3. 통째로 관리하는 파일 -------------------------------------------------------
 
-# 어느 묶음의 파일인지(pack.json의 files, /로 끝나면 폴더). 고르지 않은 묶음의 파일은 설치하지 않는다.
 (
   cd "$template_dir"
   find scripts/harness .harness .claude/rules/harness -type f ! -name '.DS_Store'
-) | LC_ALL=C sort > "$tmp_dir/all"
-jq -s . "$packs_dir"/*/pack.json > "$tmp_dir/packs.json"
-jq -n -r --rawfile all "$tmp_dir/all" --slurpfile packs "$tmp_dir/packs.json" \
-  --argjson chosen "$(jq -n '$ARGS.positional' --args ${packs[@]+"${packs[@]}"})" '
-  def owner($f): [ $packs[0][] | select(any(.files[]; . as $e | if ($e | endswith("/")) then ($f | startswith($e)) else $e == $f end)) | .name ][0];
-  $all | split("\n")[] | select(. != "")
-  | select(owner(.) as $o | $o == null or ($chosen | index($o)))' > "$tmp_dir/managed"
+) | LC_ALL=C sort > "$tmp_dir/managed"
 
 while IFS= read -r rel_path; do
   install_file "$rel_path"
@@ -169,7 +204,6 @@ done < "$tmp_dir/managed"
 # 템플릿에서 사라진 하네스 규칙과 스크립트는 프로젝트에서도 지운다(이름이 바뀐 스크립트가 남지 않게).
 # 지난번에 하네스가 설치한 파일(.harness/harness.json의 files)만 지운다. 팀이 scripts/harness/에 넣은 파일은 남긴다.
 # 목록이 없으면(목록을 적기 전 버전에서 처음 갱신) 지우지 않는다.
-jq -r '.files // [] | .[]' "$target_project_dir/.harness/harness.json" 2>/dev/null | LC_ALL=C sort > "$tmp_dir/installed-before" || : > "$tmp_dir/installed-before"
 while IFS= read -r rel_path; do
   case "$rel_path" in
     scripts/harness/* | .claude/rules/harness/* | .harness/*) ;;
@@ -182,25 +216,11 @@ while IFS= read -r rel_path; do
   fi
 done < "$tmp_dir/installed-before"
 
-# 묶음 폴더(.claude/rules/harness/<묶음>/)로 옮긴 규칙의 옛 자리를 지운다(ADR 0019). 같은 규칙이 두 번 읽히지 않게.
-# 설치 기록에 파일 목록이 없는 옛 버전에서 갱신할 때도 지운다. rules/harness/는 하네스만 쓰는 폴더다.
-while IFS= read -r rel_path; do
-  case "$rel_path" in
-    .claude/rules/harness/*/*.md) ;;
-    *) continue ;;
-  esac
-  old_path=".claude/rules/harness/$(basename "$rel_path")"
-  if ! grep -qxF "$old_path" "$tmp_dir/managed" && [ -f "$target_project_dir/$old_path" ]; then
-    rm "$target_project_dir/$old_path"
-    changed "$old_path (삭제: $(dirname "$rel_path")/로 옮김)"
-  fi
-done < "$tmp_dir/managed"
-
 if [ ! -d "$target_project_dir/.claude/rules/project" ]; then
   install_file ".claude/rules/project/.gitkeep"
 fi
 
-# --- 3. AGENTS.md ------------------------------------------------------------
+# --- 4. AGENTS.md ------------------------------------------------------------
 
 # template/AGENTS.md에서 관리 블록(harness:begin ~ harness:end)만 뽑아 둔다.
 awk '
@@ -209,26 +229,13 @@ awk '
   /<!-- harness:end -->/ { in_block = 0 }' \
   "$template_dir/AGENTS.md" > "$tmp_dir/block.raw"
 
-# 블록의 "<!-- harness:pack <조각> -->" 줄을 고른 묶음의 packs/<묶음>/agents-<조각>.md로 바꾼다. 없으면 줄만 지운다.
-: > "$tmp_dir/block"
-while IFS= read -r line || [ -n "$line" ]; do
-  case "$line" in
-    '<!-- harness:pack '*' -->')
-      part="${line#<!-- harness:pack }"
-      part="${part% -->}"
-      for pack in ${packs[@]+"${packs[@]}"}; do
-        [ ! -f "$packs_dir/$pack/agents-$part.md" ] || cat "$packs_dir/$pack/agents-$part.md" >> "$tmp_dir/block"
-      done
-      ;;
-    *) printf '%s\n' "$line" >> "$tmp_dir/block" ;;
-  esac
-done < "$tmp_dir/block.raw"
+# 예전 template의 묶음 자리 표시("<!-- harness:pack … -->")가 남아 있으면 지운다.
+grep -v '^<!-- harness:pack .* -->$' "$tmp_dir/block.raw" > "$tmp_dir/block" || true
 
 agents_md="$target_project_dir/AGENTS.md"
 
 if [ ! -f "$agents_md" ]; then
   # template의 프로젝트 영역에 조립한 관리 블록을 붙인다. 첫 줄 제목 "# 프로젝트 이름"은 폴더 이름으로 바꾼다.
-  # 앱 스킴은 묶음마다 있거나 없어(라이브러리, 웹) 어느 프로젝트에나 있는 폴더 이름을 쓴다.
   title="$(basename "$target_project_dir")"
   {
     awk '/<!-- harness:begin/ { exit } { print }' "$template_dir/AGENTS.md" \
@@ -266,7 +273,7 @@ else
     "관리 블록과 겹치거나 충돌하는 내용을 지운다"
 fi
 
-# --- 4. CLAUDE.md ------------------------------------------------------------
+# --- 5. CLAUDE.md ------------------------------------------------------------
 
 if [ ! -f "$target_project_dir/CLAUDE.md" ]; then
   install_file "CLAUDE.md"
@@ -280,7 +287,7 @@ in_git() {
   git -C "$target_project_dir" rev-parse --git-dir > /dev/null 2>&1
 }
 
-# --- 5. 공유 설정: .claude/settings.json -------------------------------------------
+# --- 6. 공유 설정: .claude/settings.json -------------------------------------------
 # 권한 규칙을 합치고, GitHub 마켓플레이스와 플러그인을 등록한다.
 # 이 파일을 커밋하면 팀원이 저장소를 열 때 Claude Code가 마켓플레이스 추가와 플러그인 설치를 권한다.
 
@@ -288,21 +295,16 @@ settings_json="$target_project_dir/.claude/settings.json"
 settings_input="$settings_json"
 [ -f "$settings_input" ] || settings_input="$template_dir/.claude/settings.json"
 
-# 넣을 규칙: template(공통) 규칙에 고른 묶음의 packs/<묶음>/settings.json 규칙을 더한다.
-pack_settings=()
-for pack in ${packs[@]+"${packs[@]}"}; do
-  [ ! -f "$packs_dir/$pack/settings.json" ] || pack_settings+=("$packs_dir/$pack/settings.json")
-done
-jq -s '{ permissions: {
-    deny: [ .[].permissions.deny // [] | .[] ],
-    ask: [ .[].permissions.ask // [] | .[] ] } }' \
-  "$template_dir/.claude/settings.json" ${pack_settings[@]+"${pack_settings[@]}"} > "$tmp_dir/wanted-settings"
+jq '{ permissions: { deny: (.permissions.deny // []), ask: (.permissions.ask // []) } }' \
+  "$template_dir/.claude/settings.json" > "$tmp_dir/wanted-settings"
 
 # 지난번에 하네스가 넣은 규칙(.harness/harness.json의 permissions). 이번에 넣을 규칙에 없으면 지운다.
 # 기록이 없으면(기록을 적기 전 버전) 지우지 않는다. 팀이 직접 넣은 규칙은 기록에 없으니 남는다.
 jq '{ permissions: { deny: (.permissions.deny // []), ask: (.permissions.ask // []) } }' \
   "$target_project_dir/.harness/harness.json" > "$tmp_dir/added-before" 2> /dev/null \
   || echo '{ "permissions": { "deny": [], "ask": [] } }' > "$tmp_dir/added-before"
+# iOS 묶음을 넘겼으면 그 묶음이 넣은 권한(pbxproj 편집 금지 등)도 프로젝트 규칙으로 남긴다. 이번에는 지우지 않는다.
+[ "$handed" = 0 ] || echo '{ "permissions": { "deny": [], "ask": [] } }' > "$tmp_dir/added-before"
 
 # 프로젝트의 deny/ask 목록에 없는 규칙만 뒤에 붙인다. 나머지 설정은 그대로 둔다.
 jq -s --arg market "$marketplace_name" --arg repo "$marketplace_repo" --arg plugin "$plugin_id" \
@@ -331,7 +333,7 @@ if in_git && git -C "$target_project_dir" check-ignore -q .claude/settings.json;
     "개인 값은 .claude/settings.local.json으로 옮기고 settings.json을 커밋한다"
 fi
 
-# --- 6. 개발용 플러그인: .claude/settings.local.json ------------------------------------
+# --- 7. 개발용 플러그인: .claude/settings.local.json ------------------------------------
 # --dev면 같은 이름의 마켓플레이스를 이 저장소 디렉터리로 덮어쓴다. 로컬 설정이 프로젝트 설정보다 우선한다.
 # 디렉터리 마켓플레이스는 플러그인을 복사하지 않고 그 자리에서 읽어서, 고친 내용이 다음 세션부터 반영된다.
 
@@ -377,16 +379,14 @@ elif [ -f "$local_settings_json" ] \
   write_if_changed "$local_settings_json" "$tmp_dir/local" ".claude/settings.local.json (개발용 플러그인 지움)"
 fi
 
-# --- 7. 설치 기록: .harness/harness.json ----------------------------------------------
+# --- 8. 설치 기록: .harness/harness.json ----------------------------------------------
 # 프로젝트 파일이 어느 하네스 버전인지 남긴다. doctor가 설치된 플러그인 버전과 비교한다.
 
 # files: 이번에 설치한 하네스 파일. 다음 갱신 때 template에서 사라진 것만 지우는 데 쓴다.
-# packs: 이번에 설치한 묶음. 고르는 곳은 project.json의 platforms이고, 이 값은 기록이다.
-# permissions: 이번에 넣은 권한 규칙. 다음 갱신 때 template·묶음에서 빠진 규칙만 지우는 데 쓴다.
+# permissions: 이번에 넣은 권한 규칙. 다음 갱신 때 template에서 빠진 규칙만 지우는 데 쓴다.
 jq -n --arg version "$harness_version" --rawfile files "$tmp_dir/managed" \
-  --argjson packs "$(jq -n '$ARGS.positional' --args ${packs[@]+"${packs[@]}"})" \
   --slurpfile wanted "$tmp_dir/wanted-settings" \
-  '{ version: $version, packs: $packs, files: ($files | split("\n") | map(select(. != ""))),
+  '{ version: $version, files: ($files | split("\n") | map(select(. != ""))),
      permissions: $wanted[0].permissions }' > "$tmp_dir/harness"
 write_if_changed "$target_project_dir/.harness/harness.json" "$tmp_dir/harness" ".harness/harness.json ($harness_version)"
 

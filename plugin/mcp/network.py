@@ -193,7 +193,7 @@ def serving_root(port):
 
 
 def write_port(port):
-    """실제로 띄운 포트를 남긴다. scripts/harness/e2e가 project.json보다 먼저 읽는다."""
+    """실제로 띄운 포트를 남긴다. 앱을 띄우는 e2e 스크립트가 project.json보다 먼저 읽는다(.harness/state/network.port)."""
     try:
         os.makedirs(STATE, exist_ok=True)
         with open(PORT_FILE, "w") as f:
@@ -222,7 +222,7 @@ def start_http():
         used = PORT
         PORT = httpd.server_address[1]
         server_note = (f"포트 {used}을 다른 폴더({owner or '응답 서버가 아닌 프로그램'})가 쓰고 있어 {PORT}로 띄웠다({e.strerror}). "
-                       "scripts/harness/e2e는 이 포트를 .harness/state/network.port에서 읽는다.")
+                       "앱을 띄우는 스크립트는 이 포트를 .harness/state/network.port에서 읽는다.")
     write_port(PORT)
     httpd.daemon_threads = True
     threading.Thread(target=httpd.serve_forever, daemon=True).start()

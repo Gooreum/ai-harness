@@ -28,7 +28,7 @@ Bash는 git의 읽기 명령(diff, status, log, show)에만 쓰고, 작업 폴�
 
 1. 프로젝트 지침(AGENTS.md)의 "꼭 지킬 규칙"과 "프로젝트 규칙".
 2. AGENTS.md "상황별 규칙" 표에서 바뀐 파일에 해당하는 규칙 파일.
-3. 묶음별 리뷰 항목: Glob으로 `.claude/rules/harness/*/review.md`와 `.claude/rules/project/*.md`를 찾아, 바뀐 파일에 해당하는 것(파일 머리의 `paths`)을 연다. 없으면 아래 중점 항목만으로 검토한다.
+3. 프로젝트 규칙: Glob으로 `.claude/rules/project/**/*.md`를 찾아, 바뀐 파일에 해당하는 것(파일 머리의 `paths`)을 연다. 리뷰 항목(`review.md` 등)도 여기 있다. 없으면 아래 중점 항목만으로 검토한다.
 
 - 규칙에 없는 개인 취향은 지적하지 않는다. 포매터·린터가 잡는 형식 문제도 지적하지 않는다.
 
