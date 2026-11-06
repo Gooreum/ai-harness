@@ -11,7 +11,7 @@
 #   .harness/state/review-<agent_id>.reads에 적는다.
 # - SubagentStop: 같은 리뷰어가 끝나면 바뀐 파일을 다 열었는지, 차단 항목이 있는지로 .harness/out/review.json을 쓴다.
 #   - passed: 바뀐 파일을 모두 열었고, 보고서의 차단이 0
-#   - 바뀐 파일은 scripts/harness/unit-test와 같은 기준(HEAD 대비 수정 + 새 파일, .harness/ 제외)이고,
+#   - 바뀐 파일은 scripts/harness/unit-test와 같은 기준(작업을 시작한 커밋 이후, .harness/ 제외)이고,
 #     지운 파일과 이미지·영상 같은 바이너리는 뺀다.
 # - 막지 않는다. 판단할 수 없으면 아무것도 하지 않고 0으로 끝난다.
 set -uo pipefail
@@ -40,6 +40,8 @@ while [ "$dir" != "/" ] && [ ! -f "$dir/.harness/project.json" ]; do dir="$(dirn
 root="$dir"
 state="$root/.harness/state"
 reads="$state/review-$agent_id.reads"
+
+mtime() { stat -f %m "$1" 2>/dev/null || stat -c %Y "$1" 2>/dev/null; }
 
 # 목록(stdin)에서 리뷰어가 열어야 하는 파일만 남긴다: 있는 파일, 이미지·영상 같은 바이너리 제외. 루트 기준 경로.
 reviewable() {
@@ -77,8 +79,24 @@ case "$event" in
 
   SubagentStop)
     git -C "$root" rev-parse --git-dir >/dev/null 2>&1 || exit 0
-    changed="$(cd "$root" && { git diff --name-only HEAD 2>/dev/null; git ls-files -o --exclude-standard; } \
-      | { grep -v '^\.harness/' || true; } | LC_ALL=C sort -u | reviewable)"
+    # 바뀐 파일: scripts/harness/lib.sh의 harness_changed_files와 같은 기준이다. 작업 중이면 작업을 시작한 커밋 이후의
+    # 변경과, 추적 안 된 파일 중 작업을 시작한 뒤에 고친 것. 작업 전부터 있던 파일은 리뷰 대상이 아니다.
+    from=HEAD started=""
+    stage="$(jq -r '.stage // ""' "$state/task.json" 2>/dev/null)" || stage=""
+    if [ -n "$stage" ] && [ "$stage" != done ] && [ -f "$state/task.base" ]; then
+      sha="$(cat "$state/task.base")"
+      if git -C "$root" cat-file -e "$sha^{commit}" 2>/dev/null; then
+        from="$sha"
+        [ -f "$state/task.started" ] && started="$(mtime "$state/task.started")"
+      fi
+    fi
+    changed="$(cd "$root" && {
+        git diff --name-only "$from" 2>/dev/null
+        git ls-files -o --exclude-standard | while IFS= read -r f; do
+          if [ -n "$started" ] && [ "$(mtime "$f")" -lt "$started" ]; then continue; fi
+          printf '%s\n' "$f"
+        done
+      } | { grep -v '^\.harness/' || true; } | LC_ALL=C sort -u | reviewable)"
     read_list=""
     [ -f "$reads" ] && read_list="$(LC_ALL=C sort -u "$reads")"
     report="$(field .last_assistant_message)"

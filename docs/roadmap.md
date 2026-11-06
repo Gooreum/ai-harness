@@ -246,7 +246,7 @@
     - → install을 generate와 따로 판단한다
   - [ ] 설치 지문 Podfile: 설치 지문이 Tuist 파일만 본다
     - → `Podfile`과 `Podfile.lock`도 본다
-  - [ ] 리뷰 대상: 작업 전부터 있던 추적 안 된 파일이 섞인다
+  - [x] 리뷰 대상: 작업 전부터 있던 추적 안 된 파일이 섞인다
     - → `task.base` 이후 바뀐 파일과, 추적 안 된 파일 중 작업 시작 뒤에 고친 것만 넣는다
   - [ ] 단계 순서 한 곳: 단계 순서(plan/simple)가 `stage-context.sh`와 `check-run.sh` 두 곳에 따로 있다
     - → `plugin/hooks/flows.json` 한 곳에 두고 둘이 읽는다

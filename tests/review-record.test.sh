@@ -84,4 +84,16 @@ assert_eq "다른 서브에이전트가 끝나면 결과를 쓰지 않는다" "n
 readf "/etc/hosts"
 assert_eq "프로젝트 밖 파일은 적지 않는다" "no" "$([ -e "$p/.harness/state/review-a1.reads" ] && echo yes || echo no)"
 
+# 작업 중이면 작업을 시작한 커밋 이후 변경과, 작업 시작 뒤에 고친 추적 안 된 파일만 리뷰 대상이다
+mkdir -p "$p/.harness/state" "$p/.agents"
+echo 'old' > "$p/.agents/note.md"; touch -t 202601010000 "$p/.agents/note.md"
+git -C "$p" rev-parse HEAD > "$p/.harness/state/task.base"
+echo '{"stage":"verify"}' > "$p/.harness/state/task.json"
+touch "$p/.harness/state/task.started"
+git -C "$p" add App/A.swift App/C.swift && git -C "$p" -c user.name=t -c user.email=t@t commit -qm mid
+readf "$p/App/A.swift"
+readf "$p/App/C.swift"
+stopr "발견 없음"
+assert_eq "작업 중 커밋한 파일은 대상, 작업 전부터 있던 파일은 제외" "true|App/A.swift,App/C.swift" "$(result '"\(.passed)|\(.changed | join(","))"')"
+
 finish
