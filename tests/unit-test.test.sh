@@ -77,7 +77,7 @@ jq -n '{
   workspace: "App.xcworkspace", project: null,
   app: { scheme: "App", path: "App", bundleId: null, unitTestTargets: ["AppTests"] },
   destination: { simulator: "iPhone 17 Pro", os: "latest" },
-  modules: { manifest: "Project.swift", scheme: "{dir}", testsDir: "Tests" } }' > "$p/.harness/project.json"
+  modules: { manifest: "Project.swift", scheme: "{dir}", testsDir: "Tests" } } | {schemaVersion: 2, platforms: ["ios"], ios: del(.schemaVersion)}' > "$p/.harness/project.json"
 (cd "$p" && git init -q -b main && printf '*.xcodeproj\n' > .gitignore && git add -A && git -c user.name=t -c user.email=t@t commit -qm init)
 
 plan() { (cd "$p" && "$unit_test" --plan "$@"); }
@@ -156,13 +156,13 @@ jq -n '{
   schemaVersion: 1, generator: "xcodeproj", commands: { install: null, generate: null },
   workspace: null, project: "App.xcodeproj",
   app: { scheme: "App", path: null, bundleId: null, unitTestTargets: ["AppTests"] },
-  destination: { simulator: "iPhone 17 Pro", os: "latest" }, modules: null }' > "$p/.harness/project.json"
+  destination: { simulator: "iPhone 17 Pro", os: "latest" }, modules: null } | {schemaVersion: 2, platforms: ["ios"], ios: del(.schemaVersion)}' > "$p/.harness/project.json"
 (cd "$p" && git init -q -b main && git add -A && git -c user.name=t -c user.email=t@t commit -qm init)
 echo '// changed' >> "$p/App/App.swift"
 assert_eq "plan: 모듈 구조가 없으면 모든 변경을 앱 변경으로 본다" "  test 앱 (App: AppTests)" "$(plan | sed -n 3p)"
 
 # 앱 테스트 스킴이 따로 있으면 빌드는 앱 스킴, 테스트는 테스트 스킴으로 돈다.
-jq '.app.testScheme = "AppTests"' "$p/.harness/project.json" > "$p/.harness/tmp.json" \
+jq '.ios.app.testScheme = "AppTests"' "$p/.harness/project.json" > "$p/.harness/tmp.json" \
   && mv "$p/.harness/tmp.json" "$p/.harness/project.json"
 assert_eq "plan: app.testScheme이 있으면 빌드는 앱 스킴" "  build App" "$(plan | sed -n 2p)"
 assert_eq "plan: app.testScheme이 있으면 앱 테스트는 그 스킴" "  test 앱 (AppTests: AppTests)" "$(plan | sed -n 3p)"

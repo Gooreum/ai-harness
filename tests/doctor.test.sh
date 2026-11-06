@@ -81,9 +81,26 @@ assert_eq "broken: 요약 줄에 개수를 쓴다" "✕ doctor · 문제 1 · �
 
 # 규칙 폴더가 무시되는지는 어느 프로젝트에나 있는 wiki.md로 본다 (swift.md는 Swift 프로젝트에만 있다)
 printf '.claude/*\n' >> "$p/.gitignore"
-rm -f "$p/.claude/rules/harness/swift.md"
+rm -f "$p/.claude/rules/harness/ios/swift.md"
 run_doctor
 assert_eq "rules ignored: swift.md가 없어도 규칙 폴더가 무시되면 주의를 준다" "yes" "$(has "! .claude/rules/가 git에서 무시돼")"
+
+# --- 설정 형식과 묶음 ---------------------------------------------------------------
+printf '# 지침\n@AGENTS.md\n' > "$p/CLAUDE.md"
+cp "$p/.harness/project.json" "$work/pj.bak"
+jq '{schemaVersion: 1} + .ios + {e2e}' "$work/pj.bak" > "$p/.harness/project.json"
+run_doctor
+assert_eq "old config: 옛 형식이면 sync하라고 한다" "yes" "$(has "옛 형식(schemaVersion 1)")"
+jq 'del(.ios)' "$work/pj.bak" > "$p/.harness/project.json"
+run_doctor
+assert_eq "no ios: platforms에 ios가 있는데 설정이 없으면 문제다" "yes" "$(has "ios 설정이 없다")"
+jq '.platforms = ["android"]' "$work/pj.bak" > "$p/.harness/project.json"
+run_doctor
+assert_eq "unknown pack: 묶음 점검 스크립트가 없으면 문제다" "yes" "$(has "묶음 'android'의 스크립트")"
+jq '.platforms = []' "$work/pj.bak" > "$p/.harness/project.json"
+run_doctor
+assert_eq "no pack: iOS 점검을 하지 않는다" "no" "$(has "app.scheme")"
+cp "$work/pj.bak" "$p/.harness/project.json"
 
 rc=0; out="$(cd "$p" && env PATH="$(nojq_path "$work")" /bin/bash scripts/harness/doctor)" || rc=$?
 assert_eq "jq가 없으면 문제로 알린다" "1" "$rc"

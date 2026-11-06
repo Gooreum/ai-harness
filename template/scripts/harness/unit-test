@@ -49,14 +49,14 @@ record() { # passed(true|false) 요약 [돌린 테스트 수]
     '{passed: $passed, summary: $summary} + (if $tests == null then {} else {tests: $tests} end)' > "$out_dir/unit-test.json"
 }
 
-app_scheme="$(cfg .app.scheme)"
-app_test_scheme="$(cfg .app.testScheme)"   # 앱 테스트에 쓰는 스킴. 없으면 앱 스킴 (test와 같은 규칙)
+app_scheme="$(ios_cfg .app.scheme)"
+app_test_scheme="$(ios_cfg .app.testScheme)"   # 앱 테스트에 쓰는 스킴. 없으면 앱 스킴 (test와 같은 규칙)
 [ -n "$app_test_scheme" ] || app_test_scheme="$app_scheme"
-app_path="$(cfg .app.path)"
-app_tests="$(jq -r '.app.unitTestTargets // [] | join(", ")' "$config")"
-manifest="$(cfg .modules.manifest)"
-scheme_rule="$(cfg .modules.scheme)"
-tests_dir="$(cfg .modules.testsDir)"
+app_path="$(ios_cfg .app.path)"
+app_tests="$(jq -r '.ios.app.unitTestTargets // [] | join(", ")' "$config")"
+manifest="$(ios_cfg .modules.manifest)"
+scheme_rule="$(ios_cfg .modules.scheme)"
+tests_dir="$(ios_cfg .modules.testsDir)"
 
 # --- 바뀐 파일 -----------------------------------------------------------------
 

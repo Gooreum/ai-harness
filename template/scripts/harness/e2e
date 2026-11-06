@@ -49,13 +49,13 @@ done
 harness_init_ios
 command -v maestro >/dev/null 2>&1 || harness_die "maestro가 필요합니다 (curl -fsSL https://get.maestro.mobile.dev | bash)"
 e2e_java_ok || harness_die "Maestro가 쓸 Java가 없습니다. JDK를 설치하고(brew install openjdk@17) JAVA_HOME을 지정하세요"
-bundle_id="$(cfg .app.bundleId)"
+bundle_id="$(ios_cfg .app.bundleId)"
 events_source="$(cfg .e2e.events)"
 network_port="$(cfg .e2e.network.port)"
 case "$events_source" in ""|firebase) ;; *) harness_die "e2e.events는 firebase만 지원합니다: $events_source" ;; esac
-[ -n "$bundle_id" ] || harness_die "설정에 app.bundleId가 없습니다"
+[ -n "$bundle_id" ] || harness_die "설정에 ios.app.bundleId가 없습니다"
 if [ ${#flows[@]} -eq 0 ]; then
-  [ -d "$root/.maestro" ] || harness_die ".maestro/에 시나리오가 없습니다. 작성 규칙은 .claude/rules/harness/maestro.md에 있습니다"
+  [ -d "$root/.maestro" ] || harness_die ".maestro/에 시나리오가 없습니다. 작성 규칙은 .claude/rules/harness/ios/maestro.md에 있습니다"
   flows=("$root/.maestro")
   all_flows=1
 fi
@@ -89,10 +89,10 @@ if [ "$build" = 1 ]; then
   "$here/build" || exit $?
   # 빌드한 구성의 앱만 설치한다. app.scheme이 만드는 앱과 app.bundleId가 다르면, 다른 구성으로 예전에
   # 빌드된 앱을 설치해 바뀐 코드 없이 통과할 수 있다.
-  scheme="$(cfg .app.scheme)"
+  scheme="$(ios_cfg .app.scheme)"
   config="$(scheme_run_config "$scheme")"
   app="$(e2e_find_app "$derived_data" "$bundle_id" "$config")"
-  [ -n "$app" ] || harness_die "스킴 ${scheme}이 빌드한 ${config:-앱} 중 번들 ID가 ${bundle_id}인 앱이 없습니다 (빌드된 앱: $(e2e_built_ids "$derived_data" "${config:-*}")). .harness/project.json의 app.scheme과 app.bundleId를 같은 앱으로 맞추세요"
+  [ -n "$app" ] || harness_die "스킴 ${scheme}이 빌드한 ${config:-앱} 중 번들 ID가 ${bundle_id}인 앱이 없습니다 (빌드된 앱: $(e2e_built_ids "$derived_data" "${config:-*}")). .harness/project.json의 ios.app.scheme과 ios.app.bundleId를 같은 앱으로 맞추세요"
 else
   app="$(e2e_find_app "$derived_data" "$bundle_id")"
   [ -n "$app" ] || harness_die "빌드된 앱($bundle_id)을 찾지 못했습니다. --no-build 없이 다시 실행하세요"

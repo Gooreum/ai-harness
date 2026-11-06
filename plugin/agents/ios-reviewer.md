@@ -28,9 +28,9 @@ Bash는 git의 읽기 명령(diff, status, log, show)에만 쓰고, 명령을 `;
 
 | 바뀐 파일 | 규칙 |
 |---|---|
-| Swift 코드 | `.claude/rules/harness/swift.md`, `swiftui.md`, `concurrency.md`, `dependencies.md` |
-| 테스트 코드, 테스트 플랜 | `.claude/rules/harness/testing.md` |
-| 프로젝트 파일·빌드 설정, manifest | `.claude/rules/harness/project-settings.md`, `tuist.md` |
+| Swift 코드 | `.claude/rules/harness/ios/swift.md`, `swiftui.md`, `concurrency.md`, `dependencies.md` |
+| 테스트 코드, 테스트 플랜 | `.claude/rules/harness/ios/testing.md` |
+| 프로젝트 파일·빌드 설정, manifest | `.claude/rules/harness/ios/project-settings.md`, `tuist.md` |
 | 모든 변경 | 프로젝트 지침(AGENTS.md)의 꼭 지킬 규칙·프로젝트 규칙, `.claude/rules/project/*.md` |
 
 - 규칙 파일이 없으면 위 표의 중점 항목만으로 검토한다.

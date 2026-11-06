@@ -34,8 +34,8 @@ done
 harness_init_ios
 harness_container_args
 harness_destination
-scheme="${scheme:-$(cfg .app.scheme)}"
-[ -n "$scheme" ] || harness_die "설정에 app.scheme이 없습니다"
+scheme="${scheme:-$(ios_cfg .app.scheme)}"
+[ -n "$scheme" ] || harness_die "설정에 ios.app.scheme이 없습니다"
 
 # 결과 파일 .harness/out/build.json(passed, summary). checks.json의 run(scripts/harness/passed build)이 본다.
 record() { # passed summary

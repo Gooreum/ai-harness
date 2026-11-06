@@ -61,7 +61,7 @@ jq -n '{
   schemaVersion: 1, generator: "tuist",
   commands: { install: "echo i >> install-calls", generate: "mkdir -p App.xcworkspace && echo g >> generate-calls" },
   workspace: "App.xcworkspace", project: null,
-  app: { scheme: "App" }, destination: { simulator: "iPhone 17 Pro", os: "latest" }, modules: null }' > "$p/.harness/project.json"
+  app: { scheme: "App" }, destination: { simulator: "iPhone 17 Pro", os: "latest" }, modules: null } | {schemaVersion: 2, platforms: ["ios"], ios: del(.schemaVersion)}' > "$p/.harness/project.json"
 calls() { if [ -f "$p/$1" ]; then wc -l < "$p/$1" | tr -d ' '; else echo 0; fi; }
 
 HARNESS_ROOT="$p"
@@ -98,7 +98,7 @@ rm -rf "$p/App.xcworkspace"
 harness_ensure_generated
 assert_eq "generate: 생성물이 없으면 다시 실행" "6" "$(calls generate-calls)"
 
-jq '.commands.generate = "echo boom; exit 3"' "$p/.harness/project.json" > "$work/c.json" && mv "$work/c.json" "$p/.harness/project.json"
+jq '.ios.commands.generate = "echo boom; exit 3"' "$p/.harness/project.json" > "$work/c.json" && mv "$work/c.json" "$p/.harness/project.json"
 if out="$(harness_ensure_generated force)"; then code=0; else code=$?; fi
 assert_eq "generate: 실패하면 1을 반환" "1" "$code"
 assert_eq "generate: 실패 요약 첫 줄" "✗ generate 실패 (echo boom; exit 3)" "$(printf '%s\n' "$out" | sed -n 1p)"
@@ -109,7 +109,7 @@ mkdir -p "$p/.harness"
 (cd "$p" && git init -q && echo "pod 'A'" > Podfile)
 jq -n '{ schemaVersion: 1, generator: "xcodeproj",
   commands: { install: "mkdir -p Pods && echo i >> install-calls", generate: null },
-  workspace: "App.xcworkspace", project: "App.xcodeproj", app: { scheme: "App" }, modules: null }' > "$p/.harness/project.json"
+  workspace: "App.xcworkspace", project: "App.xcodeproj", app: { scheme: "App" }, modules: null } | {schemaVersion: 2, platforms: ["ios"], ios: del(.schemaVersion)}' > "$p/.harness/project.json"
 HARNESS_ROOT="$p"
 harness_init
 harness_ensure_generated

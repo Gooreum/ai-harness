@@ -23,20 +23,13 @@
 
 | 할 일 | 명령 |
 |---|---|
-| 코드를 바꾼 뒤 검증 (앱 빌드 + 바뀐 모듈 테스트) | `scripts/harness/unit-test` |
-| 무엇을 돌릴지 미리 보기 | `scripts/harness/unit-test --plan` |
-| PR 전에 브랜치 전체 변경 검증 | `scripts/harness/unit-test --base <기본 브랜치>` |
-| 빌드만 | `scripts/harness/build` |
-| 앱 단위 테스트 / 특정 스킴 테스트 | `scripts/harness/test` / `scripts/harness/test --scheme <스킴>` |
-| 팀 컨벤션 검사 (바뀐 Swift 파일) | `scripts/harness/lint` |
-| E2E 시나리오 / 회귀 묶음(배포 전·리팩터링 뒤) / 영상 | `scripts/harness/e2e <파일>` / `scripts/harness/e2e --tag regression` / `--record` |
+<!-- harness:pack commands -->
 | 하네스 스크립트가 없는 검사(명령) 돌리고 결과 남기기 | `scripts/harness/record <이름> <명령>` |
 | 정책·결정 기록 찾기 / 형식 검사 | `scripts/harness/wiki search <단어>` / `scripts/harness/wiki check` |
 | 하네스가 제대로 설치됐는지 점검 (도구, 설정, 플러그인 버전) | `scripts/harness/doctor` |
 
-- 스킴, 시뮬레이터, 프로젝트 생성 명령은 `.harness/project.json`에 있고 스크립트가 이 파일을 읽는다. `xcodebuild`를 직접 구성하지 않는다.
+<!-- harness:pack notes -->
 - 코드를 고치는 작업은 `task` 스킬(ios-harness 플러그인)로 시작한다. 계획할지(plan/simple)와 돌릴 검사는 사용자가 고르고, 단계마다 할 일은 하네스가 알려 준다. 검사 목록은 `.harness/checks.json`에 있다.
-- `task` 없이 작업했으면 코드를 바꾼 뒤 `unit-test`와 `lint`를 돌린다. 컨벤션을 지켰는지는 스스로 판단하지 말고 `lint` 결과로 확인한다.
 - 실패하면 출력에 나온 첫 에러의 위치부터 고친다. 전체 로그와 결과 번들은 `.harness/out/`에 있다.
 - 동작·스펙을 바꾸기 전에 `scripts/harness/wiki search <단어>`로 관련 정책·결정 기록(`docs/wiki/`)을 찾아 읽는다. 기록과 다르게 바꿔야 하면 사용자에게 먼저 묻는다.
 - 결과는 실제로 실행한 명령과 출력으로 보고한다. 실행하지 못한 검증은 못 했다고 밝힌다.
@@ -61,12 +54,7 @@ Claude Code는 아래 규칙을 해당 파일을 읽을 때 자동으로 불러�
 
 | 다루는 파일 | 규칙 |
 |---|---|
-| Swift 코드 | `.claude/rules/harness/swift.md`, `swiftui.md`, `concurrency.md`, `dependencies.md` |
-| 테스트 코드, 테스트 플랜 | `.claude/rules/harness/testing.md` |
-| 프로젝트 파일·빌드 설정(pbxproj, xcconfig, entitlements, Info.plist, manifest) | `.claude/rules/harness/project-settings.md` |
-| Tuist manifest(`Project.swift`, `Workspace.swift`, `Tuist/`) | `.claude/rules/harness/tuist.md` |
-| 팀 컨벤션 목록(`.harness/conventions.json`) | `.claude/rules/harness/conventions.md` |
-| E2E 시나리오(`.maestro/`) | `.claude/rules/harness/maestro.md` |
+<!-- harness:pack rules -->
 | 정책·결정 기록(`docs/wiki/`) | `.claude/rules/harness/wiki.md` |
 | 이 프로젝트에만 있는 규칙 | `.claude/rules/project/` |
 

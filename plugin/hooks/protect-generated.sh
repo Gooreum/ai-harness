@@ -33,7 +33,8 @@ while [ -n "$dir" ] && [ "$dir" != "/" ]; do
 done
 [ -n "$root" ] || exit 0
 
-generator="$(jq -r '.generator // empty' "$root/.harness/project.json" 2>/dev/null)"
+# 새 형식은 ios.generator, sync 전의 옛 형식(schemaVersion 1)은 generator에 있다.
+generator="$(jq -r '.ios.generator // .generator // empty' "$root/.harness/project.json" 2>/dev/null)"
 rel="${file#"$root"/}"
 
 reason=""
