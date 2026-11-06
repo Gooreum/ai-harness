@@ -400,7 +400,8 @@ claude plugin validate plugin
 - `bash tests/run.sh`: 회귀 테스트 전체. Xcode 없이 돈다.
 - `scripts/detect`: 설정 파일 초안을 출력만 한다. 파일은 쓰지 않는다.
 - `scripts/init`: 실제로 설치한다. 설치한 뒤 출력된 "직접 할 일"을 처리하고, 프로젝트에서 `scripts/harness/doctor`와 `scripts/harness/unit-test`를 돌려 본다.
-- 필요한 도구: macOS 기본 bash·jq, Xcode(빌드·테스트), 해당 프로젝트의 생성기(Tuist 등)
+- 지원 OS: macOS만(ADR 0023). Linux에서는 확인하지 않았다.
+- 필요한 도구: macOS 기본 bash·jq. iOS 묶음은 Xcode(빌드·테스트)와 해당 프로젝트의 생성기(Tuist 등)
 
 ## 진행 상황
 
