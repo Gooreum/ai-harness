@@ -28,7 +28,8 @@ doctor_ios() {
   fi
 
   # --- 설정 ---
-  [ -n "$(ios_cfg .app.scheme)" ] || problem ".harness/project.json에 ios.app.scheme이 없다"
+  # 앱이 없는 Swift 패키지(spm)는 앱 스킴이 없다.
+  [ "$generator" = spm ] || [ -n "$(ios_cfg .app.scheme)" ] || problem ".harness/project.json에 ios.app.scheme이 없다"
   # 생성기를 쓰는 프로젝트의 워크스페이스·프로젝트는 생성물이라, 아직 없어도 build가 만든다.
   if [ "$generator" != "tuist" ] && [ "$generator" != "xcodegen" ]; then
     for key in workspace project; do

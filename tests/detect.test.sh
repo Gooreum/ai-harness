@@ -236,6 +236,11 @@ assert_eq "empty: 묶음이 없는 플랫폼을 알린다" "1" "$(grep -c 'packa
 p="$work/xcodeproj"
 assert_eq "platforms: Xcode 프로젝트면 ios" '["ios"]' "$(run_detect "$p" 2> /dev/null | jq -c .platforms)"
 
+p="$work/spmlib"
+mkdir -p "$p/Sources/Lib" && echo '// swift-tools-version:5.9' > "$p/Package.swift"
+assert_eq "spm: 앱 없는 Swift 패키지는 묶음 없이 공통 파일만" '{"schemaVersion":2,"platforms":[]}' "$("$detect" "$p" 2> "$work/err" | jq -c .)"
+assert_eq "spm: setup에서 swift test로 정하라고 알린다" "1" "$(grep -c 'swift test' "$work/err")"
+
 # --- --write / --force --------------------------------------------------------
 p="$work/xcodeproj"
 run_detect --write "$p" >/dev/null

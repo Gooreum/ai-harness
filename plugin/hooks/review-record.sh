@@ -127,7 +127,7 @@ case "$event" in
       ($changed | lines) as $c | ($read | lines) as $r
       | ($c - $r) as $missing
       | (first($report | capture("요약 · 차단 (?<n>[0-9]+)")? | .n | tonumber) // null) as $blocking
-      | ($report | test("^발견 없음")) as $clean
+      | ($report | test("(^|\n)발견 없음")) as $clean   # 보고서 앞에 다른 문장이 와도 줄 머리의 "발견 없음"을 찾는다
       | (if $clean then 0 else $blocking end) as $b
       | { passed: (($missing | length) == 0 and $b == 0),
           blocking: $b, changed: $c, read: $r, missing: $missing, agentId: $agent,

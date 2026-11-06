@@ -23,7 +23,7 @@ template 안의 경로가 그대로 프로젝트 루트 기준 경로가 된다.
 
 `.harness/project.json`은 template에 없다. 설치할 때 하네스 저장소의 `scripts/detect`가 프로젝트를 보고 만들고, 이후에는 `detect --write --force`로만 다시 만든다.
 
-`.harness/checks.json`(검사 목록)도 template에 없다. init·sync는 쓰지 않고, 없으면 Claude 세션에서 `scripts/harness/setup` 안내대로 사용자와 정하라고 알린다. setup은 저장소에서 찾은 명령과 묶음 추천 검사(`scripts/harness/<묶음>-checks.json`)를 보여 준다([checks.md](checks.md), [ADR 0020](decisions/0020-install-checks-permissions-root.md)).
+`.harness/checks.json`(검사 목록)도 template에 없다. init·sync는 쓰지 않고, 없으면 Claude 세션에서 `scripts/harness/setup` 안내대로 사용자와 정하라고 알린다. setup은 저장소에서 찾은 명령과 추천 검사(공통 `scripts/harness/common-checks.json`, 묶음 `scripts/harness/<묶음>-checks.json`)를 보여 준다([checks.md](checks.md), [ADR 0020](decisions/0020-install-checks-permissions-root.md)).
 
 `.harness/conventions.json`(팀 컨벤션 목록)도 template에 없다. 팀이 규칙을 고른 뒤 프로젝트에서 직접 만든다([conventions.md](conventions.md)). 없으면 `lint`는 건너뛴다.
 

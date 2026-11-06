@@ -217,6 +217,6 @@ scripts/harness/passed unit-test   # .harness/out/unit-test.json이 통과했고
 
 `scripts/harness/setup`은 검사 목록(`.harness/checks.json`)을 사용자와 정하는 안내를 출력한다. 파일은 쓰지 않는다. ai-bouncer `bouncer setup`을 따른다([ADR 0020](decisions/0020-install-checks-permissions-root.md)).
 
-- 저장소에서 찾은 명령(package.json scripts, Makefile, pytest·ruff, go, cargo, gradlew)과 근거, 고른 묶음의 추천 검사(`scripts/harness/<묶음>-checks.json`)를 보여 준다.
+- 저장소에서 찾은 명령(package.json scripts, Makefile, pytest·ruff, go, cargo, gradlew, `tests/run.sh`·`tests/run-all.sh`, `*.bats`, `Package.swift`)과 근거, 추천 검사(공통 `common-checks.json`의 review, 고른 묶음의 `<묶음>-checks.json`)를 보여 준다.
 - 에이전트는 안내대로 AskUserQuestion으로 사용자에게 고르게 하고, 답대로 `checks.json`을 쓴 뒤 `doctor`로 확인한다. 찾은 명령은 `record`로 돌리고 run은 `passed`로 본다.
 - 이미 `checks.json`이 있으면 지금 검사를 보여 주고 바꿀 부분만 묻게 한다.

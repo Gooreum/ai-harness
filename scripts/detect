@@ -708,7 +708,11 @@ ios_json="$(
 )"
 }
 
-if [ -n "$generator" ]; then
+if [ "$generator" = spm ]; then
+  # 앱이 없는 Swift 패키지(라이브러리). iOS 묶음 스크립트(build·test·e2e)는 앱 스킴을 전제로 해서 쓰지 않는다.
+  # 공통 파일만 설치하고 검사는 setup에서 swift test 등으로 정한다(ADR 0023).
+  note "Package.swift만 있는 Swift 패키지라 iOS 묶음을 고르지 않았다. 검사는 scripts/harness/setup에서 swift test 등으로 정한다"
+elif [ -n "$generator" ]; then
   detect_ios
   platforms+=(ios)
 else

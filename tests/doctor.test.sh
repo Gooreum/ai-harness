@@ -115,7 +115,7 @@ cp "$work/pj.bak" "$p/.harness/project.json"
 
 # --- 검사 목록(checks.json)의 run과 결과 ---------------------------------------------------
 # setup 안내대로 묶음 추천 검사를 옮긴 목록
-jq '{schemaVersion: 1} + .' "$p/scripts/harness/ios-checks.json" > "$work/checks.bak"
+jq -s '{schemaVersion: 1, checks: (.[0].checks + .[1].checks)}' "$p/scripts/harness/ios-checks.json" "$p/scripts/harness/common-checks.json" > "$work/checks.bak"
 jq '.checks += [
   {name: "typecheck", prompt: "scripts/harness/record typecheck \"npm run typecheck\"를 실행한다", run: "scripts/harness/passed typecheck"},
   {name: "ghost", prompt: "알아서 돌린다", run: "scripts/harness/passed ghost"},
