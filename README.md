@@ -120,6 +120,7 @@ scripts/harness/setup 안내대로 설정해 줘
   | 도구가 만드는 파일 | `.harness/project.json`의 `generated` (훅이 편집을 막는다) |
   | 에이전트가 직접 고치면 안 되는 파일(예: `project.pbxproj`) | `.claude/settings.json`의 `permissions.deny`에 `Edit(<글롭>)` |
   | 출력이 너무 긴 명령 | 감싸는 스크립트를 저장소의 `scripts/`에 만든다 (하네스가 관리하는 `scripts/harness/`는 피한다) |
+  | 앱을 띄워 확인하는 테스트(E2E)가 없을 때 둘지 | 시나리오 하나를 통과시킨 뒤 `.harness/checks.json`에 e2e 검사로 |
   | 정한 빌드·테스트 명령 | `AGENTS.md` 프로젝트 영역의 "빌드·테스트" |
 
 - 단서는 보여 주기만 한다. 정하는 것은 사용자의 답이다.
