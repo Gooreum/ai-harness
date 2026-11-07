@@ -126,4 +126,19 @@ p="$mono/apps/ios"
 stopr "발견 없음"
 assert_eq "mono: 하위 폴더의 바뀐 파일을 루트 기준으로 본다" "false|App/A.swift" "$(result '"\(.passed)|\(.missing | join(","))"')"
 
+
+# 한글 이름 파일: git이 따옴표로 감싼 이름(core.quotePath)을 쓰면 연 파일과 맞지 않아 통과하지 못한다
+ko="$work/ko"
+mkdir -p "$ko/.harness" "$ko/App"
+echo '{"schemaVersion":1}' > "$ko/.harness/project.json"
+echo 'let a = 1' > "$ko/App/화면.swift"
+(cd "$ko" && git init -q -b main && git add -A && git -c user.name=t -c user.email=t@t commit -qm init)
+echo 'let a = 2' > "$ko/App/화면.swift"
+echo 'let n = 1' > "$ko/App/새화면.swift"
+p="$ko"
+readf "$ko/App/화면.swift"
+readf "$ko/App/새화면.swift"
+stopr "발견 없음"
+assert_eq "한글 이름 파일도 연 파일과 맞춘다" "true|App/새화면.swift,App/화면.swift" "$(result '"\(.passed)|\(.changed | join(","))"')"
+
 finish

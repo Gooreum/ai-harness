@@ -73,8 +73,8 @@ harness_changed_files() {
     fi
   fi
   (cd "$root" && {
-      git diff --name-only --relative "$from"
-      git ls-files -o --exclude-standard | while IFS= read -r f; do
+      git -c core.quotePath=false diff --name-only --relative "$from"
+      git -c core.quotePath=false ls-files -o --exclude-standard | while IFS= read -r f; do
         # 작업 전부터 있던 추적 안 된 파일은 이번 작업의 변경이 아니다.
         if [ -n "$started" ] && [ "$(harness_mtime "$f")" -lt "$started" ]; then continue; fi
         printf '%s\n' "$f"
