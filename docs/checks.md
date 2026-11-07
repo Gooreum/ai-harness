@@ -21,7 +21,7 @@
 | plan | EnterPlanMode로 계획하고 ExitPlanMode로 사용자 승인을 받는다 + `stages.plan.prompt` |
 | implement | 구현한다 + `stages.implement.prompt` |
 | verify | 고른 검사의 `prompt`를 `checks.json`에 적힌 순서대로 하나씩 실행하고 실제 출력으로 확인한다 |
-| finish | 바꾼 것과 검사 결과를 보고하고, 코드에 남지 않는 정책·결정을 정리한다 + `stages.finish.prompt` |
+| finish | 작업 보고를 다섯 섹션(1. 상황 · 2. 조치 · 3. 평가 · 4. 건의 · 5. 결정 사항)으로 쓴다. 섹션 사이는 구분선, 문장마다 줄을 바꾸고, 평가는 근거(결과 파일·명령)가 있는 표로 쓴다 + `stages.finish.prompt` |
 
 ## 상태 파일 (`.harness/state/task.json`)
 
