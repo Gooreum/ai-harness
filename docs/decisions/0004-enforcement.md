@@ -23,7 +23,7 @@
 | 자동 생성 파일(Tuist·XcodeGen의 `*.xcodeproj/`, `*.xcworkspace/`, `Derived/`) | 플러그인 훅 `protect-generated.sh` | 생성기를 알아야 판단할 수 있고(설정 파일), "manifest를 고치라"는 안내를 줄 수 있다 |
 | `project.pbxproj` | 같은 훅 + `Edit(**/*.pbxproj)` deny | 훅이 안내를 주고, 권한 규칙이 Bash로 우회하는 편집까지 막는다 |
 | 서명·시크릿 파일(`*.p12`, `*.p8`, `*.mobileprovision`, `.env`, `.env.*`) | `Read` deny | 코딩에 필요 없다. Read deny는 같은 경로의 편집도 막는다 |
-| 파괴적 git 명령, 외부 공개 작업(push, PR 생성·머지) | `ask` (`git -C <경로>` 형식 포함) | 사용자가 실제로 요청했을 때는 확인 후 실행할 수 있어야 한다. "요청할 때만 쓴다"는 지침과 맞다 |
+| 파괴적 git 명령, 외부 공개 작업(push, PR 생성·머지) | ~~`ask` (`git -C <경로>` 형식 포함)~~ → ADR 0026에서 뺐다. 지침과 auto 모드 분류기에 맡긴다 | 사용자가 실제로 요청했을 때는 확인 후 실행할 수 있어야 한다. "요청할 때만 쓴다"는 지침과 맞다 |
 
 - 훅은 판단할 수 없으면 막지 않는다(fail-open). 설정 파일이 없거나 입력 JSON이 깨진 경우다. 고장 난 훅이 정상 작업을 막지 않게 하기 위해서다.
 - 훅은 stdin JSON만 읽는다. Codex의 편집 입력(apply_patch) 처리는 Codex 어댑터(후보 16)에서 추가한다.
