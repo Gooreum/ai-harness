@@ -8,6 +8,7 @@
 # - 입력은 stdin JSON만 읽는다 (tool_name, tool_input, cwd). Codex에서도 재사용하기 위해서다.
 # - 상태 파일(.harness/state/task.json)을 고치는 Edit·Write·MultiEdit만 본다. 고친 뒤의 내용을 계산해
 #   stage가 verify 이전(또는 verify)에서 verify 다음(finish, done)으로 바뀌면 고른 검사의 run을 프로젝트 루트에서 실행한다.
+# - 새 작업(상태 파일이 없거나 지난 작업이 done)을 첫 단계가 아닌 단계로 열면 막는다.
 # - run이 하나라도 0이 아니면 이유를 stderr로 내고 2로 끝난다(슬라이드 25). 상태 파일은 바뀌지 않는다.
 # - 훅은 검사 내용을 모른다. .harness/checks.json에 적힌 run을 돌릴 뿐이다.
 # - 판단할 수 없으면(상태 파일이 아님, JSON 오류, 설정 없음) 막지 않는다.
@@ -55,9 +56,30 @@ new="$(printf '%s' "$input" | jq -r --arg old "$old" '
     else empty end' 2> /dev/null)" || exit 0
 [ -n "$tool" ] && [ -n "$new" ] || exit 0
 
-# 넘어가는지 판단: verify 단계를 지나 finish·done으로 가는가
 # 모드별 단계 순서는 flows.json 한 곳에 둔다(stage-context.sh와 같다). 마지막 단계 다음은 done이다.
 flows="$(cat "$(dirname "$0")/flows.json" 2>/dev/null)" || exit 0
+
+# 새 작업은 그 모드의 첫 단계에서 시작한다(ai-bouncer `bouncer start`도 첫 단계로 시작한다).
+# 새 작업: 상태 파일이 없었거나, 읽을 수 없었거나, 지난 작업이 done이었다. 중간 단계로 열면 계획·구현 지시를 건너뛰고,
+# 이미 커밋한 변경은 시작 커밋 뒤가 아니라 검사와 리뷰가 바뀐 파일 없이 통과한다(PetCycle #103).
+first="$(jq -rn --arg old "$old" --arg new "$new" --argjson flows "$flows" '
+  ($new | fromjson) as $n
+  | (try ($old | fromjson) catch null) as $o
+  | ($flows[$n.mode] // null) as $flow
+  | if $flow == null then empty
+    elif ($o != null and ($o.stage // "") != "" and $o.stage != "done") then empty
+    elif $n.stage == $flow[0] then empty
+    else $flow[0] end' 2> /dev/null)" || first=""
+if [ -n "$first" ]; then
+  {
+    echo "[하네스] 새 작업은 첫 단계(\"$first\")에서 시작합니다. stage는 바뀌지 않았습니다."
+    echo "중간 단계로 열면 그 앞 단계의 지시를 건너뛰게 됩니다. stage를 \"$first\"로 써서 다시 저장하세요."
+    echo "이미 작업 밖에서 고치고 커밋한 변경이 있으면 사용자에게 알리고 어떻게 다시 검증할지 묻습니다."
+  } >&2
+  exit 2
+fi
+
+# 넘어가는지 판단: verify 단계를 지나 finish·done으로 가는가
 gate="$(jq -rn --arg old "$old" --arg new "$new" --argjson flows "$flows" '
   ($new | fromjson) as $n
   | (try ($old | fromjson) catch {}) as $o

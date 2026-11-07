@@ -107,6 +107,7 @@ ReadSharp는 예전 iOS 묶음의 스크립트를 `scripts/ios/`로 넘겨받아
 - `run`이 없는 검사는 돌리지 않는다. 고른 검사가 없으면 막지 않는다.
 - 리뷰의 결과 파일 `.harness/out/review.json`은 리뷰어가 아니라 플러그인 훅 `review-record.sh`가 쓴다. 리뷰어가 바뀐 파일을 Read로 다 열었고 차단이 0이어야 통과다([plugin.md](plugin.md), [ADR 0016](decisions/0016-review-record.md)).
 - 고른 검사가 `checks.json`에 없으면(이름이 바뀌었거나 오타) 막는다. 건너뛰면 검사 없이 통과로 보이기 때문이다.
+- 새 작업은 그 모드의 첫 단계(plan은 `plan`, simple은 `implement`)로만 연다. 같은 훅이 중간 단계로 여는 것을 막는다.
 - run은 결과 파일을 본다. `scripts/harness/passed <검사>`를 쓴다: `.harness/out/<검사>.json`의 `passed`가 참이고 결과가 최신이어야 통과다.
   - 최신이 아니라는 것은 이번 작업을 시작하기 전 결과이거나(`.harness/state/task.started`), 그 뒤에 고친 파일이 있다는 뜻이다. 바뀐 파일은 작업을 시작한 커밋(`.harness/state/task.base`)부터 본다. 작업 중에 커밋해도 빠지지 않는다. 기준은 ai-bouncer의 `bouncer passed`와 같다.
 - run 합계는 1700초(`HARNESS_RUN_BUDGET`)까지다. 넘으면 시간 초과로 막는다.

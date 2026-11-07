@@ -260,7 +260,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `.claude-plugin/plugin.json` | — | 플러그인 이름(`harness`)과 버전 |
 | `hooks/hooks.json` | Enforcement + Context | 모든 도구 전에 `tool-count.sh`, 편집 직전에 `protect-generated.sh`·`check-run.sh`, 편집 직후에 `stage-context.sh`, Read 직후·서브에이전트가 끝날 때 `review-record.sh`, 끝낼 때 `stop-gate.sh`를 실행하도록 등록 |
 | `hooks/protect-generated.sh` | Enforcement | `project.json`의 `generated`에 적힌 생성 파일 편집을 막는 훅 |
-| `hooks/check-run.sh` | Enforcement + Validation | 검증 단계를 넘기려 할 때 고른 검사의 `run`을 돌려 실패하면 막는 훅 |
+| `hooks/check-run.sh` | Enforcement + Validation | 검증 단계를 넘기려 할 때 고른 검사의 `run`을 돌려 실패하면 막는 훅. 새 작업은 첫 단계로만 열게 한다 |
 | `hooks/stop-gate.sh` | Enforcement | 작업 주인 세션이 done 전에 끝내지 못하게 막는 훅 (반복 방지는 ai-bouncer와 같다. 백그라운드 서브에이전트를 기다리는 동안은 막지 않는다) |
 | `hooks/tool-count.sh` | State | 작업 주인 세션의 도구 호출 수를 세는 훅 (stop-gate.sh가 쓴다) |
 | `hooks/stage-context.sh` | Context | 작업 상태 파일(`.harness/state/task.json`)이 바뀌면 그 단계의 지시를 `.harness/checks.json`에서 꺼내 넣는 훅 |

@@ -19,7 +19,7 @@ plugin/
 └── hooks/
     ├── hooks.json                  훅 등록: 모든 도구 전 tool-count.sh, 편집 전 protect-generated.sh·check-run.sh, 편집 후 stage-context.sh, Read·SubagentHandback 후와 서브에이전트가 끝날 때 review-record.sh, 끝낼 때 stop-gate.sh
     ├── protect-generated.sh        생성 파일(project.json의 generated) 편집 차단
-    ├── check-run.sh                검증 단계를 넘기려 할 때 고른 검사의 run을 돌려, 실패하면 막는다
+    ├── check-run.sh                검증 단계를 넘기려 할 때 고른 검사의 run을 돌려, 실패하면 막는다. 새 작업은 첫 단계로만 연다
     ├── stop-gate.sh                작업 주인 세션이 done 전에 끝내지 못하게 막는다
     ├── tool-count.sh               작업 주인 세션의 도구 호출 수를 센다 (stop-gate.sh의 반복 방지용)
     ├── stage-context.sh            작업 상태 파일이 바뀌면 그 단계의 지시를 넣는다
@@ -54,6 +54,7 @@ plugin/
 
 - PreToolUse(Edit·Write·MultiEdit)에서 `.harness/state/task.json`을 고치려 할 때만 동작한다. 고친 뒤의 내용을 계산해 `stage`가 verify를 지나 finish·done으로 가는지 본다.
 - 그렇다면 고른 검사 중 `run`이 있는 것을 프로젝트 루트에서 실행한다. 하나라도 실패하면 이유를 stderr로 내고 2로 끝나 편집을 막는다.
+- 새 작업(상태 파일이 없었거나 지난 작업이 done)을 그 모드의 첫 단계가 아닌 단계로 열면 막는다. ai-bouncer `bouncer start`도 첫 단계로 시작한다. 중간 단계로 열면 앞 단계 지시를 건너뛰고, 작업 밖에서 이미 커밋한 변경은 시작 커밋 앞에 있어 검사와 리뷰가 바뀐 파일 없이 통과한다.
 - 판단할 수 없으면(설정 없음, JSON 오류) 막지 않는다.
 
 ## 훅: stop-gate.sh

@@ -61,8 +61,22 @@ assert_eq "finish → done: 이미 지난 검증은 다시 돌리지 않는다" 
 rm "$state"
 assert_eq "새 작업 시작(Write)은 막지 않는다" "0|" \
   "$(call "$(write '{"title":"t","mode":"plan","stage":"plan","checks":["lint"]}')")"
-assert_eq "Write로 바로 finish를 써도 막는다" "$blocked" \
+first_plan='2|[하네스] 새 작업은 첫 단계("plan")에서 시작합니다. stage는 바뀌지 않았습니다.'
+assert_eq "새 작업을 Write로 바로 finish로 열면 막는다" "$first_plan" \
   "$(call "$(write '{"title":"t","mode":"plan","stage":"finish","checks":["lint"]}')")"
+assert_eq "새 작업을 verify로 열어도 막는다" "$first_plan" \
+  "$(call "$(write '{"title":"t","mode":"plan","stage":"verify","checks":["lint"]}')")"
+assert_eq "simple 새 작업은 implement부터 연다" "0|" \
+  "$(call "$(write '{"title":"t","mode":"simple","stage":"implement","checks":["lint"]}')")"
+printf '%s' '{"title":"t","mode":"plan","stage":"done","checks":["lint"]}' > "$state"
+assert_eq "지난 작업이 done이면 새 작업이다: 중간 단계로 열면 막는다" "$first_plan" \
+  "$(call "$(write '{"title":"u","mode":"plan","stage":"verify","checks":["lint"]}')")"
+assert_eq "지난 작업이 done이면 첫 단계로는 연다" "0|" \
+  "$(call "$(write '{"title":"u","mode":"plan","stage":"plan","checks":["lint"]}')")"
+printf '%s' '{"title":"t","mode":"plan","stage":"implement","checks":["lint"]}' > "$state"
+assert_eq "진행 중인 작업에서 다음 단계로 가는 것은 막지 않는다" "0|" \
+  "$(call "$(edit '"stage":"implement"' '"stage":"verify"')")"
+rm "$state"
 
 echo '{"passed": true}' > "$p/.harness/out/lint.json"
 printf '%s' '{"title":"t","mode":"simple","stage":"verify","checks":["lint","unit-tset"]}' > "$state"
