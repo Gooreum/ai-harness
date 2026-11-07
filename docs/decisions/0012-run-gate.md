@@ -38,8 +38,8 @@
 
 ## 발표·ai-bouncer와 다른 점 (사용자에게 보고)
 
-- **run을 돌리는 시점.** ai-bouncer는 Stop에서 run을 돌리고 엔진이 단계를 넘기며, 에이전트는 상태를 고칠 수 없다. 발표는 에이전트가 state.json의 단계를 고친다고 한다(슬라이드 14·27). 발표를 따라 에이전트가 stage를 바꾸려 할 때 PreToolUse에서 막는다(사용자 결정, 2026-11-03).
-- **상태 파일을 Bash로 고치면 보지 못한다.** 훅은 Edit·Write·MultiEdit만 본다. `task` 스킬은 Edit·Write로 고치게 한다.
+- **run을 돌리는 시점.** ai-bouncer는 Stop에서 run을 돌리고 엔진이 단계를 넘기며, 에이전트는 상태를 고칠 수 없다. 발표는 에이전트가 state.json의 단계를 고친다고 한다(슬라이드 14·27). 발표를 따라 에이전트가 stage를 바꾸려 할 때 PreToolUse에서 막는다(사용자 결정, 2026-11-03). → ADR 0027에서 ai-bouncer처럼 Stop 훅이 run을 돌리고 단계를 넘기게 바꿨다.
+- **상태 파일을 Bash로 고치면 보지 못한다.** 훅은 Edit·Write·MultiEdit만 본다. `task` 스킬은 Edit·Write로 고치게 한다. → ADR 0027에서 Bash 쓰기도 막았다.
 - **lint·e2e는 시작할 때 결과 파일을 실패로 적지 않는다.** verify만 그렇게 했다. 나머지도 맞출지는 정하지 않았다.
 - 처음에는 Stop 훅이 plan 단계를 막지 않게 했다. 발표와 ai-bouncer 모두 Plan 모드로 승인받으므로 잘못이었고, 위 "계획 승인"으로 바꿨다.
 

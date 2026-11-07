@@ -185,16 +185,16 @@ scripts/harness/passed typecheck                            # 결과가 통과�
 - 훅은 stdin으로 받은 JSON만 읽는다. 나중에 Codex에서도 같은 스크립트를 쓰기 위해서다.
 - 훅은 판단할 수 없으면(설정 파일 없음, 입력 오류) 막지 않는다. 실수를 줄이는 장치이지 보안 경계가 아니라서, 고장 난 훅이 정상 작업을 막으면 안 된다.
 - 무엇이 생성 파일인지 훅은 모른다. 프로젝트가 `generated`에 적은 것만 막는다. 생성물은 아니지만 손으로 고치면 깨지는 파일(pbxproj 등)은 권한 규칙으로 막는다.
-- 검사를 통과했는지는 훅 `check-run.sh`가 확인한다. 아래 7의 run 확인이다.
+- 검사를 통과했는지는 Stop 훅 `stop-gate.sh`가 확인한다. 아래 7의 run 확인이다.
 
 ### 7. 작업 흐름: task
 
 코드를 고치는 작업은 플러그인 스킬 `task`로 시작한다. 사람이 처음에 두 가지만 정한다: 계획이 필요한 일인지(plan / simple)와 이번 작업에 돌릴 검사다.
 
 - plan: 계획 → 구현 → 검증 → 마무리, simple: 구현 → 검증 → 마무리
-- 에이전트가 단계를 마치고 `.harness/state/task.json`의 `stage`를 바꾸면, 훅이 그 단계의 지시를 넣는다. 검증 단계에는 고른 검사의 지시만 들어간다.
+- 에이전트가 단계의 일을 마치고 응답을 마치려 하면, Stop 훅이 확인하고 `.harness/state/task.json`의 `stage`를 다음 단계로 넘기며 그 단계의 지시를 준다. 검증 단계에는 고른 검사의 지시만 들어간다. 에이전트는 `stage`를 고칠 수 없다(`guard-state.sh`, Bash 쓰기 포함, [ADR 0027](docs/decisions/0027-stop-advances-stage.md)).
 - 검사 목록은 프로젝트의 `.harness/checks.json`에 있다. 훅은 검사 내용을 모르고 이 파일의 글을 옮길 뿐이다([docs/checks.md](docs/checks.md), [ADR 0007](docs/decisions/0007-task-flow.md)).
-- 검증 단계를 지나 넘어가려 하면 훅 `check-run.sh`가 고른 검사의 `run`(결과 파일 확인)을 돌린다. 실패하면 넘어가지 못한다(발표 슬라이드 29, [ADR 0012](docs/decisions/0012-run-gate.md)). 끝내려 할 때는 Stop 훅 `stop-gate.sh`가 작업을 시작한 세션만 done 전에 막는다. 계획 승인은 Plan 모드로 받는다.
+- 검증 단계에서 응답을 마치려 하면 Stop 훅 `stop-gate.sh`가 고른 검사의 `run`(결과 파일 확인)을 돌린다. 실패하면 넘어가지 못한다(발표 슬라이드 29, [ADR 0012](docs/decisions/0012-run-gate.md)). 작업을 시작한 세션만 done 전에 막는다. 계획 승인은 Plan 모드로 받는다.
 
 ### 8. 리뷰: reviewer
 
@@ -258,13 +258,14 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | 파일 | 계층 | 역할 |
 |---|---|---|
 | `.claude-plugin/plugin.json` | — | 플러그인 이름(`harness`)과 버전 |
-| `hooks/hooks.json` | Enforcement + Context | 세션 시작 때 `session-start.sh`, 모든 도구 전에 `tool-count.sh`, 편집 직전에 `protect-generated.sh`·`check-run.sh`, 편집 직후에 `stage-context.sh`, Read 직후·서브에이전트가 끝날 때 `review-record.sh`, 끝낼 때 `stop-gate.sh`를 실행하도록 등록 |
+| `hooks/hooks.json` | Enforcement + Context | 세션 시작 때 `session-start.sh`, 모든 도구 전에 `tool-count.sh`, 편집·Bash 직전에 `protect-generated.sh`·`guard-state.sh`, 편집 직후에 `stage-context.sh`, Read 직후·서브에이전트가 끝날 때 `review-record.sh`, 끝낼 때 `stop-gate.sh`를 실행하도록 등록 |
 | `hooks/session-start.sh` | Context | 세션을 열 때 작업이 없으면 task 스킬로 시작하라고, 있으면 그 단계를 알려 주는 훅 |
 | `hooks/protect-generated.sh` | Enforcement | `project.json`의 `generated`에 적힌 생성 파일 편집을 막는 훅 |
-| `hooks/check-run.sh` | Enforcement + Validation | 검증 단계를 넘기려 할 때 고른 검사의 `run`을 돌려 실패하면 막는 훅. 새 작업은 첫 단계로만 열게 한다 |
-| `hooks/stop-gate.sh` | Enforcement | 작업 주인 세션이 done 전에 끝내지 못하게 막는 훅 (반복 방지는 ai-bouncer와 같다. 백그라운드 서브에이전트를 기다리는 동안은 막지 않는다) |
+| `hooks/guard-state.sh` | Enforcement | 에이전트가 작업 상태 파일로 단계를 넘기지 못하게 막는 훅. 시작(첫 단계로만)·이어서 하기·취소만 허용하고 Bash 쓰기는 막는다 |
+| `hooks/stop-gate.sh` | Enforcement + Validation | 응답을 마치려 할 때 검증 단계면 고른 검사의 `run`을 돌리고, 통과하면 다음 단계로 넘기는 훅. done 전에는 끝내지 못한다 (반복 방지는 ai-bouncer와 같다. 백그라운드 서브에이전트를 기다리는 동안은 막지 않는다) |
+| `hooks/stage-text.jq` | Context | 단계 지시 글. `stage-context.sh`와 `stop-gate.sh`가 같이 쓴다 |
 | `hooks/tool-count.sh` | State | 작업 주인 세션의 도구 호출 수를 세는 훅 (stop-gate.sh가 쓴다) |
-| `hooks/stage-context.sh` | Context | 작업 상태 파일(`.harness/state/task.json`)이 바뀌면 그 단계의 지시를 `.harness/checks.json`에서 꺼내 넣는 훅 |
+| `hooks/stage-context.sh` | Context | 작업 상태 파일(`.harness/state/task.json`)을 시작하거나 이어서 할 때 그 단계의 지시를 `.harness/checks.json`에서 꺼내 넣는 훅 |
 | `hooks/review-record.sh` | Validation | reviewer가 Read로 연 파일과 보고서의 차단 수로 `.harness/out/review.json`을 남기는 훅. `passed review`가 이 파일을 본다 |
 | `skills/task/SKILL.md` | State | 작업 시작: 계획 여부(plan/simple)와 검사를 사용자에게 묻고 상태 파일을 만든다 |
 | `.mcp.json`, `mcp/network.py` | Validation 보조 | 가짜 응답 서버 MCP `harness-network`. AI가 건 지연·400·500·빈 응답을 실제 서버 대신 앱에 돌려준다. `e2e.network.port`를 적은 프로젝트에서만 켜진다 |

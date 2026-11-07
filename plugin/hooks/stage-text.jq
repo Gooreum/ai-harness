@@ -1,0 +1,41 @@
+# 지금 단계에서 할 일(지시 글). 입력은 task.json, 인자는 $flows(flows.json)와 $conf(checks.json을 --slurpfile로).
+# stage-context.sh(작업을 시작할 때)와 stop-gate.sh(단계를 넘길 때)가 같이 쓴다.
+# 훅은 검사 내용을 모른다. checks.json에 적힌 글을 단계에 맞춰 옮길 뿐이다(발표 슬라이드 27).
+($conf[0]) as $c
+| {
+    plan: "계획만 세운다. 승인 전에는 코드를 고치지 않는다. 먼저 EnterPlanMode를 호출한다. 바꿀 파일, 바꾸는 방법, 확인 방법을 계획에 담고 ExitPlanMode로 사용자 승인을 받는다. 승인되면 구현하지 말고 응답을 마친다. 하네스가 구현 단계로 넘기며 지시를 준다. 거부되면 피드백을 반영해 계획을 다시 쓴다. ExitPlanMode가 에러를 내면 승인되지 않은 것이다.",
+    implement: "구현한다. 계획 단계를 거쳤으면 승인받은 계획대로 한다. 검사는 다음 단계에서 한다.",
+    verify: "요청받은 범위가 전부 구현됐는지 다시 대조하고, 빠진 것은 지금 마저 한다. 아래 검사를 위에서부터 차례로 하나씩 실행하고 실제 출력으로 결과를 확인한다. 실패하면 고친 뒤 다시 실행한다. 통과했다고 말하기 전에 출력을 확인한다. 파일을 고치는 검사(포매터, --fix, 의존성 설치)는 순서와 상관없이 먼저 돌린다. 나중에 돌리면 앞 검사의 결과가 낡은 것이 된다. 10분 넘게 걸리는 검사는 백그라운드로 돌리고 끝난 뒤 결과 파일(.harness/out/<이름>.json)을 확인한다.",
+    finish: "무엇을 바꿨는지, 실행한 검사와 그 결과를 실제 출력으로 보고한다. 이번 작업에서 정한 정책·결정 중 코드에 남지 않는 것(왜 이렇게 했는지, 하지 않기로 한 것)을 보고에 따로 정리한다."
+  } as $base
+| . as $t
+| if ($flows[$t.mode] | not) then "[하네스] task.json의 mode는 plan 또는 simple이어야 합니다."
+  elif $t.stage == "done" then
+    if $t.cancelled then "[하네스] 작업 \"\($t.title // "")\"을 취소했습니다. 무엇을 하다 멈췄는지 사용자에게 보고한다."
+    else "[하네스] 작업 \"\($t.title // "")\"이 끝났습니다." end
+  elif (($flows[$t.mode] | index($t.stage)) == null) then
+    "[하네스] \($t.mode) 모드의 단계는 \($flows[$t.mode] | join(" → "))입니다. task.json의 stage를 이 중 하나로 고치세요."
+  else
+    ($flows[$t.mode]) as $flow
+    | ($flow | index($t.stage)) as $i
+    # 고른 검사는 checks.json에 적힌 순서로 넣는다. 발표처럼 적힌 순서대로 차례로 돈다(슬라이드 88).
+    | ($t.checks // []) as $names
+    | ((($c.checks // []) | map(select(.name as $n | $names | index($n))))
+       + ($names | map(. as $n | select((($c.checks // []) | map(.name) | index($n)) == null) | { name: $n, missing: true }))) as $picked
+    | ([ "[하네스] 작업 \"\($t.title // "")\" · \($t.mode) 모드 · \($t.stage) 단계 (\($i + 1)/\($flow | length))",
+         $base[$t.stage] ]
+       + (if $c.stages[$t.stage].prompt then [$c.stages[$t.stage].prompt] else [] end)
+       + (if $t.stage == "verify" then
+            if ($picked | length) == 0 then ["이번 작업은 고른 검사가 없다."]
+            else ["이번에 고른 검사:"] + ($picked | map(
+              if .missing then "- \(.name): .harness/checks.json에 없는 검사다. 사용자에게 알린다"
+              else "- \(.name): \(.prompt)" end))
+            end
+          else [] end)
+       + [ if $i + 1 < ($flow | length) then
+             (if $t.stage == "verify" then "검사를 마치면 응답을 마친다. 하네스가 고른 검사의 run을 돌려 통과하면 \"\($flow[$i + 1])\" 단계로 넘긴다."
+              else "이 단계를 마치면 응답을 마친다. 하네스가 \"\($flow[$i + 1])\" 단계로 넘기며 지시를 준다." end)
+           else "보고를 마치고 응답을 마치면 작업이 끝난다." end,
+           "단계는 하네스가 넘긴다. task.json은 고치지 않는다. 사용자에게 물을 것은 AskUserQuestion으로 묻는다. 글로 묻고 응답을 마치면 하네스가 다음 단계로 넘긴다." ])
+    | join("\n")
+  end
