@@ -62,6 +62,10 @@ if [ -n "$stage_now" ] && [ "$stage_now" != done ] && { [ -z "$seen" ] || [ "$se
   date -u +%FT%TZ > "$root/.harness/state/task.started" 2>/dev/null || true
   git -C "$root" rev-parse --verify -q HEAD > "$root/.harness/state/task.base" 2>/dev/null \
     || rm -f "$root/.harness/state/task.base"
+  # 시작할 때 이미 바뀌어 있던 파일(task.wip). 마무리 때 Stop 훅은 이 목록에 없는 변경이 남았으면 커밋하지 않은 것으로 본다(ADR 0028).
+  # 작업과 무관한 WIP는 커밋하지 않고 그대로 두기 때문이다(ai-bouncer finalize).
+  git -C "$root" status --porcelain --untracked-files=all 2>/dev/null | cut -c4- > "$root/.harness/state/task.wip" 2>/dev/null \
+    || rm -f "$root/.harness/state/task.wip"
   : > "$history" 2>/dev/null || true
   hist --slurpfile t "$file" '{at: $at, event: "start", stage: $t[0].stage, mode: $t[0].mode, checks: ($t[0].checks // [])}'
 elif [ "$stage_now" = done ] && [ "$seen" != done ] && [ "$(jq -r '.cancelled // false' "$file" 2>/dev/null)" = true ]; then

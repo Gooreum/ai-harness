@@ -162,4 +162,54 @@ assert_eq "기록: 넘기면 advance와 from·to·run" "advance|verify|finish|li
 stop s1 > /dev/null
 assert_eq "기록: finish를 마치면 done으로 advance" "advance|finish|done" "$(jq -rs '.[-1] | "\(.event)|\(.from)|\(.to)"' "$h")"
 
+
+# --- 마무리: 커밋·push 확인 (ADR 0028) ------------------------------------------------------
+g="$work/repo"
+remote="$work/remote.git"
+git init -q --bare -b main "$remote"
+git init -q -b main "$g"
+git -C "$g" config user.email t@t; git -C "$g" config user.name t
+mkdir -p "$g/.harness/state"
+echo '{"schemaVersion":1}' > "$g/.harness/project.json"
+printf 'state/\nout/\n' > "$g/.harness/.gitignore"
+echo a > "$g/a.txt"
+git -C "$g" add .harness/project.json .harness/.gitignore a.txt; git -C "$g" commit -qm init
+git -C "$g" remote add origin "$remote"; git -C "$g" push -q -u origin main 2>/dev/null
+git -C "$g" remote set-head origin main
+echo wip > "$g/wip.txt"
+gs="$g/.harness/state"
+echo s1 > "$gs/task.owner"
+gstop() { jq -n --arg cwd "$g" '{session_id: "s1", cwd: $cwd, stop_hook_active: false}' | "$hook" > /dev/null 2>&1 && echo 0 || echo $?; }
+greason() { jq -n --arg cwd "$g" '{session_id: "s1", cwd: $cwd, stop_hook_active: false}' | "$hook" 2>&1 >/dev/null || true; }
+gtask() { echo '{"title":"커밋","mode":"simple","stage":"finish","checks":[]}' > "$gs/task.json"; rm -f "$gs/stop-gate.json"; }
+git -C "$g" rev-parse HEAD > "$gs/task.base"
+echo wip.txt > "$gs/task.wip"
+gtask
+assert_eq "finish: 바꾼 것 없으면 닫는다 (시작 전 WIP는 그대로)" "0|done" "$(gstop)|$(jq -r .stage "$gs/task.json")"
+echo b >> "$g/a.txt"
+gtask
+out="$(greason)"
+assert_eq "finish: 커밋하지 않은 변경이 있으면 막는다" "2|finish" "$(gtask; gstop)|$(jq -r .stage "$gs/task.json")"
+assert_eq "  (남은 파일을 보여 준다)" "yes" "$(has "    a.txt" "$out")"
+assert_eq "  (시작 전 WIP는 보여 주지 않는다)" "no" "$(has "wip.txt" "$out")"
+git -C "$g" commit -qam b
+gtask
+assert_eq "finish: 기본 브랜치에 커밋하면 막는다" "yes" "$(has "기본 브랜치(main)에 커밋했다" "$(greason)")"
+git -C "$g" checkout -q -b feature/x
+gtask
+assert_eq "finish: push하지 않았으면 막는다" "yes" "$(has "git push -u origin feature/x" "$(greason)")"
+git -C "$g" push -q -u origin feature/x 2>/dev/null
+echo c >> "$g/a.txt"; git -C "$g" commit -qam c
+gtask
+assert_eq "finish: push하지 않은 커밋이 있으면 막는다" "yes" "$(has "push하지 않은 커밋이 있다" "$(greason)")"
+git -C "$g" push -q 2>/dev/null
+gtask
+rm -f "$gs/task.history"
+assert_eq "finish: 커밋·push를 마쳤으면 닫는다" "0|done" "$(gstop)|$(jq -r .stage "$gs/task.json")"
+assert_eq "  (기록에 commit·push 확인을 남긴다)" "commit:0,push:0" "$(jq -rs '.[-1].runs | map("\(.name):\(.rc)") | join(",")' "$gs/task.history")"
+rm "$gs/task.base"
+echo d >> "$g/a.txt"
+gtask
+assert_eq "finish: 시작 커밋이 없으면 확인하지 않는다" "0" "$(gstop)"
+
 finish
