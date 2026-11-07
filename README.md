@@ -31,7 +31,7 @@ AI 코딩 에이전트(Claude Code, Codex 등)는 프로젝트에서 자주 같�
 | AGENTS.md | 에이전트가 세션을 시작할 때 읽는 지침 파일. Claude Code는 `CLAUDE.md`가 `@AGENTS.md`로 불러와야 읽는다 |
 | 경로 규칙 | `.claude/rules/` 아래의 마크다운 규칙. 머리말의 `paths:`와 맞는 파일을 에이전트가 읽을 때만 컨텍스트에 들어온다. 예: `docs/wiki/` 아래 파일을 열면 `wiki.md`가 함께 들어온다 |
 | 훅 | 에이전트가 도구를 쓰기 직전·직후나 멈출 때 Claude Code가 실행하는 스크립트. 금지된 편집을 막거나, 단계 지시를 넣거나, 검사를 통과하기 전에 끝내지 못하게 한다 |
-| 권한 규칙 | `.claude/settings.json`의 `deny`(항상 거부), `ask`(매번 사용자에게 물음) 목록 |
+| 권한 규칙 | `.claude/settings.json`의 `deny`(항상 거부) 목록. `ask`(매번 물음)는 두지 않는다([ADR 0026](docs/decisions/0026-no-ask-rules.md)) |
 | 서브에이전트 | 메인 에이전트가 일을 맡기는 별도 에이전트. 자기만의 지시문과 도구 목록을 가진다 |
 | 플러그인·마켓플레이스 | Claude Code 플러그인은 훅·서브에이전트·스킬을 묶어 여러 프로젝트에 배포하는 단위다. 마켓플레이스는 플러그인 목록이고, 이 저장소 자체가 마켓플레이스 역할을 한다 |
 | 시험장 | 하네스를 실제로 돌려 보는 프로젝트. 지금은 ReadSharp(`EnglishStudy`)의 `EnglishStudy-harness` 워크트리다. 이전 단위는 MotoTrace에서 했다 |
