@@ -13,7 +13,7 @@ template 안의 경로가 그대로 프로젝트 루트 기준 경로가 된다.
 | `CLAUDE.md` | AGENTS.md를 import하는 연결 파일 | 그대로 둔다 |
 | `.claude/rules/harness/*.md` | 공통 상황별 규칙(`wiki.md`) | 통째로 바꾼다 |
 | `.claude/rules/project/` | 프로젝트 고유 규칙을 두는 자리 (`.gitkeep`만 있음). 플랫폼 규칙·리뷰 항목도 여기 둔다 | 건드리지 않는다 |
-| `.claude/settings.json` | 공통 권한 규칙(`.env`·서명 키 등 비밀 파일 읽기 deny, 파괴적·외부 공개 git 작업과 배포 명령 ask)과 플러그인 등록(GitHub 마켓플레이스) | 프로젝트 설정과 합친다. 지난번에 하네스가 넣었는데 이제 없는 규칙만 지운다(설치 기록의 `permissions`). setup으로 팀이 넣은 `Edit(...)` 같은 규칙은 남는다 |
+| `.claude/settings.json` | 공통 권한 규칙(`.env`·서명 키 등 비밀 파일 읽기 deny. ask는 두지 않는다, ADR 0026)과 플러그인 등록(GitHub 마켓플레이스) | 프로젝트 설정과 합친다. 지난번에 하네스가 넣었는데 이제 없는 규칙만 지운다(설치 기록의 `permissions`). setup으로 팀이 넣은 `Edit(...)` 같은 규칙은 남는다 |
 | `scripts/harness/*` | 하네스 스크립트(record·passed·wiki·doctor·setup), 추천 검사 `common-checks.json`, 공통 함수 `lib.sh` | 통째로 바꾼다. template에서 사라진 것만 지운다 |
 | `.harness/.gitignore` | `.harness/`에서 설정 파일과 설치 기록만 커밋되게 함 | 통째로 바꾼다 |
 
