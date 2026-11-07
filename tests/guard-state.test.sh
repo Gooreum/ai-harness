@@ -89,4 +89,13 @@ mkdir -p "$work/other/.harness/state"
 assert_eq "project.json이 없는 곳은 보지 않는다" "0|" "$(call "$(write '{"mode":"plan","stage":"verify"}' "$work/other/.harness/state/task.json")")"
 assert_eq "깨진 입력은 막지 않는다" "0|" "$(call 'not json')"
 
+
+# --- 막은 일은 단계 기록(task.history)에 남는다 --------------------------------------
+printf '%s' '{"title":"t","mode":"plan","stage":"implement","checks":["lint"]}' > "$state"
+rm -f "$p/.harness/state/task.history"
+call "$(write '{"title":"t","mode":"plan","stage":"done"}')" > /dev/null
+assert_eq "기록: 단계를 바꾸려 하면 guard" "guard|Write|stage·mode를 바꾸려 함" "$(jq -rs '.[-1] | "\(.event)|\(.tool)|\(.why)"' "$p/.harness/state/task.history")"
+call "$(bash_cmd "echo x > .harness/state/task.json")" > /dev/null
+assert_eq "기록: Bash로 쓰려 하면 guard" "guard|Bash" "$(jq -rs '.[-1] | "\(.event)|\(.tool)"' "$p/.harness/state/task.history")"
+
 finish

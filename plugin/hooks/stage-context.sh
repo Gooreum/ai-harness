@@ -54,10 +54,20 @@ session="$(printf '%s' "$input" | jq -r '.session_id // empty' 2>/dev/null)"
 stage_now="$(jq -r '.stage // ""' "$file" 2>/dev/null)" || stage_now=""
 seen_file="$root/.harness/state/task.seen"
 seen="$(cat "$seen_file" 2>/dev/null || true)"
+# 단계 기록(task.history, 한 줄에 JSON 하나): 마무리 보고의 "단계 기록" 표가 읽는다(ai-bouncer state.json의 history).
+# task.json에 넣지 않는 이유: 에이전트가 이어서 하기·취소로 task.json을 다시 쓰면 기록이 바뀔 수 있다.
+history="$root/.harness/state/task.history"
+hist() { jq -nc --arg at "$(date -u +%FT%TZ)" "$@" >> "$history" 2>/dev/null || true; }
 if [ -n "$stage_now" ] && [ "$stage_now" != done ] && { [ -z "$seen" ] || [ "$seen" = done ]; }; then
   date -u +%FT%TZ > "$root/.harness/state/task.started" 2>/dev/null || true
   git -C "$root" rev-parse --verify -q HEAD > "$root/.harness/state/task.base" 2>/dev/null \
     || rm -f "$root/.harness/state/task.base"
+  : > "$history" 2>/dev/null || true
+  hist --slurpfile t "$file" '{at: $at, event: "start", stage: $t[0].stage, mode: $t[0].mode, checks: ($t[0].checks // [])}'
+elif [ "$stage_now" = done ] && [ "$seen" != done ] && [ "$(jq -r '.cancelled // false' "$file" 2>/dev/null)" = true ]; then
+  hist --arg s "$seen" '{at: $at, event: "cancel", from: $s}'
+elif [ -n "$stage_now" ] && [ "$stage_now" != done ]; then
+  hist --arg s "$stage_now" '{at: $at, event: "resume", stage: $s}'
 fi
 [ -z "$stage_now" ] || printf '%s\n' "$stage_now" > "$seen_file" 2>/dev/null || true
 jq -e . "$file" >/dev/null 2>&1 || emit "[하네스] .harness/state/task.json이 JSON 형식이 아닙니다. 고쳐서 다시 저장하세요."

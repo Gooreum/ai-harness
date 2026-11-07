@@ -57,6 +57,10 @@ waiting="$(printf '%s' "$input" | jq '[.background_tasks[]? | select(.type == "s
 [ "${waiting:-0}" -gt 0 ] 2>/dev/null && exit 0
 
 title="$(jq -r '.title // ""' "$state" 2>/dev/null)"
+# 단계 기록(task.history): 넘김·차단·풀어 줌을 한 줄씩 남긴다. 마무리 보고의 "단계 기록" 표가 읽는다(ai-bouncer history).
+history="$state_dir/task.history"
+hist() { jq -nc --arg at "$(date -u +%FT%TZ)" --arg s "$stage" "$@" >> "$history" 2>/dev/null || true; }
+runs='[]'
 here="$(dirname "$0")"
 flows="$(cat "$here/flows.json" 2>/dev/null)" || exit 0
 # 이 모드의 단계 순서에서 지금 단계 다음(마지막이면 done). 모르는 모드·단계면 빈 값.
@@ -81,12 +85,14 @@ guarded_block() {
   if [ "$reentry" = "true" ] \
     && [ "$(jq -r '.key // ""' <<<"$prev")" = "$key" ] \
     && [ "$(jq -r '.seq // ""' <<<"$prev")" = "$seq" ]; then
+    hist '{at: $at, event: "release", stage: $s, why: "도구 없이 같은 이유로 재진입"}'
     exit 0
   fi
   streak="$(jq -r --arg s "$stage" 'if .stage == $s then (.streak // 0) else 0 end' <<<"$prev")"
   max="${HARNESS_MAX_CONTINUE:-10}"
   if [ "$streak" -ge "$max" ] 2> /dev/null; then
     jq -n --arg k "$key" --arg q "$seq" --arg s "$stage" '{key: $k, seq: $q, stage: $s, streak: 0}' > "$gate"
+    hist --argjson n "$max" '{at: $at, event: "handoff", stage: $s, why: "\($n)번 연속 차단"}'
     jq -n --arg c "$reason
 
 ${max}번 연속으로 $stage 단계를 벗어나지 못했다. 더 밀지 않고 사용자에게 넘긴다.
@@ -99,6 +105,7 @@ AskUserQuestion으로 물어라(도구가 없으면 글로 보여 주고 답을 
   fi
   jq -n --arg k "$key" --arg q "$seq" --arg s "$stage" --argjson n "$((streak + 1))" \
     '{key: $k, seq: $q, stage: $s, streak: $n}' > "$gate"
+  hist --argjson r "$runs" --arg why "$(printf '%s' "$reason" | sed -n 1p)" '{at: $at, event: "blocked", stage: $s, why: $why} + (if ($r | length) > 0 then {runs: $r} else {} end)'
   printf '%s\n' "$reason" >&2
   exit 2
 }
@@ -139,15 +146,20 @@ if [ "$stage" = verify ]; then
     # 고른 검사가 설정에 없으면(이름이 바뀌었거나 오타) run을 찾을 수 없다. 건너뛰면 검사 없이 통과로 보이므로 막는다.
     if ! jq -e --arg n "$name" 'any(.checks[]?; .name == $n)' "$checks" > /dev/null 2>&1; then
       failures="$failures- ${name}: .harness/checks.json에 없는 검사다. 고른 검사를 임의로 빼지 말고 사용자에게 알린다"$'\n'
+      runs="$(jq -c --arg n "$name" '. + [{name: $n, missing: true}]' <<<"$runs")"
       continue
     fi
     run="$(jq -r --arg n "$name" '[.checks[]? | select(.name == $n)][0].run // empty' "$checks")"
-    [ -n "$run" ] || continue
+    if [ -z "$run" ]; then
+      runs="$(jq -c --arg n "$name" '. + [{name: $n, run: false}]' <<<"$runs")"
+      continue
+    fi
     # 예산을 다 써도 남은 run은 1초로라도 돌려 시간 초과로 보고한다. 건너뛰면 통과로 보인다.
     left=$((deadline - $(date +%s)))
     [ "$left" -gt 0 ] || left=1
     out="$(cd "$root" && run_timeout "$left" bash -c "$run" 2>&1)"
     rc=$?
+    runs="$(jq -c --arg n "$name" --argjson rc "$rc" '. + [{name: $n, rc: $rc}]' <<<"$runs")"
     if [ "$rc" -ne 0 ]; then
       case "$rc" in
         124) why="시간이 초과됐다 (${HARNESS_RUN_BUDGET:-1700}초). run은 결과 파일만 보게 하고, 검사 자체는 prompt대로 먼저 실행한다" ;;
@@ -172,6 +184,7 @@ if ! jq --arg n "$next" '.stage = $n' "$state" > "$tmp" 2> /dev/null || ! mv "$t
 fi
 # 단계 지시 훅(stage-context.sh)이 새 작업인지 가릴 때 보는 값이다. 훅이 쓴 단계도 본 것으로 적는다.
 printf '%s\n' "$next" > "$state_dir/task.seen" 2> /dev/null || true
+hist --arg n "$next" --argjson r "$runs" '{at: $at, event: "advance", from: $s, to: $n} + (if ($r | length) > 0 then {runs: $r} else {} end)'
 rm -f "$gate"
 
 # 마지막 단계까지 마쳤다. 이제야 멈출 수 있다.

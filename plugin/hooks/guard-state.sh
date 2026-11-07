@@ -32,6 +32,11 @@ if [ "$tool" = "Bash" ]; then
       echo "단계는 하네스가 넘깁니다. 이 단계의 일을 마치면 응답을 마치세요."
       echo "새 작업 시작과 취소는 task 스킬대로 Write로 씁니다. 읽기만 할 때는 Read 도구를 씁니다."
     } >&2
+    # 막은 일을 단계 기록(task.history)에 남긴다. 마무리 보고의 "단계 기록" 표가 읽는다.
+    d="$cwd"
+    while [ -n "$d" ] && [ "$d" != "/" ] && [ ! -f "$d/.harness/project.json" ]; do d="$(dirname "$d")"; done
+    [ -f "$d/.harness/state/task.json" ] && jq -nc --arg at "$(date -u +%FT%TZ)" \
+      '{at: $at, event: "guard", tool: "Bash", why: "task.json을 Bash로 쓰려 함"}' >> "$d/.harness/state/task.history" 2>/dev/null
     exit 2
   fi
   exit 0
@@ -115,4 +120,9 @@ case "$verdict" in
     } >&2
     ;;
 esac
+# 막은 일을 단계 기록(task.history)에 남긴다. 진행 중인 작업이 있을 때만.
+[ -f "$file" ] && jq -nc --arg at "$(date -u +%FT%TZ)" --arg t "$tool" --arg v "${verdict%%:*}" \
+  '{at: $at, event: "guard", tool: $t,
+    why: ({first: "새 작업을 첫 단계가 아닌 곳에서 열려 함", mode: "모르는 mode", broken: "task.json을 JSON이 아닌 내용으로 쓰려 함",
+           drop: "고른 검사를 빼려 함", stage: "stage·mode를 바꾸려 함"}[$v] // $v)}' >> "$root/.harness/state/task.history" 2>/dev/null
 exit 2

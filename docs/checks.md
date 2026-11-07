@@ -21,7 +21,7 @@
 | plan | EnterPlanMode로 계획하고 ExitPlanMode로 사용자 승인을 받는다 + `stages.plan.prompt` |
 | implement | 구현한다 + `stages.implement.prompt` |
 | verify | 고른 검사의 `prompt`를 `checks.json`에 적힌 순서대로 하나씩 실행하고 실제 출력으로 확인한다 |
-| finish | 작업 보고를 다섯 섹션(1. 상황 · 2. 조치 · 3. 평가 · 4. 건의 · 5. 결정 사항)으로 쓴다. 섹션 사이는 구분선, 문장마다 줄을 바꾸고, 평가는 근거(결과 파일·명령)가 있는 표로 쓴다 + `stages.finish.prompt` |
+| finish | `stages.finish.prompt`(위키 기록 등)를 먼저 하고, 작업 보고를 일곱 섹션(1. 상황 · 2. 조치 · 3. 평가 · 4. 단계 기록 · 5. 위키 · 6. 건의 · 7. 결정 사항)으로 쓴다. 섹션 사이는 구분선, 문장마다 줄을 바꾸고, 평가는 근거(결과 파일·명령)가 있는 표로, 단계 기록은 `.harness/state/task.history`에서, 위키는 시작 커밋 이후 `docs/wiki/` 변경에서 옮긴다 |
 
 ## 상태 파일 (`.harness/state/task.json`)
 
@@ -110,6 +110,19 @@ ReadSharp는 예전 iOS 묶음의 스크립트를 `scripts/ios/`로 넘겨받아
 - 새 작업은 그 모드의 첫 단계(plan은 `plan`, simple은 `implement`)로만 연다. `guard-state.sh`가 중간 단계로 여는 것과 진행 중인 단계를 고치는 것, Bash로 상태 파일을 쓰는 것을 막는다.
 - run은 결과 파일을 본다. `scripts/harness/passed <검사>`를 쓴다: `.harness/out/<검사>.json`의 `passed`가 참이고 결과가 최신이어야 통과다.
   - 최신이 아니라는 것은 이번 작업을 시작하기 전 결과이거나(`.harness/state/task.started`), 그 뒤에 고친 파일이 있다는 뜻이다. 바뀐 파일은 작업을 시작한 커밋(`.harness/state/task.base`)부터 본다. 작업 중에 커밋해도 빠지지 않는다. 기준은 ai-bouncer의 `bouncer passed`와 같다.
+
+### 단계 기록 (`.harness/state/task.history`)
+
+훅이 작업마다 한 줄에 JSON 하나씩 남긴다. 에이전트는 쓰지 않는다. 마무리 보고의 "4. 단계 기록" 표가 이 파일을 옮긴다(ai-bouncer `state.json`의 `history`). `task.json`에 넣지 않은 것은 에이전트가 이어서 하기·취소로 그 파일을 다시 쓰기 때문이다.
+
+| event | 쓰는 훅 | 내용 |
+|---|---|---|
+| `start` | stage-context | 새 작업. 지난 기록을 지우고 `stage`·`mode`·`checks` |
+| `resume` · `cancel` | stage-context | 같은 단계로 다시 저장 / 사용자가 취소 (`from`) |
+| `advance` | stop-gate | `from` → `to`. verify면 `runs`(검사별 `rc`, run 없음은 `run: false`, 설정에 없음은 `missing`) |
+| `blocked` | stop-gate | 막은 이유 첫 줄(`why`)과 `runs` |
+| `release` · `handoff` | stop-gate | 도구 없이 재진입해 풀어 줌 / 10번 연속이라 사용자에게 넘김 |
+| `guard` | guard-state | 막은 `task.json` 쓰기(`tool`, `why`) |
 - run 합계는 1700초(`HARNESS_RUN_BUDGET`)까지다. 넘으면 시간 초과로 막는다.
 - run은 묻지 않고 실행된다. `checks.json`은 저장소에 커밋되므로, 남의 저장소를 내려받아 하네스 작업을 하면 그 저장소가 적은 명령이 그대로 돈다. 처음에는 `checks.json`을 열어 확인한다. `scripts/harness/doctor`는 `scripts/harness/passed`가 아닌 run을 "참고"로 보여 준다.
 - 같은 Stop 훅이 done 전에는 끝내지 못하게 한다. 작업 주인 세션(상태 파일을 마지막으로 쓴 세션)만 보고 다른 세션은 막지 않는다.

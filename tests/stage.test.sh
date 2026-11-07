@@ -54,7 +54,9 @@ out="$(ctx '{"title":"문구","mode":"simple","stage":"verify","checks":[]}')"
 assert_eq "simple: 고른 검사가 없다고 알린다" "yes" "$(has "고른 검사가 없다" "$out")"
 out="$(ctx '{"title":"문구","mode":"simple","stage":"finish","checks":[]}')"
 assert_eq "finish: 정책·결정을 정리한다" "yes" "$(has "정책·결정" "$out")"
-assert_eq "finish: 보고 섹션 다섯 개를 순서대로 준다" "1|2|3|4|5" "$(printf '%s\n' "$out" | sed -nE 's/^### ([1-5])\. (상황|조치|평가|건의|결정 사항)$/\1/p' | paste -sd'|' -)"
+assert_eq "finish: 보고 섹션 일곱 개를 순서대로 준다" "1 상황|2 조치|3 평가|4 단계 기록|5 위키|6 건의|7 결정 사항" "$(printf '%s\n' "$out" | sed -nE 's/^### ([1-7])\. (.+)$/\1 \2/p' | paste -sd'|' -)"
+assert_eq "finish: 단계 기록은 task.history에서 옮긴다" "yes" "$(has ".harness/state/task.history를 Read로 읽고" "$out")"
+assert_eq "finish: 위키 변경은 시작 커밋부터 본다" "yes" "$(has "task.base의 커밋> -- docs/wiki" "$out")"
 assert_eq "finish: 평가의 상태는 네 가지로 쓴다" "yes" "$(has "✅ 통과 · ❌ 실패 · ⚠️ 못 함 · ➖ 안 고름" "$out")"
 assert_eq "finish: 근거 없이 통과로 쓰지 않는다" "yes" "$(has "근거가 없으면 통과로 쓰지 않는다" "$out")"
 assert_eq "finish: 문장마다 줄을 바꾼다" "yes" "$(has "문장마다 줄을 바꾸고" "$out")"
@@ -131,5 +133,17 @@ nojq() { printf '%s' "$1" | env PATH="$(nojq_path "$work")" /bin/bash "$hook"; }
 out="$(nojq "{\"tool_input\":{\"file_path\":\"$p/.harness/state/task.json\"}}")"
 assert_eq "jq 없음: 상태 파일을 고치면 꺼졌다고 알린다" "yes" "$(has "jq가 없어" "$(printf '%s' "$out" | /usr/bin/jq -r '.hookSpecificOutput.additionalContext')")"
 assert_eq "jq 없음: 다른 파일은 조용히 넘긴다" "" "$(nojq '{"tool_input":{"file_path":"/x/A.swift"}}')"
+
+
+# --- 단계 기록(task.history) ----------------------------------------------------
+hist="$p/.harness/state/task.history"
+rm -f "$p/.harness/state/task.seen"
+echo '{"event":"지난 작업"}' > "$hist"
+ctx '{"title":"기록","mode":"plan","stage":"plan","checks":["lint"]}' > /dev/null
+assert_eq "기록: 새 작업이면 지난 기록을 지우고 start를 쓴다" "start|plan|plan|lint" "$(jq -rs 'map("\(.event)|\(.stage)|\(.mode)|\(.checks | join(","))") | join(";")' "$hist")"
+ctx '{"title":"기록","mode":"plan","stage":"plan","checks":["lint"]}' > /dev/null
+assert_eq "기록: 같은 단계로 다시 저장하면 resume" "resume|plan" "$(jq -rs '.[-1] | "\(.event)|\(.stage)"' "$hist")"
+ctx '{"title":"기록","mode":"plan","stage":"done","cancelled":true}' > /dev/null
+assert_eq "기록: 취소하면 cancel과 그때 단계" "cancel|plan" "$(jq -rs '.[-1] | "\(.event)|\(.from)"' "$hist")"
 
 finish
