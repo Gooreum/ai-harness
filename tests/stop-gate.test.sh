@@ -145,4 +145,21 @@ set_task simple verify '["lint"]'
 assert_eq "기다리는 작업이 없으면 막는다" "2" "$(bg '[]')"
 assert_eq "셸만 돌고 있으면 막는다" "2" "$(bg '[{"id":"b1","type":"shell","status":"running","description":"서버"}]')"
 
+
+# --- 단계 기록(task.history) -------------------------------------------------------
+h="$sd/task.history"
+rm -f "$h"
+lint false
+set_task simple verify '["lint","review"]'
+stop s1 > /dev/null
+assert_eq "기록: run이 실패하면 blocked와 검사별 종료 코드" "blocked|verify|lint:1,review:norun" \
+  "$(jq -rs '.[-1] | "\(.event)|\(.stage)|\(.runs | map("\(.name):\(if .run == false then "norun" else .rc end)") | join(","))"' "$h")"
+lint true
+set_task simple verify '["lint"]'
+stop s1 > /dev/null
+assert_eq "기록: 넘기면 advance와 from·to·run" "advance|verify|finish|lint:0" \
+  "$(jq -rs '.[-1] | "\(.event)|\(.from)|\(.to)|\(.runs | map("\(.name):\(.rc)") | join(","))"' "$h")"
+stop s1 > /dev/null
+assert_eq "기록: finish를 마치면 done으로 advance" "advance|finish|done" "$(jq -rs '.[-1] | "\(.event)|\(.from)|\(.to)"' "$h")"
+
 finish
