@@ -33,7 +33,9 @@ assert_eq "plan: 첫 줄에 작업·모드·단계" '[하네스] 작업 "시트"
 assert_eq "plan: 승인 전에는 코드를 고치지 않는다" "yes" "$(has "승인 전에는 코드를 고치지 않는다" "$out")"
 assert_eq "plan: Plan 모드로 승인받는다" "yes" "$(has "ExitPlanMode로 사용자 승인" "$out")"
 assert_eq "plan: checks.json의 단계 지시를 붙인다" "yes" "$(has "계획에 MVI 흐름을 적는다" "$out")"
-assert_eq "plan: 다음 단계를 알려 준다" "yes" "$(has 'stage를 "implement"로' "$out")"
+assert_eq "plan: 다음 단계를 하네스가 넘긴다고 알려 준다" "yes" "$(has '하네스가 "implement" 단계로 넘기며' "$out")"
+assert_eq "plan: 승인되면 구현하지 말고 응답을 마친다" "yes" "$(has "승인되면 구현하지 말고 응답을 마친다" "$out")"
+assert_eq "plan: task.json을 고치지 않는다" "yes" "$(has "task.json은 고치지 않는다" "$out")"
 assert_eq "plan: 검증 단계가 아니면 검사 목록은 없다" "no" "$(has "이번에 고른 검사" "$out")"
 
 out="$(ctx '{"title":"시트","mode":"plan","stage":"verify","checks":["lint","e2e"]}')"
@@ -44,15 +46,17 @@ assert_eq "verify: 고른 순서가 아니라 checks.json 순서로 넣는다" "
   "$(printf '%s\n' "$out" | grep '^- ' | paste -sd'|' -)"
 out="$(ctx '{"title":"시트","mode":"plan","stage":"verify","checks":["lint","e2e"]}')"
 assert_eq "verify: 설정에 없는 검사는 알린다" "yes" "$(has "- e2e: .harness/checks.json에 없는 검사다" "$out")"
+assert_eq "verify: 하네스가 run을 돌려 넘긴다고 알린다" "yes" "$(has '고른 검사의 run을 돌려 통과하면 "finish" 단계로' "$out")"
 
 out="$(ctx '{"title":"문구","mode":"simple","stage":"implement","checks":[]}')"
 assert_eq "simple: 계획 없이 구현부터" '[하네스] 작업 "문구" · simple 모드 · implement 단계 (1/3)' "$(printf '%s\n' "$out" | sed -n 1p)"
 out="$(ctx '{"title":"문구","mode":"simple","stage":"verify","checks":[]}')"
-assert_eq "simple: 고른 검사가 없으면 바로 넘어간다" "yes" "$(has "고른 검사가 없다" "$out")"
+assert_eq "simple: 고른 검사가 없다고 알린다" "yes" "$(has "고른 검사가 없다" "$out")"
 out="$(ctx '{"title":"문구","mode":"simple","stage":"finish","checks":[]}')"
 assert_eq "finish: 정책·결정을 정리한다" "yes" "$(has "정책·결정" "$out")"
-assert_eq "finish: 마지막에는 done" "yes" "$(has 'stage를 "done"으로' "$out")"
+assert_eq "finish: 응답을 마치면 끝난다" "yes" "$(has "응답을 마치면 작업이 끝난다" "$out")"
 assert_eq "done: 끝났다고만 알린다" '[하네스] 작업 "문구"이 끝났습니다.' "$(ctx '{"title":"문구","mode":"simple","stage":"done"}')"
+assert_eq "취소: 취소했다고 알린다" "yes" "$(has '작업 "문구"을 취소했습니다' "$(ctx '{"title":"문구","mode":"simple","stage":"done","cancelled":true}')")"
 
 assert_eq "잘못된 단계는 고칠 방법을 알린다" "yes" \
   "$(has "simple 모드의 단계는 implement → verify → finish" "$(ctx '{"mode":"simple","stage":"plan"}')")"
@@ -94,7 +98,7 @@ rm "$p/.harness/checks.json"
 out="$(ctx '{"title":"x","mode":"simple","stage":"verify","checks":["lint"]}')"
 assert_eq "checks.json이 없어도 동작하고 없는 검사를 알린다" "yes" "$(has "- lint: .harness/checks.json에 없는 검사다" "$out")"
 
-# 단계 순서는 flows.json 한 곳에서 읽는다 (check-run.sh도 같은 파일)
+# 단계 순서는 flows.json 한 곳에서 읽는다 (stop-gate.sh도 같은 파일)
 cp -R "$here/../plugin/hooks" "$work/hooks"
 echo '{"plan":["plan","implement","verify","finish"],"simple":["implement","verify","qa","finish"]}' > "$work/hooks/flows.json"
 printf '%s' '{"mode":"simple","stage":"x"}' > "$p/.harness/state/task.json"
@@ -103,9 +107,12 @@ assert_eq "flows: flows.json의 단계 순서를 쓴다" "yes" "$(has "implement
 mkdir -p "$p/.harness/out"
 echo '{"checks":[{"name":"lint","prompt":"x","run":"false"}]}' > "$p/.harness/checks.json"
 printf '%s' '{"mode":"simple","stage":"verify","checks":["lint"]}' > "$p/.harness/state/task.json"
-gate() { jq -n --arg f "$p/.harness/state/task.json" '{tool_name: "Write", cwd: "/", tool_input: {file_path: $f, content: "{\"mode\":\"simple\",\"stage\":\"qa\",\"checks\":[\"lint\"]}"}}' | "$1" > /dev/null 2>&1 && echo 0 || echo $?; }
-assert_eq "flows: check-run.sh도 flows.json을 읽는다 (verify 다음 단계로 가면 run을 돌린다)" "2" "$(gate "$work/hooks/check-run.sh")"
-assert_eq "flows: 원래 flows.json에는 qa가 없어 막지 않는다" "0" "$(gate "$here/../plugin/hooks/check-run.sh")"
+echo s9 > "$p/.harness/state/task.owner"
+gate() { jq -n --arg cwd "$p" '{session_id: "s9", cwd: $cwd}' | "$1" > /dev/null 2>&1 || true; jq -r .stage "$p/.harness/state/task.json"; }
+printf '%s' '{"mode":"simple","stage":"verify","checks":[]}' > "$p/.harness/state/task.json"
+assert_eq "flows: stop-gate.sh도 flows.json을 읽는다 (verify 다음은 qa)" "qa" "$(gate "$work/hooks/stop-gate.sh")"
+printf '%s' '{"mode":"simple","stage":"verify","checks":[]}' > "$p/.harness/state/task.json"
+assert_eq "flows: 원래 flows.json에서는 verify 다음이 finish" "finish" "$(gate "$here/../plugin/hooks/stop-gate.sh")"
 
 # --- 끼어들지 않는 경우 --------------------------------------------------------
 assert_eq "다른 파일은 무시" "" "$(ctx '{"mode":"simple","stage":"implement"}' "$p/App/A.swift")"

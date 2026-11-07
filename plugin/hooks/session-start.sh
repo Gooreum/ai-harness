@@ -27,7 +27,7 @@ fi
 if [ -n "$stage" ] && [ "$stage" != done ]; then
   cat <<MSG
 [하네스] 진행 중인 작업이 있다: "$title" · $mode 모드 · $stage 단계
-이어서 하려면 .harness/state/task.json을 같은 내용으로 다시 저장해 이 단계의 지시를 받는다.
+이어서 하려면 .harness/state/task.json을 같은 내용으로 다시 저장(Write)해 이 단계의 지시를 받는다. 단계는 하네스가 넘긴다.
 이 작업과 다른 수정을 하려면 사용자에게 먼저 묻는다.
 MSG
 else

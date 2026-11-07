@@ -12,9 +12,9 @@
 
 - 모드는 사람이 고른다. 발표에서 큰 작업을 계획 없이 하면 결함 비율이 78%(계획하면 25%)였고, 작업 크기는 AI도 미리 알기 어렵다.
 - 구현을 페이지·스텝으로 나누지 않는다. 나눠도 완성도가 같거나 낮았다(93.1% / 94.4%).
-- 모드별 단계 순서는 플러그인의 `plugin/hooks/flows.json` 한 곳에 있다. 단계 지시 훅과 관문 훅이 같이 읽는다.
-- 단계 상태는 `.harness/state/task.json`에 있다(git이 무시한다). 에이전트가 단계를 마치면 `stage`를 바꾼다.
-- 이 파일이 바뀔 때마다 PostToolUse 훅(`stage-context.sh`)이 그 단계의 지시를 `additionalContext`로 넣는다. 훅은 검사 내용을 모르고 아래 설정의 글을 옮길 뿐이다.
+- 모드별 단계 순서는 플러그인의 `plugin/hooks/flows.json` 한 곳에 있다. 단계 지시 훅, 상태 보호 훅, Stop 훅이 같이 읽는다.
+- 단계 상태는 `.harness/state/task.json`에 있다(git이 무시한다). 에이전트는 작업을 시작할 때만 이 파일을 쓰고, 단계는 Stop 훅(`stop-gate.sh`)이 넘긴다. 에이전트가 단계의 일을 마치고 응답을 마치려 하면 훅이 확인하고 `stage`를 다음 단계로 쓴다([ADR 0027](decisions/0027-stop-advances-stage.md)).
+- 시작할 때는 PostToolUse 훅(`stage-context.sh`)이, 단계를 넘길 때는 Stop 훅이 그 단계의 지시를 넣는다. 지시 글은 `plugin/hooks/stage-text.jq` 한 곳에 있다. 훅은 검사 내용을 모르고 아래 설정의 글을 옮길 뿐이다.
 
 | 단계 | 하네스가 넣는 지시 |
 |---|---|
@@ -29,7 +29,7 @@
 { "schemaVersion": 1, "title": "설정 화면 AI 모델 변경을 Processor로", "mode": "plan", "stage": "verify", "checks": ["lint", "unit-test"] }
 ```
 
-`stage`는 모드의 단계 중 하나이거나, 끝나면 `done`이다.
+`stage`는 모드의 단계 중 하나이거나, 끝나면 `done`이다. 사용자가 그만두자고 해서 취소한 작업은 `"stage": "done", "cancelled": true`다.
 
 ## 검사 목록 예시 (ReadSharp, 넘겨받은 iOS 스크립트)
 
@@ -102,15 +102,15 @@ ReadSharp는 예전 iOS 묶음의 스크립트를 `scripts/ios/`로 넘겨받아
 
 발표 슬라이드 29·30 그대로다: prompt는 시키고, run은 확인한다.
 
-- 에이전트가 `stage`를 verify 이전·verify에서 finish·done으로 바꾸려 하면, PreToolUse 훅 `check-run.sh`가 고른 검사의 `run`을 프로젝트 루트에서 실행한다.
-- 하나라도 0이 아니면 편집을 막는다. 실패한 검사, run, 출력 앞부분을 이유로 전한다. 에이전트는 고치고 다시 실행한 뒤 넘어간다.
+- 검증 단계에서 에이전트가 응답을 마치려 하면, Stop 훅 `stop-gate.sh`가 고른 검사의 `run`을 프로젝트 루트에서 실행한다. 단계는 훅만 넘긴다. 에이전트는 `stage`를 고칠 수 없다([ADR 0027](decisions/0027-stop-advances-stage.md)).
+- 하나라도 0이 아니면 막는다. 실패한 검사, run, 출력 앞부분을 이유로 전한다. 에이전트는 고치고 다시 실행한 뒤 다시 응답을 마친다. 모두 통과하면 훅이 finish로 넘긴다.
 - `run`이 없는 검사는 돌리지 않는다. 고른 검사가 없으면 막지 않는다.
 - 리뷰의 결과 파일 `.harness/out/review.json`은 리뷰어가 아니라 플러그인 훅 `review-record.sh`가 쓴다. 리뷰어가 바뀐 파일을 Read로 다 열었고 차단이 0이어야 통과다([plugin.md](plugin.md), [ADR 0016](decisions/0016-review-record.md)).
 - 고른 검사가 `checks.json`에 없으면(이름이 바뀌었거나 오타) 막는다. 건너뛰면 검사 없이 통과로 보이기 때문이다.
-- 새 작업은 그 모드의 첫 단계(plan은 `plan`, simple은 `implement`)로만 연다. 같은 훅이 중간 단계로 여는 것을 막는다.
+- 새 작업은 그 모드의 첫 단계(plan은 `plan`, simple은 `implement`)로만 연다. `guard-state.sh`가 중간 단계로 여는 것과 진행 중인 단계를 고치는 것, Bash로 상태 파일을 쓰는 것을 막는다.
 - run은 결과 파일을 본다. `scripts/harness/passed <검사>`를 쓴다: `.harness/out/<검사>.json`의 `passed`가 참이고 결과가 최신이어야 통과다.
   - 최신이 아니라는 것은 이번 작업을 시작하기 전 결과이거나(`.harness/state/task.started`), 그 뒤에 고친 파일이 있다는 뜻이다. 바뀐 파일은 작업을 시작한 커밋(`.harness/state/task.base`)부터 본다. 작업 중에 커밋해도 빠지지 않는다. 기준은 ai-bouncer의 `bouncer passed`와 같다.
 - run 합계는 1700초(`HARNESS_RUN_BUDGET`)까지다. 넘으면 시간 초과로 막는다.
 - run은 묻지 않고 실행된다. `checks.json`은 저장소에 커밋되므로, 남의 저장소를 내려받아 하네스 작업을 하면 그 저장소가 적은 명령이 그대로 돈다. 처음에는 `checks.json`을 열어 확인한다. `scripts/harness/doctor`는 `scripts/harness/passed`가 아닌 run을 "참고"로 보여 준다.
-- 끝내려 할 때는 Stop 훅 `stop-gate.sh`가 막는다. 작업 주인 세션(상태 파일을 마지막으로 고친 세션)은 done 전에 멈추지 못한다. 다른 세션은 막지 않는다.
+- 같은 Stop 훅이 done 전에는 끝내지 못하게 한다. 작업 주인 세션(상태 파일을 마지막으로 쓴 세션)만 보고 다른 세션은 막지 않는다.
   - 같은 이유로 다시 막히려는데 그 사이 도구를 쓰지 않았으면 끝내게 둔다. 같은 단계에서 10번 연속 막히면 사용자에게 넘기게 한다(ai-bouncer와 같다).

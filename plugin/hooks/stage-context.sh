@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# PostToolUse 훅: 작업 상태 파일(.harness/state/task.json)이 바뀌면 지금 단계에서 할 일을 지시로 넣는다.
+# PostToolUse 훅: 작업 상태 파일(.harness/state/task.json)을 쓰면 지금 단계에서 할 일을 지시로 넣는다.
+# 에이전트가 이 파일을 쓰는 것은 작업을 시작할 때, 이어서 할 때(같은 내용으로 다시 저장), 취소할 때뿐이다.
+# 단계는 Stop 훅(stop-gate.sh)이 넘기고, 그때 다음 단계 지시도 함께 준다(ai-bouncer hooks/stop.sh, ADR 0027).
 #
 # - 입력은 stdin JSON만 읽는다 (tool_input.file_path, cwd). Codex에서도 재사용하기 위해서다.
 # - 훅은 검사 내용을 모른다. .harness/checks.json에 적힌 글을 단계에 맞춰 옮길 뿐이다(발표 슬라이드 27).
@@ -66,42 +68,10 @@ else
   checks=""
 fi
 
-# 모드별 단계 순서는 flows.json 한 곳에 둔다. check-run.sh도 같은 파일을 읽는다.
-flows="$(cat "$(dirname "$0")/flows.json" 2>/dev/null)" || exit 0
-context="$(jq -r --argjson flows "$flows" --slurpfile conf <(if [ -n "$checks" ]; then cat "$checks"; else echo '{}'; fi) '
-  ($conf[0]) as $c
-  | {
-      plan: "계획만 세운다. 승인 전에는 코드를 고치지 않는다. 먼저 EnterPlanMode를 호출한다. 바꿀 파일, 바꾸는 방법, 확인 방법을 계획에 담고 ExitPlanMode로 사용자 승인을 받는다. 승인되면 다음 단계로 넘어간다. 거부되면 피드백을 반영해 계획을 다시 쓴다. ExitPlanMode가 에러를 내면 승인되지 않은 것이다.",
-      implement: "구현한다. 계획 단계를 거쳤으면 승인받은 계획대로 한다. 검사는 다음 단계에서 한다.",
-      verify: "아래 검사를 위에서부터 차례로 하나씩 실행하고 실제 출력으로 결과를 확인한다. 실패하면 고친 뒤 다시 실행한다. 통과했다고 말하기 전에 출력을 확인한다. 파일을 고치는 검사(포매터, --fix, 의존성 설치)는 순서와 상관없이 먼저 돌린다. 나중에 돌리면 앞 검사의 결과가 낡은 것이 된다. 10분 넘게 걸리는 검사는 백그라운드로 돌리고 끝난 뒤 결과 파일(.harness/out/<이름>.json)을 확인한다.",
-      finish: "무엇을 바꿨는지, 실행한 검사와 그 결과를 실제 출력으로 보고한다. 이번 작업에서 정한 정책·결정 중 코드에 남지 않는 것(왜 이렇게 했는지, 하지 않기로 한 것)을 보고에 따로 정리한다."
-    } as $base
-  | . as $t
-  | if ($flows[$t.mode] | not) then "[하네스] task.json의 mode는 plan 또는 simple이어야 합니다."
-    elif $t.stage == "done" then "[하네스] 작업 \"\($t.title // "")\"이 끝났습니다."
-    elif (($flows[$t.mode] | index($t.stage)) == null) then
-      "[하네스] \($t.mode) 모드의 단계는 \($flows[$t.mode] | join(" → "))입니다. task.json의 stage를 이 중 하나로 고치세요."
-    else
-      ($flows[$t.mode]) as $flow
-      | ($flow | index($t.stage)) as $i
-      # 고른 검사는 checks.json에 적힌 순서로 넣는다. 발표처럼 적힌 순서대로 차례로 돈다(슬라이드 88).
-      | ($t.checks // []) as $names
-      | ((($c.checks // []) | map(select(.name as $n | $names | index($n))))
-         + ($names | map(. as $n | select((($c.checks // []) | map(.name) | index($n)) == null) | { name: $n, missing: true }))) as $picked
-      | ([ "[하네스] 작업 \"\($t.title // "")\" · \($t.mode) 모드 · \($t.stage) 단계 (\($i + 1)/\($flow | length))",
-           $base[$t.stage] ]
-         + (if $c.stages[$t.stage].prompt then [$c.stages[$t.stage].prompt] else [] end)
-         + (if $t.stage == "verify" then
-              if ($picked | length) == 0 then ["이번 작업은 고른 검사가 없다. 바로 다음 단계로 넘어간다."]
-              else ["이번에 고른 검사:"] + ($picked | map(
-                if .missing then "- \(.name): .harness/checks.json에 없는 검사다. 사용자에게 알린다"
-                else "- \(.name): \(.prompt)" end))
-              end
-            else [] end)
-         + [ if $i + 1 < ($flow | length)
-             then "이 단계를 마치면 .harness/state/task.json의 stage를 \"\($flow[$i + 1])\"로 바꾼다. 단계를 건너뛰지 않는다."
-             else "보고를 마치면 .harness/state/task.json의 stage를 \"done\"으로 바꾼다." end ])
-      | join("\n")
-    end' "$file" 2>/dev/null)" || exit 0
+# 모드별 단계 순서는 flows.json, 단계 지시 글은 stage-text.jq 한 곳에 둔다. stop-gate.sh도 같은 파일을 읽는다.
+here="$(dirname "$0")"
+flows="$(cat "$here/flows.json" 2>/dev/null)" || exit 0
+context="$(jq -r --argjson flows "$flows" --slurpfile conf <(if [ -n "$checks" ]; then cat "$checks"; else echo '{}'; fi) \
+  -f "$here/stage-text.jq" "$file" 2>/dev/null)" || exit 0
 [ -n "$context" ] && emit "$context"
 exit 0

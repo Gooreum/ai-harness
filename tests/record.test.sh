@@ -4,7 +4,7 @@ set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
 . "$here/lib.sh"
-hook="$here/../plugin/hooks/check-run.sh"
+hook="$here/../plugin/hooks/stop-gate.sh"
 work="$(mktemp -d)"
 trap 'rm -rf "$work"' EXIT
 
@@ -57,26 +57,27 @@ assert_eq "명령이 없으면 인자 오류" "2" "$rc"
 
 # --- record·passed만으로 검증 게이트 ------------------------------------------------
 state="$p/.harness/state/task.json"
-gate() { # 검증을 지나 finish로 넘어가려는 Edit을 훅에 넣고 종료 코드를 출력한다
-  local rc=0
-  jq -n --arg f "$state" '{tool_name: "Edit", cwd: "/", tool_input: {file_path: $f, old_string: "\"stage\":\"verify\"", new_string: "\"stage\":\"finish\""}}' \
-    | "$hook" > /dev/null 2>&1 || rc=$?
-  echo "$rc"
+gate() { # 검증 단계에서 응답을 마치려 할 때(Stop 훅) 넘어간 단계를 출력한다. 막히면 verify 그대로다
+  printf '%s' '{"title":"t","mode":"simple","stage":"verify","checks":["tests"]}' > "$state"
+  rm -f "$p/.harness/state/stop-gate.json"
+  jq -n --arg cwd "$p" '{session_id: "s1", cwd: $cwd}' | "$hook" > /dev/null 2>&1 || true
+  jq -r .stage "$state"
 }
+echo s1 > "$p/.harness/state/task.owner"
 printf '%s' '{"title":"t","mode":"simple","stage":"verify","checks":["tests"]}' > "$state"
 touch "$p/.harness/state/task.started"
 sleep 1
 
-assert_eq "게이트: 결과가 없으면 막는다" "2" "$(gate)"
+assert_eq "게이트: 결과가 없으면 막는다" "verify" "$(gate)"
 rec tests "bash check.sh" > /dev/null || true
-assert_eq "게이트: 검사가 실패하면 막는다" "2" "$(gate)"
+assert_eq "게이트: 검사가 실패하면 막는다" "verify" "$(gate)"
 printf 'exit 0\n' > "$p/check.sh"
 rec tests "bash check.sh" > /dev/null
-assert_eq "게이트: 검사가 통과하면 넘어간다" "0" "$(gate)"
+assert_eq "게이트: 검사가 통과하면 넘어간다" "finish" "$(gate)"
 sleep 1
 echo b > "$p/a.txt"
-assert_eq "게이트: 그 뒤에 파일을 고치면 낡은 결과라 막는다" "2" "$(gate)"
+assert_eq "게이트: 그 뒤에 파일을 고치면 낡은 결과라 막는다" "verify" "$(gate)"
 rec tests "bash check.sh" > /dev/null
-assert_eq "게이트: 다시 돌리면 넘어간다" "0" "$(gate)"
+assert_eq "게이트: 다시 돌리면 넘어간다" "finish" "$(gate)"
 
 finish

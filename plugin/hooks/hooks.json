@@ -32,12 +32,12 @@
         ]
       },
       {
-        "matcher": "Edit|Write|MultiEdit",
+        "matcher": "Edit|Write|MultiEdit|Bash",
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/check-run.sh",
-            "timeout": 1800
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/guard-state.sh",
+            "timeout": 10
           }
         ]
       }
@@ -69,7 +69,7 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/stop-gate.sh",
-            "timeout": 30
+            "timeout": 1800
           }
         ]
       }
