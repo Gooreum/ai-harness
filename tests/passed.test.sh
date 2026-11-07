@@ -86,4 +86,21 @@ assert_eq "  루트 기준 경로로 알린다" "결과(.harness/out/unit-test.j
 assert_eq "이름에 경로를 쓰면 거절" "rc=2" "$(last "$(run ../x)")"
 assert_eq "이름이 없으면 2" "rc=2" "$(last "$(run)")"
 
+
+# 한글 이름의 추적 안 된 파일: 이름이 따옴표로 감싸지면 수정 시각을 못 읽어 경고가 나고 새 파일을 놓친다
+k="$work/ko"
+mkdir -p "$k/.harness/out" "$k/.harness/state" "$k/App"
+echo '{"schemaVersion":1}' > "$k/.harness/project.json"
+printf '.harness/out/\n.harness/state/\n' > "$k/.gitignore"
+(cd "$k" && git init -q -b main && git add -A && git -c user.name=t -c user.email=t@t commit -qm init)
+echo '{"title":"k","mode":"simple","stage":"verify"}' > "$k/.harness/state/task.json"
+git -C "$k" rev-parse HEAD > "$k/.harness/state/task.base"
+echo x > "$k/.harness/state/task.started"; touch -t 202601010000 "$k/.harness/state/task.started"
+echo '{"passed": true}' > "$k/.harness/out/unit-test.json"; touch -t 202601010100 "$k/.harness/out/unit-test.json"
+echo '// 전' > "$k/App/예전.swift"; touch -t 202512310000 "$k/App/예전.swift"
+echo '// 새' > "$k/App/새파일.swift"; touch -t 202601010200 "$k/App/새파일.swift"
+out="$( (cd "$k" && "$passed" unit-test 2>&1) && echo rc=0 || echo "rc=$?")"
+assert_eq "한글 이름 새 파일도 본다" "결과(.harness/out/unit-test.json)가 App/새파일.swift보다 오래됐다 — 고친 뒤 검사를 다시 실행한다" "$(first "$out")"
+assert_eq "  경고 없이 끝난다" "2" "$(printf '%s\n' "$out" | wc -l | tr -d ' ')"
+
 finish

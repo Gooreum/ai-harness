@@ -108,8 +108,8 @@ case "$event" in
       fi
     fi
     changed="$(cd "$root" && {
-        git diff --name-only --relative "$from" 2>/dev/null
-        git ls-files -o --exclude-standard | while IFS= read -r f; do
+        git -c core.quotePath=false diff --name-only --relative "$from" 2>/dev/null
+        git -c core.quotePath=false ls-files -o --exclude-standard | while IFS= read -r f; do
           if [ -n "$started" ] && [ "$(mtime "$f")" -lt "$started" ]; then continue; fi
           printf '%s\n' "$f"
         done

@@ -73,6 +73,18 @@
   - `docs/checks.md`에 e2e 검사 예시를 넣었다. 시험장 `checks.json`의 e2e 프롬프트는 시험장 브랜치에서 바꾼다.
 - 상태: 반영됨 (PR #31, 0.9.4). 2026-11-06 #10 재작업에서 확인했다: 기능 시나리오 `review-request-after-third-workout.yaml`이 운동 3회를 시나리오 안에서 만들고 리뷰 창을 assert했고, 영상 2:44~2:45에 리뷰 창이 찍혔다. 리뷰어가 "영향 받는 곳" 7곳(차단 0)을 찾아 영향 시나리오 `workout-live-activity.yaml`을 골랐고, 둘을 한 번에 `--record`로 통과했다(IntervalTimer PR #31). 시험장 반영: ReadSharp #236, IntervalTimer #32
 
+### 2026-11-07 — PetCycle #56: 리뷰어가 테스트 파일을 건너뛰어 리뷰를 세 번 맡겼고, 한글 이름 파일에서 스크립트 경고가 났다
+- 프로젝트·작업: PetCycle, 이슈 #56 핵심 퍼널 분석 이벤트 (하네스 0.12.4)
+- 무슨 일이 있었나
+  - 리뷰어 두 명이 바뀐 테스트 파일 2개(`src/store/members.test.ts`, `useStore.test.ts`)를 열지 않았다. 하네스가 두 번 다 통과로 치지 않아 세 번째 리뷰에서 통과했다.
+  - `passed`를 돌릴 때마다 `lib.sh: line 79: [: : integer expression expected`가 찍혔다. 판정은 바뀌지 않았다.
+- 원인
+  - Guides — 리뷰어 지침은 "바뀐 파일을 하나씩 연다"고만 했다. 리뷰어는 테스트 파일을 검토 대상 밖으로 봤다.
+  - Enforcement — git이 한글 등 ASCII가 아닌 파일 이름을 따옴표로 감싸 출력한다(`core.quotePath` 기본값). 그 이름으로는 수정 시각을 읽지 못한다. 지금은 작업 전부터 있던 `.design-bounce/`의 한글 이름 md·json만 걸렸다. 작업 중 한글 이름 코드 파일을 만들면 `passed`는 그 파일을 놓치고, 리뷰는 연 파일과 이름이 맞지 않아 통과할 수 없다. ai-bouncer `bouncer.sh`도 같은 git 명령을 쓴다.
+- 조치
+  - `lib.sh`의 `harness_changed_files`와 `review-record.sh`가 `git -c core.quotePath=false`로 파일 이름을 그대로 받는다. 회귀 테스트 3개 추가.
+  - 리뷰어 지침 2단계: 테스트 파일도 바뀐 파일이라 건너뛰지 않는다.
+
 ### 2026-11-07 — PetCycle #103: 작업을 done으로 닫고 고친 뒤, 작업을 verify 단계로 다시 열어 검사가 빈 채로 통과할 뻔했다
 - 프로젝트·작업: PetCycle, PR #103 전체 푸시를 꺼도 알림 내역에는 남기기 (하네스 0.12.3)
 - 무슨 일이 있었나
