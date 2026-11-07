@@ -78,7 +78,7 @@ plugin/
 
 - Stop에서 cwd의 프로젝트(`.harness/project.json`)를 찾고 `.harness/state/task.json`의 stage를 본다. 작업 주인 세션(`.harness/state/task.owner`, `stage-context.sh`가 적는다)만 본다.
 - verify 단계면 고른 검사 중 `run`이 있는 것을 프로젝트 루트에서 실행한다. 하나라도 실패하면 이유를 stderr로 내고 2로 끝난다. 단계는 그대로다. run 합계는 1700초(`HARNESS_RUN_BUDGET`)까지이고 훅 timeout은 1800초다.
-- 통과했거나 run이 없는 단계면 `stage`를 다음 단계로 쓰고 다음 단계 지시를 stderr로 주며 2로 끝난다. finish를 마치면 `done`으로 쓰고 끝내게 둔다.
+- 통과했거나 run이 없는 단계면 `stage`를 다음 단계로 쓰고 다음 단계 지시를 stderr로 주며 2로 끝난다. finish면 커밋·push를 확인한다. 시작 때(`.harness/state/task.wip`) 없던 변경이 남았거나, 커밋이 기본 브랜치에 있거나, push하지 않았으면 막는다. 마쳤으면 `done`으로 쓰고 끝내게 둔다(ADR 0028).
 - 계획 승인은 Plan 모드(ExitPlanMode)로 턴 안에서 받는다. 승인되면 응답을 마치고, 구현 지시를 받아 시작한다.
 - 반복 방지는 ai-bouncer를 따른다: 도구 없이 같은 이유로 재진입하면 끝내게 두고(`tool-count.sh`가 도구 수를 센다), 같은 단계에서 10번 연속이면 사용자에게 넘기게 한다. 상태는 `.harness/state/stop-gate.json`.
 - 백그라운드 서브에이전트가 돌고 있으면(Stop 입력의 `background_tasks`에 `type: "subagent"`) 기다리는 중으로 보고 막지도 넘기지도 않는다. 끝나면 알림으로 턴이 다시 열리고 그때 다시 본다. 셸·모니터는 끝나지 않을 수 있어 넣지 않는다([ADR 0013](decisions/0013-stop-wait-subagent.md)).

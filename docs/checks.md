@@ -21,7 +21,7 @@
 | plan | EnterPlanMode로 계획하고 ExitPlanMode로 사용자 승인을 받는다 + `stages.plan.prompt` |
 | implement | 구현한다 + `stages.implement.prompt` |
 | verify | 고른 검사의 `prompt`를 `checks.json`에 적힌 순서대로 하나씩 실행하고 실제 출력으로 확인한다 |
-| finish | `stages.finish.prompt`(위키 기록 등)를 먼저 하고, 작업 보고를 일곱 섹션(1. 상황 · 2. 조치 · 3. 평가 · 4. 단계 기록 · 5. 위키 · 6. 건의 · 7. 결정 사항)으로 쓴다. 섹션 사이는 구분선, 문장마다 줄을 바꾸고, 평가는 근거(결과 파일·명령)가 있는 표로, 단계 기록은 `.harness/state/task.history`에서, 위키는 시작 커밋 이후 `docs/wiki/` 변경에서 옮긴다 |
+| finish | `stages.finish.prompt`(위키 기록 등)를 먼저 하고, 바꾼 파일을 하나씩 add해 커밋하고 push한다(기본 브랜치면 새 브랜치). Stop 훅이 커밋·push를 확인한 뒤 닫는다(ADR 0028). 그다음 작업 보고를 일곱 섹션(1. 상황 · 2. 조치 · 3. 평가 · 4. 단계 기록 · 5. 위키 · 6. 건의 · 7. 결정 사항)으로 쓴다. 섹션 사이는 구분선, 문장마다 줄을 바꾸고, 평가는 근거(결과 파일·명령)가 있는 표로, 단계 기록은 `.harness/state/task.history`에서, 위키는 시작 커밋 이후 `docs/wiki/` 변경에서 옮긴다 |
 
 ## 상태 파일 (`.harness/state/task.json`)
 
@@ -119,7 +119,7 @@ ReadSharp는 예전 iOS 묶음의 스크립트를 `scripts/ios/`로 넘겨받아
 |---|---|---|
 | `start` | stage-context | 새 작업. 지난 기록을 지우고 `stage`·`mode`·`checks` |
 | `resume` · `cancel` | stage-context | 같은 단계로 다시 저장 / 사용자가 취소 (`from`) |
-| `advance` | stop-gate | `from` → `to`. verify면 `runs`(검사별 `rc`, run 없음은 `run: false`, 설정에 없음은 `missing`) |
+| `advance` | stop-gate | `from` → `to`. verify면 `runs`(검사별 `rc`, run 없음은 `run: false`, 설정에 없음은 `missing`), finish면 `commit`·`push` 확인 결과 |
 | `blocked` | stop-gate | 막은 이유 첫 줄(`why`)과 `runs` |
 | `release` · `handoff` | stop-gate | 도구 없이 재진입해 풀어 줌 / 10번 연속이라 사용자에게 넘김 |
 | `guard` | guard-state | 막은 `task.json` 쓰기(`tool`, `why`) |

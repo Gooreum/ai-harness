@@ -8,7 +8,7 @@
 #   ai-bouncer(hooks/stop.sh)처럼 훅이 단계를 쓴다(ADR 0027).
 #   - 검증 단계면 고른 검사의 run을 프로젝트 루트에서 돌린다. 하나라도 실패하면 이유를 주고 막는다. 단계는 그대로다.
 #   - 통과했거나 run이 없는 단계면 task.json의 stage를 다음 단계로 쓰고, 다음 단계 지시를 주며 막는다.
-#   - 마지막 단계(finish)를 마치면 stage를 done으로 쓰고 끝내게 둔다.
+#   - 마지막 단계(finish)면 커밋·push를 확인하고(ADR 0028), 마쳤으면 stage를 done으로 쓰고 끝내게 둔다.
 # 발표가 다루지 않는 부분은 ai-bouncer(hooks/stop.sh)를 따른다.
 #   - 작업 주인 세션만 본다(.harness/state/task.owner). 다른 세션은 그냥 끝난다.
 #   - 직전과 같은 이유로 다시 막히려는데 그 사이 도구를 하나도 쓰지 않았으면 끝내게 둔다.
@@ -173,6 +173,48 @@ if [ "$stage" = verify ]; then
   if [ -n "$failures" ]; then
     guarded_block "[하네스] 검사를 통과하지 못해 다음 단계로 넘어갈 수 없습니다. 작업 \"$title\"은 아직 verify 단계입니다.
 ${failures}실패한 검사의 prompt대로 다시 실행해 원인을 고치고, 통과한 뒤에 응답을 마치세요. 그때 다시 확인합니다."
+  fi
+fi
+
+# --- 1-2. 마무리: 커밋·push를 확인한다 (ADR 0028) -----------------------------------------
+# ai-bouncer finalize는 커밋·push를 지시만 한다. 지시만으로는 빠뜨린다(발표 슬라이드 5)는 문제라 확인까지 한다.
+# 시작 커밋(task.base)이 없거나 git 저장소가 아니면 확인하지 않는다.
+base="$(cat "$state_dir/task.base" 2>/dev/null)"
+if [ "$stage" = finish ] && [ -n "$base" ] && head="$(git -C "$root" rev-parse --verify -q HEAD 2>/dev/null)"; then
+  problems=""
+  # 시작할 때 없던 변경이 남았으면 커밋하지 않은 것이다. 시작 전부터 있던 WIP는 그대로 둬도 된다.
+  left="$(git -C "$root" status --porcelain --untracked-files=all 2>/dev/null | cut -c4-)"
+  if [ -n "$left" ] && [ -f "$state_dir/task.wip" ]; then
+    left="$(printf '%s\n' "$left" | grep -vxF -f "$state_dir/task.wip" || true)"
+  fi
+  if [ -n "$left" ]; then
+    problems="$problems- 커밋하지 않은 변경이 남았다:"$'\n'"$(printf '%s\n' "$left" | sed -n '1,10p' | sed 's/^/    /')"$'\n'
+    runs="$(jq -c '. + [{name: "commit", rc: 1}]' <<<"$runs")"
+  elif [ "$head" != "$base" ]; then
+    runs="$(jq -c '. + [{name: "commit", rc: 0}]' <<<"$runs")"
+  fi
+  # 커밋이 있으면 기본 브랜치가 아닌 브랜치에 push까지 돼야 한다. 원격이 없으면 push는 보지 않는다.
+  if [ "$head" != "$base" ] && [ -n "$(git -C "$root" remote 2>/dev/null)" ]; then
+    branch="$(git -C "$root" symbolic-ref -q --short HEAD 2>/dev/null)"
+    default="$(git -C "$root" symbolic-ref -q --short refs/remotes/origin/HEAD 2>/dev/null)"
+    default="${default#origin/}"
+    if [ -z "$branch" ]; then
+      problems="$problems- 브랜치가 아닌 커밋(detached HEAD)에 있다. 브랜치를 만들어 커밋을 옮기고 push한다"$'\n'
+    elif [ "$branch" = "$default" ] || { [ -z "$default" ] && case "$branch" in main | master | develop | development) true ;; *) false ;; esac; }; then
+      problems="$problems- 기본 브랜치($branch)에 커밋했다. push하지 말고 사용자에게 알린다. 다음 작업부터는 커밋 전에 새 브랜치를 만든다"$'\n'
+    elif ! git -C "$root" rev-parse -q --verify '@{u}' > /dev/null 2>&1; then
+      problems="$problems- push하지 않았다. git push -u origin $branch"$'\n'
+      runs="$(jq -c '. + [{name: "push", rc: 1}]' <<<"$runs")"
+    elif [ "$(git -C "$root" rev-list --count '@{u}..HEAD' 2>/dev/null)" != 0 ]; then
+      problems="$problems- push하지 않은 커밋이 있다. git push"$'\n'
+      runs="$(jq -c '. + [{name: "push", rc: 1}]' <<<"$runs")"
+    else
+      runs="$(jq -c '. + [{name: "push", rc: 0}]' <<<"$runs")"
+    fi
+  fi
+  if [ -n "$problems" ]; then
+    guarded_block "[하네스] 커밋·push를 마치지 않아 작업을 닫을 수 없습니다. 작업 \"$title\"은 아직 finish 단계입니다.
+${problems}이번 작업과 무관한 변경이면 커밋하지 않고 보고의 건의에 적은 뒤 사용자에게 알린다. 마친 뒤 응답을 마치세요. 그때 다시 확인합니다."
   fi
 fi
 

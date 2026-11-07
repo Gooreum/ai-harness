@@ -60,6 +60,10 @@ assert_eq "finish: 위키 변경은 시작 커밋부터 본다" "yes" "$(has "ta
 assert_eq "finish: 평가의 상태는 네 가지로 쓴다" "yes" "$(has "✅ 통과 · ❌ 실패 · ⚠️ 못 함 · ➖ 안 고름" "$out")"
 assert_eq "finish: 근거 없이 통과로 쓰지 않는다" "yes" "$(has "근거가 없으면 통과로 쓰지 않는다" "$out")"
 assert_eq "finish: 문장마다 줄을 바꾼다" "yes" "$(has "문장마다 줄을 바꾸고" "$out")"
+assert_eq "finish: 커밋하고 push한다" "yes" "$(has "그다음 커밋하고 push한다" "$out")"
+assert_eq "finish: 개별 add, 무관한 변경은 그대로" "yes" "$(has "이번 작업과 무관한 변경은 커밋하지 않고 그대로 둔다" "$out")"
+assert_eq "finish: 기본 브랜치면 새 브랜치" "yes" "$(has "커밋 전에 새 브랜치를 만든다" "$out")"
+assert_eq "finish: 평가에 커밋·push 줄" "yes" "$(has "마지막 줄은 커밋·push" "$out")"
 assert_eq "finish: 응답을 마치면 끝난다" "yes" "$(has "응답을 마치면 작업이 끝난다" "$out")"
 assert_eq "done: 끝났다고만 알린다" '[하네스] 작업 "문구"이 끝났습니다.' "$(ctx '{"title":"문구","mode":"simple","stage":"done"}')"
 assert_eq "취소: 취소했다고 알린다" "yes" "$(has '작업 "문구"을 취소했습니다' "$(ctx '{"title":"문구","mode":"simple","stage":"done","cancelled":true}')")"
@@ -95,7 +99,10 @@ ctx '{"title":"B","mode":"simple","stage":"implement"}' > /dev/null
 assert_eq "started: 끝나지 않은 작업은 제목이 바뀌어도 이어서 본다" "202601010000" "$(stat -f %Sm -t %Y%m%d%H%M "$sfile")"
 ctx '{"title":"A","mode":"simple","stage":"done"}' > /dev/null
 assert_eq "started: done이 돼도 그대로 둔다" "202601010000" "$(stat -f %Sm -t %Y%m%d%H%M "$sfile")"
+echo x > "$p/wip.txt"
 ctx '{"title":"A","mode":"simple","stage":"implement"}' > /dev/null
+assert_eq "wip: 새 작업이면 시작 때 바뀌어 있던 파일을 적는다" "wip.txt" "$(grep -x wip.txt "$p/.harness/state/task.wip")"
+rm "$p/wip.txt"
 assert_eq "started: 끝난 뒤 같은 제목으로 다시 시작해도 새로 적는다" "no" "$([ "$(stat -f %Sm -t %Y%m%d%H%M "$sfile")" = 202601010000 ] && echo yes || echo no)"
 assert_eq "base: 새 작업이면 지금 커밋을 적는다" "$(git -C "$p" rev-parse HEAD)" "$(cat "$bfile")"
 rm -rf "$p/.git"

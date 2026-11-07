@@ -195,6 +195,7 @@ scripts/harness/passed typecheck                            # 결과가 통과�
 - 에이전트가 단계의 일을 마치고 응답을 마치려 하면, Stop 훅이 확인하고 `.harness/state/task.json`의 `stage`를 다음 단계로 넘기며 그 단계의 지시를 준다. 검증 단계에는 고른 검사의 지시만 들어간다. 에이전트는 `stage`를 고칠 수 없다(`guard-state.sh`, Bash 쓰기 포함, [ADR 0027](docs/decisions/0027-stop-advances-stage.md)).
 - 검사 목록은 프로젝트의 `.harness/checks.json`에 있다. 훅은 검사 내용을 모르고 이 파일의 글을 옮길 뿐이다([docs/checks.md](docs/checks.md), [ADR 0007](docs/decisions/0007-task-flow.md)).
 - 검증 단계에서 응답을 마치려 하면 Stop 훅 `stop-gate.sh`가 고른 검사의 `run`(결과 파일 확인)을 돌린다. 실패하면 넘어가지 못한다(발표 슬라이드 29, [ADR 0012](docs/decisions/0012-run-gate.md)). 작업을 시작한 세션만 done 전에 막는다. 계획 승인은 Plan 모드로 받는다.
+- 마무리 단계에서는 바꾼 파일을 커밋하고 push한다(기본 브랜치면 새 브랜치). Stop 훅이 커밋·push를 확인한 뒤 작업을 닫는다. 시작 전부터 있던 무관한 변경은 그대로 둔다([ADR 0028](docs/decisions/0028-finish-commit-push.md)).
 
 ### 8. 리뷰: reviewer
 
