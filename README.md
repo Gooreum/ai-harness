@@ -249,7 +249,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `scripts/harness/wiki` | Context + Validation | 정책·결정 기록(`docs/wiki/`)을 찾고 형식을 검사한다 |
 | `scripts/harness/doctor` | Validation | 하네스가 이 프로젝트에서 돌 수 있는지 점검한다: 도구, 설정 파일, 검사 목록의 run, 지침 연결, 플러그인 버전 |
 | `scripts/harness/setup` | Context | 검사·생성 파일·고치면 안 되는 파일·빌드·테스트 명령을 사용자와 정하는 안내. 찾은 명령과 단서를 보여 준다. 파일은 쓰지 않는다 |
-| `scripts/harness/common-checks.json` | Context | setup이 추천하는 검사(review) |
+| `scripts/harness/common-checks.json` | Context | setup이 추천하는 검사(review)와 위키 단계 지시(`stages`) |
 | `scripts/harness/lib.sh` | Execution | 공통 함수: 루트 찾기, 설정 읽기, 바뀐 파일 목록, 작업 시작 커밋, 위키 형식 |
 | `.harness/.gitignore` | State | `.harness/`에서 설정 파일(`project.json`·`conventions.json`·`checks.json`)과 설치 기록(`harness.json`)만 커밋되게 한다 |
 

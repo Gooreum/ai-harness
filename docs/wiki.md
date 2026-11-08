@@ -12,6 +12,8 @@
 | 작업 마무리 (finish 단계) | 에이전트 | 이번에 정한 결정·알게 된 사실을 쓴다. 비슷한 기록이 있으면 고친다 |
 
 - 언제 찾고 쓰라는 지시는 하네스 코드가 아니라 프로젝트의 `.harness/checks.json`의 `stages.<단계>.prompt`에 한 줄씩 둔다. 발표에서도 마무리 단계에 config 한 줄을 더했다.
+- 추천 문장은 `scripts/harness/common-checks.json`의 `stages`에 있고, setup이 둘지 묻는다. 지시가 없으면 doctor가 주의를 준다. 위키를 쓰지 않을 프로젝트는 `checks.json`에 `"wiki": false`를 쓴다.
+- 위키를 찾았는지·썼는지를 훅이 확인하지는 않는다. 지시가 있는 시험장에서는 빠뜨린 일이 관찰되지 않았다. 관찰되면 그때 확인을 넣는다.
 - 템플릿 규칙 `.claude/rules/harness/wiki.md`가 `docs/wiki/`의 파일을 열 때 함께 읽혀 형식과 절차를 알려 준다.
 
 ## 두 종류

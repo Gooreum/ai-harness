@@ -35,6 +35,15 @@
 
 ## 기록
 
+### 2026-11-09 — PetCycle에 위키 지시가 없어 정책·결정 기록이 하나도 쌓이지 않았다
+- 프로젝트·작업: PetCycle, 11-06부터 하네스로 한 작업 전체(커밋 65개)
+- 무슨 일이 있었나
+  - `.harness/checks.json`에 `stages`가 없어 plan·finish 단계에 위키 찾기·쓰기 지시가 들어가지 않았다. `docs/wiki/`가 없다.
+  - 검색 기록(`wiki-search.log`)은 8번 있었다(지시 없이 에이전트가 찾은 것). 모두 결과 0이었다.
+- 원인: Context — 위키 지시는 프로젝트 설정에만 있는데 setup이 묻지 않았고 doctor도 보지 않았다.
+- 조치: setup이 `common-checks.json`의 위키 단계 지시를 추천하고, doctor가 지시가 없으면 주의를 준다(ADR 0008 추가). PetCycle에 지시를 넣는다.
+- 상태: 반영됨 (0.14.1)
+
 ### 2026-11-06 — e2e가 "$destination_label을"에서 unbound variable로 멈췄다
 - 프로젝트·작업: ReadSharp 확인용 워크트리, 단위 21 시뮬레이터 잠금 확인
 - 무슨 일이 있었나

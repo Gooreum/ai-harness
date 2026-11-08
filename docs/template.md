@@ -60,7 +60,7 @@ scripts/sync --dev <프로젝트 경로>    # 갱신하되 플러그인을 이 �
 | 보는 것 | ✕ 문제 | ! 주의 |
 |---|---|---|
 | 도구 | jq가 없다(스크립트와 훅이 모두 꺼진다) | `e2e.network.port`가 있는데 python3가 없다 |
-| 설정 파일 | checks·conventions JSON이 깨졌다, checks.json의 run 명령이 없다, `passed <이름>`이 확인하는 결과를 만드는 곳이 없다 | |
+| 설정 파일 | checks·conventions JSON이 깨졌다, checks.json의 run 명령이 없다, `passed <이름>`이 확인하는 결과를 만드는 곳이 없다 | checks.json의 단계 지시(`stages`)에 위키가 없다(`"wiki": false`면 보지 않는다) |
 | 설치된 파일 | AGENTS.md 관리 블록, CLAUDE.md의 `@AGENTS.md`, `.claude/rules/harness/`가 없다 | 설치 기록이 없다, 규칙이나 `settings.json`이 git에서 무시된다 |
 | 플러그인 | 켜져 있지 않다, 이 프로젝트에 설치되지 않았다, 꺼져 있다, 버전이 설치 기록과 다르다 | claude CLI가 없어 버전을 못 봤다 |
 
@@ -68,6 +68,7 @@ scripts/sync --dev <프로젝트 경로>    # 갱신하되 플러그인을 이 �
 - 버전이 다르면 어느 쪽이 오래됐는지에 따라 플러그인 갱신(`claude plugin update`) 또는 `sync`를 안내한다.
 - `passed <이름>`의 결과를 만드는 곳: prompt의 `record <이름>`, prompt가 부르는 실행 파일 중 이름이 `<이름>`인 것(예: `scripts/ios/unit-test`), 또는 리뷰(`review`). 셋 다 없으면 검증 단계를 영영 넘지 못하므로 문제로 친다.
 - 예전 이름의 플러그인(`ios-harness@ios-ai-harness`)이 켜져 있으면 문제로 친다. 훅이 두 번 돈다.
+- 위키 단계 지시는 `stages`의 prompt 중 하나라도 `wiki`를 담고 있으면 있는 것으로 본다. 없으면 작업을 시작할 때 기록을 찾지 않고 마무리할 때 남기지 않으므로 주의를 준다([ADR 0008](decisions/0008-wiki.md)).
 - 플랫폼 도구(Xcode, Node 등)는 보지 않는다.
 
 ## 예전 iOS 묶음을 쓰던 프로젝트
