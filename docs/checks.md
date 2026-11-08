@@ -82,7 +82,8 @@ ReadSharp는 예전 iOS 묶음의 스크립트를 `scripts/ios/`로 넘겨받아
 | 필드 | 값 | 설명 |
 |---|---|---|
 | `schemaVersion` | `1` | 파일 형식 버전 |
-| `stages.<단계>.prompt` | 문장, 선택 | 그 단계에 들어갈 때 기본 지시 뒤에 붙인다. 계획 기준 등 |
+| `stages.<단계>.prompt` | 문장, 선택 | 그 단계에 들어갈 때 기본 지시 뒤에 붙인다. 계획 기준, 위키 찾기·쓰기 등. setup이 위키 지시(`common-checks.json`의 `stages`)를 추천한다 |
+| `wiki` | `false`, 선택 | 위키를 쓰지 않기로 한 프로젝트. doctor가 위키 단계 지시가 없다고 주의를 주지 않는다 |
 | `checks[].name` | 문자열 | 검사 이름. 상태 파일의 `checks`에 이 이름을 적는다 |
 | `checks[].description` | 문장 | 검사를 고를 때 보여 주는 설명 |
 | `checks[].prompt` | 문장 | verify 단계에서 에이전트에게 시킬 일 |

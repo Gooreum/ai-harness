@@ -35,9 +35,18 @@ out="$(cd "$p" && scripts/harness/setup)"
 assert_eq "Maestro 시나리오가 있으면 E2E 단서로 보여 준다" "yes" "$(has ".maestro/ (Maestro 시나리오)")"
 rmdir "$p/.maestro"
 
+assert_eq "위키 단계 지시가 없으면 둘지 묻게 한다" "yesyes" "$(has "위키) 단계 지시:
+  없다")$(has "⑥ 위키 단계 지시가 없으면")"
+assert_eq "추천 위키 지시는 common-checks.json에 있다" "plan implement finish" "$(jq -r '.stages | keys_unsorted | join(" ")' "$p/scripts/harness/common-checks.json")"
 echo '{"schemaVersion":1,"checks":[]}' > "$p/.harness/checks.json"
 out="$(cd "$p" && scripts/harness/setup)"
 assert_eq "이미 있으면 바꿀 부분만 묻게 한다" "yes" "$(has "이미 검사 목록이 있다")"
+jq --slurpfile c "$p/scripts/harness/common-checks.json" '. + {stages: $c[0].stages}' "$p/.harness/checks.json" > "$work/c.json" && mv "$work/c.json" "$p/.harness/checks.json"
+out="$(cd "$p" && scripts/harness/setup)"
+assert_eq "위키 지시가 이미 있으면 그렇다고 한다" "yes" "$(has "이미 있다 (checks.json의 stages)")"
+echo '{"schemaVersion":1,"checks":[],"wiki":false}' > "$p/.harness/checks.json"
+out="$(cd "$p" && scripts/harness/setup)"
+assert_eq "위키를 끄기로 했으면 그렇다고 한다" "yes" "$(has "쓰지 않기로 했다")"
 
 rm "$p/package.json" "$p/.harness/checks.json"
 out="$(cd "$p" && scripts/harness/setup)"

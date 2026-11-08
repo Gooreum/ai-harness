@@ -109,6 +109,16 @@ assert_eq "checks: passed가 아닌 run은 자동 실행된다고 알린다" "ye
 cp "$work/checks.bak" "$p/.harness/checks.json"
 run_doctor
 assert_eq "checks: run이 모두 passed면 자동 실행 참고를 띄우지 않는다" "no" "$(has "묻지 않고 실행한다")"
+assert_eq "wiki: 단계 지시에 위키가 없으면 주의를 준다" "yes|0" "$(has "! checks.json의 단계 지시(stages)에 위키가 없어")|$code"
+jq '. + {stages: {finish: {prompt: "x"}}}' "$work/checks.bak" > "$p/.harness/checks.json"
+run_doctor
+assert_eq "wiki: 위키가 아닌 단계 지시만 있어도 주의를 준다" "yes" "$(has "위키가 없어")"
+jq --slurpfile c "$p/scripts/harness/common-checks.json" '. + {stages: $c[0].stages}' "$work/checks.bak" > "$p/.harness/checks.json"
+run_doctor
+assert_eq "wiki: 추천 위키 지시를 옮기면 주의가 없다" "no" "$(has "위키가 없어")"
+jq '. + {wiki: false}' "$work/checks.bak" > "$p/.harness/checks.json"
+run_doctor
+assert_eq "wiki: \"wiki\": false면 묻지 않는다" "no" "$(has "위키가 없어")"
 rm -f "$p/.harness/checks.json"
 
 rc=0; out="$(cd "$p" && env PATH="$(nojq_path "$work")" /bin/bash scripts/harness/doctor)" || rc=$?

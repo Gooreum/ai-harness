@@ -1,5 +1,10 @@
 {
   "checks": [
     {"name": "review", "description": "reviewer 코드 리뷰", "prompt": "harness:reviewer 서브에이전트에 변경 검토를 맡기고 차단 항목을 고친다. 고친 뒤에는 다시 맡긴다", "run": "scripts/harness/passed review"}
-  ]
+  ],
+  "stages": {
+    "plan": {"prompt": "먼저 scripts/harness/wiki search로 관련 정책·결정 기록을 찾아 읽는다"},
+    "implement": {"prompt": "plan 단계를 거치지 않았으면 먼저 scripts/harness/wiki search로 관련 정책·결정 기록을 찾아 읽는다"},
+    "finish": {"prompt": "이번에 정한 정책·결정과 알게 된 사실을 docs/wiki/에 기록한다(비슷한 기록이 있으면 고친다). 코드와 커밋만 보고 알 수 있는 것은 쓰지 않는다. 쓴 뒤 scripts/harness/wiki check를 돌린다"}
+  }
 }
