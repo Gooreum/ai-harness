@@ -3,7 +3,7 @@
 여러 프로젝트에서 재사용할 하네스를 작업 단위로 나눠 하나씩 쌓아간다. 단위 1~20은 iOS용으로 만들었고, 단위 21부터는 어떤 플랫폼에서든 쓰는 범용 하네스로 넓힌다.
 단위 하나는 세션 하나 분량이다. 커밋 1~3개로 마무리하고, 끝나면 여기 체크박스를 갱신한다.
 
-지금: 23
+지금: 34
 
 (위 줄은 로드맵 패널이 읽는다. 작업 단위를 바꾸면 함께 고친다.)
 
@@ -370,7 +370,25 @@
   - 관찰(2026-11-07): PetCycle을 setup하니 검사 후보가 typecheck·test·review뿐이었다. setup은 찾은 명령만 후보로 내고, PetCycle에는 E2E 명령도 시나리오도 없어 앱을 띄워 보는 검사를 아무도 묻지 않았다. 발표는 동작 확인(E2E)을 검증의 한 축으로 둔다(슬라이드 56·80)
   - 할 일: setup이 E2E 단서(찾은 e2e 명령, `.maestro/`, Playwright·Cypress·Detox 설정)를 보여 주고, 없으면 앱·웹·서버 저장소에 한해 둘지 묻는다. 두면 시나리오 하나를 통과시킨 뒤 e2e 검사로 적는다
   - 완료 기준: `bash tests/run.sh` 통과. PetCycle에서 setup을 다시 돌리면 E2E를 묻는다
+- [ ] **34. 문서 검수에서 찾은 훅의 빈틈** (2026-11-09)
+  - 찾은 경위: 설명 문서("하네스 쉽게 보기")를 검수하며 코드와 대조해 찾았다. 시험장에서 실제로 일어난 일은 아니다. ai-bouncer가 막는 세 가지만 여기서 다루고, 나머지는 아래 "관찰되면 할 것"에 둔다
+  - [ ] 검사 결과 파일 쓰기 막기
+    - 에이전트가 `.harness/out/<검사>.json`·`review.json`에 `passed: true`를 Write로 쓰면 `passed`가 통과로 본다. `passed`는 결과 파일 내용과 수정 시각만 보고, `guard-state.sh`는 `task.json`만 지킨다
+    - ai-bouncer는 Edit·Write로 상태 폴더 `.ai-bouncer/` 전체를 고치는 것을 막는다(`engine/lib/guard.py`의 `ENGINE_DIRS`)
+  - [ ] 상태 파일 쓰기 막기
+    - `task.history`·`task.owner`를 쓸 수 있다. `task.owner`를 지우면 Stop 게이트가 그 세션을 보지 않는다(`stop-gate.sh` 43행)
+    - ai-bouncer는 위와 같이 상태 폴더 전체를 막는다
+  - [ ] 훅 등록 파일 쓰기 막기
+    - 프로젝트 `.claude/settings.json`(플러그인 켜기)을 Edit·Write로 고칠 수 있다. ai-bouncer는 이 파일을 막는다(`guard.py`의 `ENGINE_SETTINGS`, "등록을 지우면 게이트가 통째로 사라진다")
+  - 한계로 문서에만 적은 것: 진도표가 없으면 감독하지 않는다(세션 시작 안내만), jq가 없으면 훅이 모두 꺼진다(doctor가 점검), 리뷰어의 Bash는 git 읽기만 하라고 지시할 뿐 막지 않는다
+  - 할 일: `guard-state.sh`가 지키는 범위를 `.harness/state/`·`.harness/out/`·`.claude/settings.json`으로 넓힌다(Edit·Write). 막을지는 사용자가 정한다
+  - 완료 기준: 세 곳 쓰기를 막고 `bash tests/run.sh`에 차단 회귀를 더한다. 시험장 세션에서 막힌 쓰기가 실행되지 않는다
 - 범용 하네스에서 관찰되면 할 것
+  - Bash로 진도표를 쓸 때 파일 이름을 쪼개면 `guard-state.sh`가 못 잡는다(글자 맞추기). ai-bouncer는 셸 명령을 보지 않는다(오탐이 많았다)
+  - 자동 생성 파일을 Bash(`sed -i`, `>`)로 고치면 `protect-generated.sh`가 못 막는다
+  - 시작 전에 바뀌어 있던 파일(`task.wip`)을 이번 작업이 또 고치고 커밋하지 않아도 마무리 확인이 못 잡는다
+  - 에이전트가 `checks.json`의 run이나 `project.json`을 고치거나 지울 수 있다
+  - 계획 승인은 지시뿐이라 승인 없이도 plan에서 implement로 넘어간다
   - 가짜 응답 서버: 스트리밍 응답(SSE), 요청 본문 기록
   - 위키 폴더가 `dist/`·`out/`·`build/` 무시 규칙에 걸리는지 `wiki check`에서 본다(11-03에 한 번 겪었다)
   - 검사가 많아져 질문이 길어질 때 묶음별 기본 선택
