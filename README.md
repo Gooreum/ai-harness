@@ -180,7 +180,6 @@ scripts/harness/passed typecheck                            # 결과가 통과�
 |---|---|---|
 | 훅 `protect-generated.sh` (플러그인) | `.harness/project.json`의 `generated` 글롭에 맞는 파일 편집 | 편집 직전에 거부하고, 생성하는 쪽을 고치라고 알려준다 |
 | 권한 `deny` (`settings.json`) | 서명·시크릿 파일 읽기(`.env*`(Bash로 읽기 포함), `*.jks`, `*.keystore`, `keystore.properties`, `.npmrc`, `credentials.json`). setup에서 정한 `Edit(<글롭>)`(예: `Edit(**/*.pbxproj)`) | 항상 거부 |
-| 권한 `ask` (`settings.json`) | `git push`, `reset --hard`, `clean`, `checkout --`, `restore`, `branch -D`, `rebase`, `commit --no-verify`, `gh pr create/merge` (`git -C <경로>` 형식 포함), 배포·공개 명령(`npm`·`yarn`·`pnpm publish`, `eas submit`·`eas update`, `fastlane`, gradle publish, `firebase deploy`, `vercel`. `--prefix`·`--cwd`·`-C`·`-p` 형식 포함) | 매번 사용자에게 묻는다 |
 
 - 훅은 stdin으로 받은 JSON만 읽는다. 나중에 Codex에서도 같은 스크립트를 쓰기 위해서다.
 - 훅은 판단할 수 없으면(설정 파일 없음, 입력 오류) 막지 않는다. 실수를 줄이는 장치이지 보안 경계가 아니라서, 고장 난 훅이 정상 작업을 막으면 안 된다.
@@ -196,6 +195,8 @@ scripts/harness/passed typecheck                            # 결과가 통과�
 - 검사 목록은 프로젝트의 `.harness/checks.json`에 있다. 훅은 검사 내용을 모르고 이 파일의 글을 옮길 뿐이다([docs/checks.md](docs/checks.md), [ADR 0007](docs/decisions/0007-task-flow.md)).
 - 검증 단계에서 응답을 마치려 하면 Stop 훅 `stop-gate.sh`가 고른 검사의 `run`(결과 파일 확인)을 돌린다. 실패하면 넘어가지 못한다(발표 슬라이드 29, [ADR 0012](docs/decisions/0012-run-gate.md)). 작업을 시작한 세션만 done 전에 막는다. 계획 승인은 Plan 모드로 받는다.
 - 마무리 단계에서는 바꾼 파일을 커밋하고 push한다(기본 브랜치면 새 브랜치). Stop 훅이 커밋·push를 확인한 뒤 작업을 닫는다. 시작 전부터 있던 무관한 변경은 그대로 둔다([ADR 0028](docs/decisions/0028-finish-commit-push.md)).
+- 마무리 보고는 일곱 섹션으로 쓴다: 상황 · 조치 · 평가 · 단계 기록 · 위키 · 건의 · 결정 사항. 평가는 검사마다 결과 파일을 근거로 쓰고, 마지막 줄은 커밋·push(브랜치·해시)다.
+- "단계 기록"은 에이전트의 기억이 아니라 훅이 남긴 `.harness/state/task.history`(시작·넘김·차단·막은 쓰기·풀어 줌)를 옮긴다([docs/checks.md](docs/checks.md#단계-기록-harnessstatetaskhistory)).
 
 ### 8. 리뷰: reviewer
 
@@ -242,7 +243,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `CLAUDE.md` | Context | `@AGENTS.md` import. Claude Code가 AGENTS.md를 읽게 한다 |
 | `.claude/rules/harness/wiki.md` | Context | 기록을 열 때 읽히는 규칙: 두 종류의 형식, 쓰는 때, 기록과 반대되는 요청은 묻기 |
 | `.claude/rules/project/.gitkeep` | Context | 프로젝트 고유 규칙을 두는 자리. 하네스가 건드리지 않는다 |
-| `.claude/settings.json` | Enforcement | 공통 권한 규칙(비밀 파일 읽기 deny, git·PR·배포 명령 ask) |
+| `.claude/settings.json` | Enforcement | 공통 권한 규칙(비밀 파일 읽기 deny). `ask`는 비워 둔다(ADR 0026) |
 | `scripts/harness/record` | Execution + Validation | 아무 명령이나 돌려 결과를 `.harness/out/<이름>.json`에 남긴다. run은 `passed <이름>` |
 | `scripts/harness/passed` | Validation | 결과 파일이 통과했고 지금 코드에 대한 최신 결과인지 본다. `checks.json`의 run에 쓴다 |
 | `scripts/harness/wiki` | Context + Validation | 정책·결정 기록(`docs/wiki/`)을 찾고 형식을 검사한다 |
@@ -262,11 +263,11 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `hooks/hooks.json` | Enforcement + Context | 세션 시작 때 `session-start.sh`, 모든 도구 전에 `tool-count.sh`, 편집·Bash 직전에 `protect-generated.sh`·`guard-state.sh`, 편집 직후에 `stage-context.sh`, Read 직후·서브에이전트가 끝날 때 `review-record.sh`, 끝낼 때 `stop-gate.sh`를 실행하도록 등록 |
 | `hooks/session-start.sh` | Context | 세션을 열 때 작업이 없으면 task 스킬로 시작하라고, 있으면 그 단계를 알려 주는 훅 |
 | `hooks/protect-generated.sh` | Enforcement | `project.json`의 `generated`에 적힌 생성 파일 편집을 막는 훅 |
-| `hooks/guard-state.sh` | Enforcement | 에이전트가 작업 상태 파일로 단계를 넘기지 못하게 막는 훅. 시작(첫 단계로만)·이어서 하기·취소만 허용하고 Bash 쓰기는 막는다 |
-| `hooks/stop-gate.sh` | Enforcement + Validation | 응답을 마치려 할 때 검증 단계면 고른 검사의 `run`을 돌리고, 통과하면 다음 단계로 넘기는 훅. done 전에는 끝내지 못한다 (반복 방지는 ai-bouncer와 같다. 백그라운드 서브에이전트를 기다리는 동안은 막지 않는다) |
+| `hooks/guard-state.sh` | Enforcement | 에이전트가 작업 상태 파일로 단계를 넘기지 못하게 막는 훅. 시작(첫 단계로만)·이어서 하기·취소만 허용하고 Bash 쓰기는 막는다. 막은 일은 `task.history`에 남긴다 |
+| `hooks/stop-gate.sh` | Enforcement + Validation | 응답을 마치려 할 때 검증 단계면 고른 검사의 `run`을 돌리고, 통과하면 다음 단계로 넘기는 훅. 마무리 단계면 커밋·push를 확인한다. done 전에는 끝내지 못한다. 넘김·차단은 `task.history`에 남긴다 (반복 방지는 ai-bouncer와 같다. 백그라운드 서브에이전트를 기다리는 동안은 막지 않는다) |
 | `hooks/stage-text.jq` | Context | 단계 지시 글. `stage-context.sh`와 `stop-gate.sh`가 같이 쓴다 |
 | `hooks/tool-count.sh` | State | 작업 주인 세션의 도구 호출 수를 세는 훅 (stop-gate.sh가 쓴다) |
-| `hooks/stage-context.sh` | Context | 작업 상태 파일(`.harness/state/task.json`)을 시작하거나 이어서 할 때 그 단계의 지시를 `.harness/checks.json`에서 꺼내 넣는 훅 |
+| `hooks/stage-context.sh` | Context + State | 작업 상태 파일(`.harness/state/task.json`)을 시작하거나 이어서 할 때 그 단계의 지시를 `.harness/checks.json`에서 꺼내 넣는 훅. 새 작업이면 주인 세션·시작 시각·시작 커밋(`task.base`)·이미 바뀌어 있던 파일(`task.wip`)을 적고 `task.history`를 새로 연다 |
 | `hooks/review-record.sh` | Validation | reviewer가 Read로 연 파일과 보고서의 차단 수로 `.harness/out/review.json`을 남기는 훅. `passed review`가 이 파일을 본다 |
 | `skills/task/SKILL.md` | State | 작업 시작: 계획 여부(plan/simple)와 검사를 사용자에게 묻고 상태 파일을 만든다 |
 | `.mcp.json`, `mcp/network.py` | Validation 보조 | 가짜 응답 서버 MCP `harness-network`. AI가 건 지연·400·500·빈 응답을 실제 서버 대신 앱에 돌려준다. `e2e.network.port`를 적은 프로젝트에서만 켜진다 |
@@ -290,9 +291,11 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `run.sh` | 모든 `*.test.sh`를 실행한다 |
 | `lib.sh` | `assert_eq`, `finish` 같은 테스트 도우미 |
 | `hooks.test.sh` | 훅이 막을 것만 막고, 판단할 수 없으면 통과시키는지 |
-| `stage.test.sh` | 단계 지시 훅이 상태 파일이 바뀔 때만, 고른 검사의 지시만 넣는지 |
+| `stage.test.sh` | 단계 지시 훅이 상태 파일이 바뀔 때만, 고른 검사의 지시만 넣는지. 시작 때 `task.wip`·`task.history`를 적는지 |
 | `run-gate.test.sh` | 검증 강제 훅이 verify를 지나 넘어갈 때 고른 검사의 run을 돌려, 실패하면 막는지 |
-| `stop-gate.test.sh` | Stop 훅이 작업 주인 세션만 막고, 도구 없는 반복과 연속 차단을 ai-bouncer처럼 풀어 주는지 |
+| `stop-gate.test.sh` | Stop 훅이 작업 주인 세션만 막고, 도구 없는 반복과 연속 차단을 ai-bouncer처럼 풀어 주는지. 마무리에서 커밋 안 한 변경·기본 브랜치 커밋·push 안 함을 막고 무관한 WIP는 두는지 |
+| `guard-state.test.sh` | 상태 파일 보호 훅: 시작(첫 단계로만)·이어서 하기·취소만 허용하고, 단계 바꾸기와 Bash 쓰기를 막는지 |
+| `session-start.test.sh` | 세션 시작 훅: 작업이 없으면 task 스킬 안내, 있으면 지금 단계를 알리는지 |
 | `review-record.test.sh` | 리뷰 기록 훅: reviewer의 Read만 적기, 안 연 파일·차단 수로 판정, `passed review`의 최신 판정 |
 | `record.test.sh` | record의 결과·로그·출력, record·passed만으로 검증 게이트가 판정하는지 |
 | `passed.test.sh` | passed가 결과 파일이 통과했고 최신인지 보는지 |
@@ -349,6 +352,10 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `0022-common-reviewer-permissions.md` | 리뷰어는 공통 절차만 두고, 생성 파일 목록(`generated`)과 공통 권한을 둔 이유 |
 | `0023-no-pack-repo.md` | 묶음 없는 저장소는 공통 핵심만으로 돈다. macOS만 지원한다 |
 | `0024-no-platform.md` | 하네스는 플랫폼을 모른다. 플랫폼 도구는 저장소가 갖고, setup이 사용자와 함께 정한다. 예전 iOS 묶음은 sync가 프로젝트로 넘긴다 |
+| `0025-regression-check.md` | 회귀 묶음은 고를 수 있는 검사 하나로 둔다 |
+| `0026-no-ask-rules.md` | 권한 규칙의 `ask` 목록을 두지 않는 이유 |
+| `0027-stop-advances-stage.md` | 단계는 Stop 훅이 넘기고, 에이전트는 상태 파일의 단계를 고치지 않는 이유 |
+| `0028-finish-commit-push.md` | 마무리 단계에서 커밋·push하고 Stop 훅이 확인하는 이유 |
 
 ## 설치하면 대상 프로젝트는 이렇게 된다
 
@@ -412,9 +419,10 @@ claude plugin validate plugin
 - 후보 15 완료: 두 번째 프로젝트 IntervalTimer(Tuist, 루트 manifest 하나)에 설치했다. 하네스는 detect만 고쳤고 나머지는 설정 파일만 달랐다
 - 후보 14 완료: 플러그인을 GitHub 마켓플레이스로 배포하고 `init`·`sync`·`doctor`를 만들었다
 - 후보 10 일부: Maestro E2E(`e2e`, 작성 규칙, 회귀 묶음, 녹화, 행동 로그 판정). 서버 응답 조작(가짜 응답 MCP). 화면 검증은 Figma 시안이 없어 미룸
-- 후보 13 완료: 검증 강제(`check-run.sh`, Stop 게이트)
+- 후보 13 완료: 검증 강제(Stop 게이트가 고른 검사의 run을 돌린다). 0.13.0부터는 단계도 Stop 훅이 넘긴다(ADR 0027)
 - 후보 20: 모듈 의존(`tuist graph`·`tuist inspect implicit-imports`)·형식(swift-format) 검사. 빌드·Tuist 절차 스킬과 후보 18은 뺐다
 - 단위 21~30 완료: 범용 하네스로 넓혔다(공통 핵심과 `record`·`passed`, 플랫폼 묶음, 이름 변경, 공통 리뷰어·권한, 묶음 없는 저장소, JS·RN 저장소)
 - 단위 31 완료: 하네스에서 플랫폼 코드를 뺐다. iOS 묶음(build·test·unit-test·lint·e2e, Swift 규칙)과 detect를 지우고, setup이 사용자와 설정을 정한다. 이미 쓰던 프로젝트는 sync가 iOS 파일을 넘긴다(ADR 0024)
+- 0.14.0: 마무리 단계에서 커밋·push하고 Stop 훅이 확인한다(ADR 0028). 마무리 보고는 일곱 섹션이고, 단계 기록은 훅이 남긴 `task.history`를 옮긴다
 
 자세한 내용은 [docs/roadmap.md](docs/roadmap.md)에 있다. 이 저장소에 기여하는 방법(브랜치, 커밋 규칙)은 [AGENTS.md](AGENTS.md)에 있다.
