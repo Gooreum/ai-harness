@@ -40,9 +40,10 @@
 - 결과는 실제로 실행한 명령과 출력으로 보고한다. 실행하지 못한 검증은 못 했다고 밝힌다.
 - PR을 만들기 전에는 `reviewer` 서브에이전트(harness 플러그인)에 변경 검토를 맡기고, 차단 항목을 고친 뒤 올린다.
 - PR을 만들면 `scripts/harness/pr-video`를 돌린다. 출력이 없으면 영상 없이 끝낸다. 출력이 있으면 출력된 영상을 GitHub PR 본문에서 재생되게 넣는다.
-  - Chrome(claude-in-chrome)으로 그 PR 페이지를 열고, 맨 아래 댓글 칸에 출력된 파일을 첨부한다. 파일 선택 창은 열지 않고 claude-in-chrome의 `file_upload` 도구로 넣는다.
-  - 댓글 칸에 생긴 `https://github.com/user-attachments/assets/…` 링크를 출력된 제목과 함께 PR 본문의 `## 영상` 절에 넣는다(`gh pr edit --body-file`). 이 링크가 본문에서 영상으로 재생된다.
-  - 댓글은 등록하지 않고 칸을 비운다.
+  - Chrome(claude-in-chrome)으로 그 PR 페이지를 열고 본문을 편집한다(본문 오른쪽 위 `…` → Edit).
+  - 본문 칸 맨 끝에 `## 영상`과 출력된 제목을 쓰고, 그 아래에 파일을 첨부한다. 파일 선택 창은 열지 않고 `file_upload` 도구로 본문 편집 칸의 파일 입력에 넣는다. 영상마다 제목과 첨부를 되풀이한다.
+  - 칸에 `https://github.com/user-attachments/assets/…` 링크가 다 들어오면(업로드 중 표시가 사라지면) Update comment를 누른다. 이 링크가 본문에서 영상으로 재생된다.
+  - `gh pr view --json body`로 본문에 링크가 들어갔는지 확인한다.
   - 브라우저 도구가 없거나 올리지 못하면 파일 경로를 보고에 적고, 사용자에게 PR에 끌어다 놓아 달라고 한다.
 
 ## 꼭 지킬 규칙
