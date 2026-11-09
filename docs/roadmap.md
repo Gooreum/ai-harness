@@ -127,6 +127,7 @@
 - [ ] 10. 동작·화면 확인
   - [x] Maestro 시나리오와 팀 작성 규칙(ADR 0009): 딥링크로 진입, accessibilityIdentifier로 먼저 찾기, 계정은 환경 변수, 반복 단계는 공통 `runFlow`, 끝까지 통과한 시나리오만 저장. 규칙은 template `rules/harness/maestro.md`, 실행은 `scripts/harness/e2e`
   - [x] `tags: [regression]` 회귀 묶음(`e2e --tag regression`), 수정 전후 영상(`e2e --record`)
+  - [x] 영상을 PR에 넣기(ADR 0029, 2026-11-10): PR을 만들 때 이번 작업에서 찍은 영상이 있으면 `pr-video`가 10MB 미만 H.264로 줄이고, 에이전트가 Chrome으로 올려 본문에서 재생되게 한다
   - [ ] 화면 검증: `#Preview` 스냅샷 + Figma MCP 수치 비교. 배치는 AI가, 간격·크기 수치는 스크립트가 보고, 판정은 사람이 한다. 픽셀 비교는 쓰지 않는다(발표에서 차이가 전부 빨갛게 나와 실패). 시험장에 Figma 시안이 없어 미룬다(2026-11-04)
   - [x] 행동 로그 판정(ADR 0010): 시나리오 옆 `<이름>.events.json`에 이벤트·횟수·값을 적으면 흐름이 끝난 뒤 판정하고, 수집 서버 업로드 성공까지 본다. 지금은 Firebase Analytics(`e2e.events: firebase`)만
   - [x] 서버 응답 조작(ADR 0017): 플러그인 MCP `harness-network`가 실제 서버 대신 AI가 건 응답(지연·400·500·빈 응답·본문)을 준다. 앱은 테스트 실행 인자가 있을 때만 요청을 그 서버로 보낸다. `e2e.network.port`를 적은 프로젝트에서만 켜진다

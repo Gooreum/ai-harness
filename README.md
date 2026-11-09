@@ -250,6 +250,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `scripts/harness/passed` | Validation | 결과 파일이 통과했고 지금 코드에 대한 최신 결과인지 본다. `checks.json`의 run에 쓴다 |
 | `scripts/harness/wiki` | Context + Validation | 정책·결정 기록(`docs/wiki/`)을 찾고 형식을 검사한다 |
 | `scripts/harness/doctor` | Validation | 하네스가 이 프로젝트에서 돌 수 있는지 점검한다: 도구, 설정 파일, 검사 목록의 run, 지침 연결, 플러그인 버전 |
+| `scripts/harness/pr-video` | Context | PR을 만들 때 이번 작업에서 찍은 영상(`.harness/out/*.mp4`)을 10MB 미만 H.264로 바꿔 준다. 에이전트가 브라우저로 올려 PR 본문에서 재생되게 한다 |
 | `scripts/harness/setup` | Context | 검사·생성 파일·고치면 안 되는 파일·빌드·테스트 명령을 사용자와 정하는 안내. 찾은 명령과 단서를 보여 준다. 파일은 쓰지 않는다 |
 | `scripts/harness/common-checks.json` | Context | setup이 추천하는 검사(review)와 위키 단계 지시(`stages`) |
 | `scripts/harness/lib.sh` | Execution | 공통 함수: 루트 찾기, 설정 읽기, 바뀐 파일 목록, 작업 시작 커밋, 위키 형식 |
@@ -301,6 +302,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `review-record.test.sh` | 리뷰 기록 훅: reviewer의 Read만 적기, 안 연 파일·차단 수로 판정, `passed review`의 최신 판정 |
 | `record.test.sh` | record의 결과·로그·출력, record·passed만으로 검증 게이트가 판정하는지 |
 | `passed.test.sh` | passed가 결과 파일이 통과했고 최신인지 보는지 |
+| `pr-video.test.sh` | pr-video가 이번 작업에서 찍은 영상만 골라 올릴 크기로 바꾸고, 크면 나누는지 |
 | `wiki.test.sh` | 기록 찾기·검색 로그·형식 검사 |
 | `network-mcp.test.sh` | 가짜 응답 MCP: 켠 프로젝트에서만 도구, 상태·지연·본문 응답, 구체적인 match 우선, 프로젝트끼리 독립 |
 | `setup.test.sh` | setup이 파일을 쓰지 않고, 찾은 명령·추천 검사·생성 파일 단서를 보여 주는지 |
@@ -317,7 +319,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `principles.md` | 하네스 계층, 설계 원칙, 실수를 어느 층에서 고칠지 정한 기준표, 용어 |
 | `references.md` | 레퍼런스 조사 요약, 플랫폼 제약, 로컬 환경, 출처 |
 | `project-config.md` | `.harness/project.json` 필드 스펙 |
-| `scripts.md` | record·passed·wiki·doctor·setup의 동작과 출력 형식, 산출물 위치 |
+| `scripts.md` | record·passed·wiki·doctor·setup·pr-video의 동작과 출력 형식, 산출물 위치 |
 | `conventions.md` | `.harness/conventions.json`: 예전 iOS lint가 읽던 팀 컨벤션 목록(ADR 0024로 하네스 밖) |
 | `template.md` | template 파일이 어디에 설치되고 어떻게 갱신되는지, 예전 iOS 묶음을 넘기는 방식, 기존 지침이 있는 프로젝트에 적용하는 절차 |
 | `plugin.md` | 플러그인 구성, 훅이 막는 것, 단계 지시 훅과 task 스킬, 리뷰어 동작, 프로젝트에서 켜는 방법 |

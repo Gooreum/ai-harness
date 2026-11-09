@@ -47,12 +47,13 @@ ReadSharp는 예전 iOS 묶음의 스크립트를 `scripts/ios/`로 넘겨받아
     { "name": "lint", "description": "팀 컨벤션 검사", "prompt": "scripts/ios/lint를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed lint" },
     { "name": "unit-test", "description": "앱 빌드와 단위 테스트", "prompt": "scripts/ios/unit-test를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed unit-test" },
     { "name": "review", "description": "reviewer 코드 리뷰", "prompt": "harness:reviewer 서브에이전트에 변경 검토를 맡기고 차단 항목을 고친다. 고친 뒤에는 다시 맡긴다", "run": "scripts/harness/passed review" },
-    { "name": "e2e", "description": "이번 기능과 영향 받는 흐름의 E2E", "prompt": ".claude/rules/project/ios/maestro.md의 '작업에서 무엇을 만들고 무엇을 돌리나'를 따른다. 이번 기능의 결과로 끝나는 기능 시나리오를 만들고(기능이 나오는 조건은 시나리오 안에서 만든다), 리뷰어가 적은 영향 받는 흐름의 기존 시나리오와 함께 scripts/ios/e2e --record <기능 시나리오> <영향 시나리오...>로 통과시킨다", "run": "scripts/harness/passed e2e" }
+    { "name": "e2e", "description": "이번 기능과 영향 받는 흐름의 E2E", "prompt": ".claude/rules/project/ios/maestro.md의 '작업에서 무엇을 만들고 무엇을 돌리나'를 따른다. 이번 기능의 결과로 끝나는 기능 시나리오를 만들고(기능이 나오는 조건은 시나리오 안에서 만든다), 리뷰어가 적은 영향 받는 흐름의 기존 시나리오와 함께 scripts/ios/e2e --record <기능 시나리오> <영향 시나리오...>로 통과시킨다. QA 티켓이면 고치기 전에 같은 기능 시나리오를 --record로 돌리고 영상을 .harness/out/e2e-before.mp4로 옮겨 둔다", "run": "scripts/harness/passed e2e" }
   ]
 }
 ```
 
 - e2e의 기능 시나리오와 영향 시나리오는 그 프로젝트의 규칙 `.claude/rules/project/ios/maestro.md`가 정한다.
+- 찍은 영상은 PR을 만들 때 `scripts/harness/pr-video`로 줄여 PR 본문에 넣는다. 수정 전 영상은 `e2e-before.mp4`로 옮겨 둬야 `--record`가 덮어쓰지 않는다([ADR 0029](decisions/0029-pr-video.md)).
 - 회귀 묶음 전체(`--tag regression`)는 `e2e`에 넣지 않고 따로 `regression` 검사로 둔다. 배포 전 통합 검증이나 리팩터링 뒤에 작업을 시작하며 사용자가 고른다(발표 슬라이드 86, [ADR 0025](decisions/0025-regression-check.md)). 하네스가 따로 돌리는 때(훅·CI·git 훅)는 두지 않는다.
   ```json
   { "name": "regression", "description": "회귀 묶음 전체 (배포 전·리팩터링 뒤에 고른다)", "prompt": "scripts/harness/record regression scripts/ios/e2e --tag regression을 실행하고, 실패하면 이번 변경 때문인지 먼저 확인한 뒤 고친다", "run": "scripts/harness/passed regression" }

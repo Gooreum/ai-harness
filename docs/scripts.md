@@ -10,6 +10,7 @@
 | `wiki` | 정책·결정 기록을 찾고 형식을 검사한다 |
 | `doctor` | 하네스가 이 프로젝트에서 돌 수 있는지 점검한다 |
 | `setup` | 설정을 사용자와 정하는 안내를 낸다 |
+| `pr-video` | 이번 작업에서 찍은 영상을 PR에 올릴 크기로 바꾼다 |
 | `lib.sh` | 위 스크립트가 `source`로 불러 쓰는 공통 함수 |
 | `common-checks.json` | setup이 추천하는 검사(review)와 위키 단계 지시(`stages`) |
 
@@ -117,6 +118,20 @@ scripts/harness/doctor
 - 이미 `checks.json`이 있으면 지금 검사와 `generated`를 보여 주고 바꿀 부분만 묻게 한다.
 - 마지막에 `doctor`로 확인하고, 쓴 내용을 보여 주고 커밋해야 한다고 알린다.
 - AskUserQuestion을 쓸 수 없는 세션이면 묻지 않고 추천 검사만으로 `checks.json`을 쓴다. 다른 설정은 쓰지 않는다.
+
+## pr-video
+
+PR을 만들 때 이번 작업에서 찍은 영상을 올릴 수 있게 준비한다. 발표 슬라이드 87처럼 리뷰어가 앱을 실행하지 않고 PR에서 수정 결과를 보게 한다([ADR 0029](decisions/0029-pr-video.md)).
+
+```bash
+scripts/harness/pr-video
+```
+
+- 고르는 영상: `.harness/out/*.mp4` 중 이번 작업을 시작한 뒤(`.harness/state/task.started`)에 생긴 것. `task.started`가 없으면 전부 고른다.
+- 바꾸는 방법: macOS 기본 도구 `avconvert`로 H.264로 바꾼다. HEVC로 녹화한 영상은 Chrome에서 재생되지 않을 수 있어서다. 960×540 프리셋으로 바꾸고, 9.5MB 이상이면 640×480으로 다시 바꾼다. 9.5MB는 GitHub 무료 요금제의 영상 한도 10MB에 여유를 둔 값이다. 그래도 크면 같은 길이로 나눈다.
+- 출력: 한 줄에 하나씩 `<제목><탭><파일 경로>`. `<이름>-before.mp4`는 `수정 전`, 나머지는 `수정 후`이고 수정 전이 먼저 나온다. `수정 후`가 둘 이상이면 영상마다 제목 뒤에 파일 이름을 붙인다(`수정 후 (e2e)`). 나눈 영상은 끝에 `(1/3)`처럼 순서를 붙인다. 파일은 `.harness/out/pr-video/`에 둔다.
+- 종료 코드: 올릴 영상이 없으면 아무것도 출력하지 않고 0. `avconvert`가 없거나, 변환에 실패하거나, 나눠야 하는데 길이를 읽지 못하거나, 나눠도 9.5MB 이상이면 2.
+- 올리는 일은 에이전트가 template `AGENTS.md`의 안내대로 한다. GitHub PR 본문에서 영상으로 재생되는 링크는 웹에서 올린 첨부(`user-attachments`)뿐이고 `gh`나 API로는 올릴 수 없다. 그래서 Chrome으로 PR 페이지 댓글 칸에 파일을 첨부해 링크를 받고, 그 링크를 `gh pr edit`로 본문에 넣는다. 댓글은 등록하지 않는다.
 
 ## 예전 iOS 스크립트
 

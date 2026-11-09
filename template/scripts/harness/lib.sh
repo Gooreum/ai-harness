@@ -1,4 +1,4 @@
-# 하네스 스크립트 공통 함수. passed·record·wiki·setup·doctor가 source한다. (bash 3.2 호환)
+# 하네스 스크립트 공통 함수. passed·record·wiki·setup·doctor·pr-video가 source한다. (bash 3.2 호환)
 # 하네스는 플랫폼을 모른다. 빌드·테스트 도구는 저장소가 가진다(ADR 0024).
 #
 # harness_init 이후 쓸 수 있는 변수

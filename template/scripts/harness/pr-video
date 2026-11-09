@@ -1,0 +1,92 @@
+#!/usr/bin/env bash
+# 이번 작업에서 찍은 영상을 PR에 올릴 수 있게 준비한다. PR을 만들 때 AGENTS.md의 안내대로 부른다.
+#
+# 발표 슬라이드 87: 수정 전후 영상이 MR에 함께 올라가, 리뷰어가 앱을 실행하지 않고 결과를 본다.
+# 어떻게 올리는지는 발표와 ai-bouncer에 없다(ADR 0029).
+#   - 영상은 .harness/out/의 mp4 중 이번 작업을 시작한 뒤(.harness/state/task.started)에 생긴 것만 고른다.
+#   - PR 본문에서 바로 재생되는 첨부는 GitHub 웹에서 올린 파일뿐이다.
+#   - GitHub 무료 요금제는 영상 한 개가 10MB까지다.
+#     HEVC로 녹화한 영상은 Chrome에서 재생되지 않는 경우도 있어, macOS 기본 도구 avconvert로 H.264로 바꾸고 줄인다.
+#     그래도 크면 같은 길이로 나눈다.
+set -euo pipefail
+
+here="$(cd "$(dirname "$0")" && pwd)"
+. "$here/lib.sh"
+
+case "${1:-}" in
+  -h | --help)
+    cat <<'HELP'
+사용법: scripts/harness/pr-video
+
+  .harness/out/*.mp4 중 이번 작업을 시작한 뒤에 생긴 영상을 PR에 올릴 크기(9.5MB 미만, H.264)로 바꿔
+  .harness/out/pr-video/에 두고, 한 줄에 하나씩 "<제목><탭><파일 경로>"를 출력한다.
+  <이름>-before.mp4는 "수정 전", 나머지는 "수정 후"다. "수정 후"가 둘 이상이면 모든 제목 뒤에 "(파일 이름)"을 붙인다.
+  크면 나누고 제목 끝에 "(1/2)"처럼 순서를 붙인다.
+  올릴 영상이 없으면 아무것도 출력하지 않고 0으로 끝난다.
+
+  종료 코드: 성공 0, 실패 2(avconvert가 없음, 변환 실패, 길이를 못 읽음, 나눠도 한도 이상)
+HELP
+    exit 0
+    ;;
+esac
+
+harness_init
+limit="${HARNESS_PR_VIDEO_LIMIT:-9500000}" # 한도. GitHub 무료 요금제 10MB보다 조금 작게. 테스트에서는 이 변수로 낮춘다
+dest="$out_dir/pr-video"
+
+started=""
+[ -f "$state_dir/task.started" ] && started="$(harness_mtime "$state_dir/task.started")"
+
+videos=()
+for f in "$out_dir"/*.mp4; do
+  [ -f "$f" ] || continue
+  if [ -n "$started" ] && [ "$(harness_mtime "$f")" -lt "$started" ]; then continue; fi
+  videos+=("$f")
+done
+[ ${#videos[@]} -gt 0 ] || exit 0
+
+command -v avconvert > /dev/null 2>&1 || harness_die "avconvert가 없습니다 (macOS 기본 도구). 영상: ${videos[*]}"
+rm -rf "$dest"
+mkdir -p "$dest"
+
+size() { stat -f %z "$1" 2> /dev/null || stat -c %s "$1"; }
+convert() { # 원본 프리셋 결과 [시작 길이]
+  local extra=()
+  [ -z "${4:-}" ] || extra=(--start "$4" --duration "$5")
+  avconvert --source "$1" --preset "$2" --output "$3" --replace ${extra[@]+"${extra[@]}"} > /dev/null 2>&1 \
+    || harness_die "영상 변환 실패: $1 (avconvert --preset $2)"
+}
+
+# 수정 전 영상을 먼저 적는다.
+ordered=()
+for f in "${videos[@]}"; do case "$f" in *-before.mp4) ordered+=("$f") ;; esac; done
+after=0
+for f in "${videos[@]}"; do case "$f" in *-before.mp4) ;; *) ordered+=("$f"); after=$((after + 1)) ;; esac; done
+
+for f in "${ordered[@]}"; do
+  name="$(basename "$f" .mp4)"
+  case "$name" in *-before) title="수정 전" ;; *) title="수정 후" ;; esac
+  [ "$after" -le 1 ] || title="$title ($name)"
+  out="$dest/$name.mp4"
+  convert "$f" Preset960x540 "$out"
+  if [ "$(size "$out")" -lt "$limit" ]; then printf '%s\t%s\n' "$title" "$out"; continue; fi
+  convert "$f" Preset640x480 "$out"
+  total="$(size "$out")"
+  if [ "$total" -lt "$limit" ]; then printf '%s\t%s\n' "$title" "$out"; continue; fi
+
+  # 그래도 크면 같은 길이로 나눈다.
+  duration="$(avmediainfo "$f" 2> /dev/null | sed -n 's/^Duration: \([0-9.]*\) seconds.*/\1/p' | sed -n 1p)"
+  [ -n "$duration" ] || harness_die "영상이 ${total}바이트라 나눠야 하는데 길이를 읽지 못했습니다: $f"
+  parts=$(((total + limit - 1) / limit + 1))
+  rm -f "$out"
+  i=1
+  while [ "$i" -le "$parts" ]; do
+    piece="$dest/$name-$i.mp4"
+    start="$(awk -v d="$duration" -v n="$parts" -v i="$i" 'BEGIN { printf "%.3f", d * (i - 1) / n }')"
+    len="$(awk -v d="$duration" -v n="$parts" 'BEGIN { printf "%.3f", d / n }')"
+    convert "$f" Preset640x480 "$piece" "$start" "$len"
+    [ "$(size "$piece")" -lt "$limit" ] || harness_die "나눠도 한도(${limit}바이트) 이상입니다: $piece"
+    printf '%s (%s/%s)\t%s\n' "$title" "$i" "$parts" "$piece"
+    i=$((i + 1))
+  done
+done
