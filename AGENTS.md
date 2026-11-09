@@ -11,7 +11,7 @@
   - 이 저장소를 개발하기 위한 내용은 넣지 않는다.
   - `template/AGENTS.md`, `template/CLAUDE.md`: 프로젝트에 설치될 지침. AGENTS.md는 프로젝트 영역과 하네스 관리 블록으로 나뉜다
   - `template/.claude/rules/harness/`: 공통 상황별 규칙(`wiki.md`). `paths:`로 해당 파일을 읽을 때만 로드된다. 프로젝트 고유 규칙 자리는 `rules/project/`
-  - `template/scripts/harness/`: 프로젝트 안에서 쓰는 스크립트(record·passed·wiki·doctor·setup), 추천 검사 `common-checks.json`, 공통 함수 `lib.sh`. 설치되면 `scripts/harness/`가 된다. 빌드·테스트 스크립트는 넣지 않는다. 그것은 각 프로젝트가 갖는다.
+  - `template/scripts/harness/`: 프로젝트 안에서 쓰는 스크립트(record·passed·wiki·doctor·setup·pr-video), 추천 검사 `common-checks.json`, 공통 함수 `lib.sh`. 설치되면 `scripts/harness/`가 된다. 빌드·테스트 스크립트는 넣지 않는다. 그것은 각 프로젝트가 갖는다.
   - `template/.harness/.gitignore`: 프로젝트의 `.harness/`에서 설정 파일만 커밋하게 한다.
   - `template/.claude/settings.json`: 공통 권한 규칙(비밀 파일 읽기 deny. ask는 두지 않는다, ADR 0026)
 - `plugin/`: Claude Code 플러그인 `harness`. 훅(생성 파일 편집 차단, 단계 지시, run 확인, Stop 게이트, 리뷰 기록), 작업 시작 스킬(`task`), 리뷰 서브에이전트(`reviewer`), 가짜 응답 MCP(`harness-network`)를 담는다. 루트의 `.claude-plugin/marketplace.json`이 이 저장소를 마켓플레이스로 만든다

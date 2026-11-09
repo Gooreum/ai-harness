@@ -14,7 +14,7 @@ template 안의 경로가 그대로 프로젝트 루트 기준 경로가 된다.
 | `.claude/rules/harness/*.md` | 공통 상황별 규칙(`wiki.md`) | 통째로 바꾼다 |
 | `.claude/rules/project/` | 프로젝트 고유 규칙을 두는 자리 (`.gitkeep`만 있음). 플랫폼 규칙·리뷰 항목도 여기 둔다 | 건드리지 않는다 |
 | `.claude/settings.json` | 공통 권한 규칙(`.env`·서명 키 등 비밀 파일 읽기 deny. ask는 두지 않는다, ADR 0026)과 플러그인 등록(GitHub 마켓플레이스) | 프로젝트 설정과 합친다. 지난번에 하네스가 넣었는데 이제 없는 규칙만 지운다(설치 기록의 `permissions`). setup으로 팀이 넣은 `Edit(...)` 같은 규칙은 남는다 |
-| `scripts/harness/*` | 하네스 스크립트(record·passed·wiki·doctor·setup), 추천 검사 `common-checks.json`, 공통 함수 `lib.sh` | 통째로 바꾼다. template에서 사라진 것만 지운다 |
+| `scripts/harness/*` | 하네스 스크립트(record·passed·wiki·doctor·setup·pr-video), 추천 검사 `common-checks.json`, 공통 함수 `lib.sh` | 통째로 바꾼다. template에서 사라진 것만 지운다 |
 | `.harness/.gitignore` | `.harness/`에서 설정 파일과 설치 기록만 커밋되게 함 | 통째로 바꾼다 |
 
 `.harness/harness.json`(설치 기록)은 template에 없다. init·sync가 설치한 하네스 버전(`plugin.json`의 `version`)과 설치한 파일 목록을 `{"version": "0.12.0", "files": [...], "permissions": {"deny": [...], "ask": [...]}}` 형태로 쓴다. 다음 sync는 이 목록에 있었는데 template에서 사라진 파일만 지운다. 팀이 `scripts/harness/`에 넣은 파일은 남는다. 커밋해서 팀원의 doctor도 같은 값과 비교하게 한다.
@@ -30,7 +30,7 @@ template 안의 경로가 그대로 프로젝트 루트 기준 경로가 된다.
 | 영역 | 위치 | 내용 | 누가 고치나 |
 |---|---|---|---|
 | 프로젝트 영역 | 관리 블록 위 | 앱 소개, 구조, 빌드·테스트 명령, 프로젝트 규칙 | 각 프로젝트. 설치 뒤 채운다. 빌드·테스트는 setup이 채운다 |
-| 하네스 관리 블록 | `<!-- harness:begin -->`부터 `<!-- harness:end -->`까지 | 하네스 명령 표(record·wiki·doctor·setup), 꼭 지킬 규칙, 상황별 규칙 표 | 하네스 저장소. 프로젝트에서 직접 고치지 않는다 |
+| 하네스 관리 블록 | `<!-- harness:begin -->`부터 `<!-- harness:end -->`까지 | 하네스 명령 표(record·wiki·doctor·setup·pr-video), PR에 영상 넣는 법, 꼭 지킬 규칙, 상황별 규칙 표 | 하네스 저장소. 프로젝트에서 직접 고치지 않는다 |
 
 - 두 영역의 규칙이 다르면 프로젝트 규칙을 따른다. 이 우선순위는 관리 블록 안에 적혀 있다. 그래서 프로젝트는 관리 블록을 고치지 않고도 기본 규칙을 바꿀 수 있다.
 - 표시와 안내는 HTML 주석이라 Claude의 컨텍스트에서는 빠진다. 파일을 열어 고칠 때는 보인다.

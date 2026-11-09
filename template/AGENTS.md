@@ -32,12 +32,18 @@
 | 정책·결정 기록 찾기 / 형식 검사 | `scripts/harness/wiki search <단어>` / `scripts/harness/wiki check` |
 | 하네스가 제대로 설치됐는지 점검 (도구, 설정, 플러그인 버전) | `scripts/harness/doctor` |
 | 검사 목록(`.harness/checks.json`)을 사용자와 정하기 (안내만 출력) | `scripts/harness/setup` |
+| PR에 올릴 영상 준비 (이번 작업에서 찍은 것만) | `scripts/harness/pr-video` |
 
 - 코드를 고치는 작업은 `task` 스킬(harness 플러그인)로 시작한다. 계획할지(plan/simple)와 돌릴 검사는 사용자가 고르고, 단계마다 할 일은 하네스가 알려 준다. 검사 목록은 `.harness/checks.json`에 있다.
 - 실패하면 출력에 나온 첫 에러의 위치부터 고친다. `record`로 돌린 검사의 전체 로그는 `.harness/out/`에 있다.
 - 동작·스펙을 바꾸기 전에 `scripts/harness/wiki search <단어>`로 관련 정책·결정 기록(`docs/wiki/`)을 찾아 읽는다. 기록과 다르게 바꿔야 하면 사용자에게 먼저 묻는다.
 - 결과는 실제로 실행한 명령과 출력으로 보고한다. 실행하지 못한 검증은 못 했다고 밝힌다.
 - PR을 만들기 전에는 `reviewer` 서브에이전트(harness 플러그인)에 변경 검토를 맡기고, 차단 항목을 고친 뒤 올린다.
+- PR을 만들면 `scripts/harness/pr-video`를 돌린다. 출력이 없으면 영상 없이 끝낸다. 출력이 있으면 출력된 영상을 GitHub PR 본문에서 재생되게 넣는다.
+  - Chrome(claude-in-chrome)으로 그 PR 페이지를 열고, 맨 아래 댓글 칸에 출력된 파일을 첨부한다. 파일 선택 창은 열지 않고 claude-in-chrome의 `file_upload` 도구로 넣는다.
+  - 댓글 칸에 생긴 `https://github.com/user-attachments/assets/…` 링크를 출력된 제목과 함께 PR 본문의 `## 영상` 절에 넣는다(`gh pr edit --body-file`). 이 링크가 본문에서 영상으로 재생된다.
+  - 댓글은 등록하지 않고 칸을 비운다.
+  - 브라우저 도구가 없거나 올리지 못하면 파일 경로를 보고에 적고, 사용자에게 PR에 끌어다 놓아 달라고 한다.
 
 ## 꼭 지킬 규칙
 
