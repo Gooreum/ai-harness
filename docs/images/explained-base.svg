@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 900 350" width="900" height="350" role="img" aria-label="사람이 Claude Code 프로그램에 말하면 Claude Code가 모델에게 전달한다. 모델은 도구를 써 달라고 글로 요청하고, Claude Code가 내 컴퓨터에서 도구를 실행해 결과를 모델에 돌려준다. 훅은 Claude Code 안에서 도구 실행 앞뒤와 응답 끝에 끼어든다"><style>
+svg{--bg:#f7f6f2; --panel:#ffffff; --fg:#1d2230; --muted:#5d6475; --line:#e2e0d8;
+  --accent:#2f5bd3; --accent-bg:#e9eefc;
+  --ai:#6b4fd6; --ai-bg:#efeafd;
+  --hook:#c4580f; --hook-bg:#fdf0e5;
+  --block:#c22f3a; --block-bg:#fce9ea;
+  --pass:#1f8a52; --pass-bg:#e5f5ec;
+  --human:#2f7fa8; --human-bg:#e4f2f9;}
+@media (prefers-color-scheme: dark){svg{--bg:#14161c; --panel:#1c1f27; --fg:#e8e9ee; --muted:#a2a8b8; --line:#2e323d;
+  --accent:#86a6ff; --accent-bg:#1f2a47;
+  --ai:#b3a1ff; --ai-bg:#2a2445;
+  --hook:#ffa463; --hook-bg:#3a2617;
+  --block:#ff8089; --block-bg:#3d1d21;
+  --pass:#66d49a; --pass-bg:#173525;
+  --human:#7cc6ec; --human-bg:#163040;}}
+text{font-family:"IBM Plex Sans KR",-apple-system,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif}
+.bg{fill:var(--bg)}
+.s-t{fill:var(--fg);font-size:14px;font-weight:700}
+.s-s{fill:var(--muted);font-size:12px}
+.s-h{fill:var(--hook);font-size:13px;font-weight:700}
+.s-b{fill:var(--block);font-size:13px;font-weight:700}
+.s-line{stroke:var(--muted);stroke-width:1.6;fill:none}
+.s-hl{stroke:var(--hook);stroke-width:1.8;fill:none}
+.r-ai{fill:var(--ai-bg);stroke:var(--ai);stroke-width:1.4}
+.r-hook{fill:var(--hook-bg);stroke:var(--hook);stroke-width:1.4}
+.r-block{fill:var(--block-bg);stroke:var(--block);stroke-width:1.4}
+.r-tool{fill:var(--panel);stroke:var(--muted);stroke-width:1.2}
+.r-human{fill:var(--human-bg);stroke:var(--human);stroke-width:1.4}
+.lane{fill:var(--bg);stroke:var(--line);stroke-width:1}
+.r-file{fill:var(--panel);stroke:var(--muted);stroke-width:1.1}
+.r-pass{fill:var(--pass-bg);stroke:var(--pass);stroke-width:1.4}
+.s-m{fill:var(--fg);font-size:12.5px;font-weight:700}
+.s-bl{stroke:var(--block);stroke-width:1.8;fill:none}
+.s-lab{fill:var(--muted);font-size:11px}
+.s-labh{fill:var(--hook);font-weight:700}
+.s-labb{fill:var(--block);font-weight:700}
+.numc{fill:var(--accent)}
+.numt{fill:var(--bg);font-size:11px;font-weight:700}
+</style><rect class="bg" x="0" y="0" width="900" height="350"/>
+<defs><marker id="fa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="currentColor" style="color:var(--muted)"/></marker>
+<marker id="fh" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="currentColor" style="color:var(--hook)"/></marker></defs>
+<rect x="16" y="130" width="130" height="90" rx="12" class="r-human"/>
+<text x="81" y="168" text-anchor="middle" class="s-t">사람</text>
+<text x="81" y="190" text-anchor="middle" class="s-s">글로 시킨다</text>
+
+<rect x="216" y="40" width="380" height="300" rx="14" class="lane"/>
+<text x="406" y="30" text-anchor="middle" class="s-t">내 컴퓨터</text>
+<rect x="236" y="60" width="340" height="170" rx="12" class="r-file"/>
+<text x="406" y="84" text-anchor="middle" class="s-m">Claude Code (프로그램)</text>
+<text x="406" y="102" text-anchor="middle" class="s-s">사람·모델·컴퓨터 사이에서 말을 전하고 도구를 실행</text>
+<rect x="256" y="118" width="140" height="96" rx="9" class="r-hook"/>
+<text x="326" y="140" text-anchor="middle" class="s-h">훅 (4절)</text>
+<text x="326" y="160" text-anchor="middle" class="s-s">도구 실행 직전·직후,</text>
+<text x="326" y="176" text-anchor="middle" class="s-s">응답 끝에 끼어듦</text>
+<text x="326" y="196" text-anchor="middle" class="s-s">AI가 부르지 않아도 실행</text>
+<rect x="416" y="118" width="140" height="96" rx="9" class="r-block"/>
+<text x="486" y="140" text-anchor="middle" class="s-b">권한 (2절)</text>
+<text x="486" y="160" text-anchor="middle" class="s-s">이 도구 써도 되나?</text>
+<text x="486" y="176" text-anchor="middle" class="s-s">허용·물어보기·거부</text>
+<text x="486" y="196" text-anchor="middle" class="s-s">(설정의 allow·ask·deny)</text>
+<rect x="236" y="250" width="160" height="74" rx="10" class="r-tool"/>
+<text x="316" y="276" text-anchor="middle" class="s-m">파일</text>
+<text x="316" y="296" text-anchor="middle" class="s-s">코드 · 설정 · 위키</text>
+<rect x="416" y="250" width="160" height="74" rx="10" class="r-tool"/>
+<text x="496" y="276" text-anchor="middle" class="s-m">터미널</text>
+<text x="496" y="296" text-anchor="middle" class="s-s">테스트 · git · 스크립트</text>
+
+<rect x="696" y="110" width="190" height="130" rx="12" class="r-ai"/>
+<text x="791" y="140" text-anchor="middle" class="s-t">Claude (모델)</text>
+<text x="791" y="162" text-anchor="middle" class="s-s">Anthropic 서버에서 실행</text>
+<text x="791" y="180" text-anchor="middle" class="s-s">글을 읽고 글을 씀</text>
+<text x="791" y="198" text-anchor="middle" class="s-s">컴퓨터를 직접 못 만짐</text>
+<text x="791" y="216" text-anchor="middle" class="s-s">그래서 도구를 요청만 함</text>
+
+<path d="M146 175 H232" class="s-line" marker-end="url(#fa)"/>
+<text x="189" y="166" text-anchor="middle" class="s-lab">요청</text>
+<path d="M576 120 H692" class="s-line" marker-end="url(#fa)"/>
+<text x="634" y="112" text-anchor="middle" class="s-lab">말 + 도구 결과 전달</text>
+<path d="M692 200 H580" class="s-hl" marker-end="url(#fh)"/>
+<text x="636" y="222" text-anchor="middle" class="s-lab s-labh">도구 요청 Read: login.js</text>
+<path d="M326 214 V246" class="s-line" marker-end="url(#fa)"/>
+<path d="M486 214 V246" class="s-line" marker-end="url(#fa)"/>
+<text x="406" y="242" text-anchor="middle" class="s-lab">실제 실행</text>
+</svg>

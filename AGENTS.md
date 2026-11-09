@@ -19,6 +19,7 @@
   - `scripts/init <프로젝트 경로>`: 하네스를 처음 설치
   - `scripts/sync [--dev] <프로젝트 경로>`: 설치된 하네스를 갱신. 예전 iOS 묶음은 프로젝트 코드로 넘긴다. `--dev`는 플러그인을 이 저장소 디렉터리에서 읽게 한다
 - `tests/`: 스크립트 회귀 테스트. `bash tests/run.sh`로 전부 실행한다.
+- `docs/harness-explained.md`: 처음 보는 사람을 위한 하네스 설명(그림은 `docs/images/`). 하네스 동작이 바뀌면 README와 함께 고친다
 - `docs/roadmap.md`: 작업 단위와 순서, 진행 상황
 - `docs/project-config.md`: 프로젝트 설정 파일(`.harness/project.json`) 스펙
 - `docs/conventions.md`: 팀 컨벤션 목록(`.harness/conventions.json`). 예전 iOS lint가 읽던 파일이라 하네스 밖으로 옮겼다는 안내만 남았다

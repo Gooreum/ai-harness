@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 922 560" width="922" height="560" role="img" aria-label="하네스 저장소의 template은 프로젝트에 복사되고 plugin은 Claude Code에 설치된다. 프로젝트에는 복사된 파일, 사람이 정한 설정, 쌓이는 위키, 작업 중에만 쓰는 상태 파일이 있다. 세션에서는 플러그인의 훅·스킬·리뷰어가 프로젝트 파일을 읽고 쓴다"><style>
+svg{--bg:#f7f6f2; --panel:#ffffff; --fg:#1d2230; --muted:#5d6475; --line:#e2e0d8;
+  --accent:#2f5bd3; --accent-bg:#e9eefc;
+  --ai:#6b4fd6; --ai-bg:#efeafd;
+  --hook:#c4580f; --hook-bg:#fdf0e5;
+  --block:#c22f3a; --block-bg:#fce9ea;
+  --pass:#1f8a52; --pass-bg:#e5f5ec;
+  --human:#2f7fa8; --human-bg:#e4f2f9;}
+@media (prefers-color-scheme: dark){svg{--bg:#14161c; --panel:#1c1f27; --fg:#e8e9ee; --muted:#a2a8b8; --line:#2e323d;
+  --accent:#86a6ff; --accent-bg:#1f2a47;
+  --ai:#b3a1ff; --ai-bg:#2a2445;
+  --hook:#ffa463; --hook-bg:#3a2617;
+  --block:#ff8089; --block-bg:#3d1d21;
+  --pass:#66d49a; --pass-bg:#173525;
+  --human:#7cc6ec; --human-bg:#163040;}}
+text{font-family:"IBM Plex Sans KR",-apple-system,"Apple SD Gothic Neo","Noto Sans KR","Malgun Gothic",sans-serif}
+.bg{fill:var(--bg)}
+.s-t{fill:var(--fg);font-size:14px;font-weight:700}
+.s-s{fill:var(--muted);font-size:12px}
+.s-h{fill:var(--hook);font-size:13px;font-weight:700}
+.s-b{fill:var(--block);font-size:13px;font-weight:700}
+.s-line{stroke:var(--muted);stroke-width:1.6;fill:none}
+.s-hl{stroke:var(--hook);stroke-width:1.8;fill:none}
+.r-ai{fill:var(--ai-bg);stroke:var(--ai);stroke-width:1.4}
+.r-hook{fill:var(--hook-bg);stroke:var(--hook);stroke-width:1.4}
+.r-block{fill:var(--block-bg);stroke:var(--block);stroke-width:1.4}
+.r-tool{fill:var(--panel);stroke:var(--muted);stroke-width:1.2}
+.r-human{fill:var(--human-bg);stroke:var(--human);stroke-width:1.4}
+.lane{fill:var(--bg);stroke:var(--line);stroke-width:1}
+.r-file{fill:var(--panel);stroke:var(--muted);stroke-width:1.1}
+.r-pass{fill:var(--pass-bg);stroke:var(--pass);stroke-width:1.4}
+.s-m{fill:var(--fg);font-size:12.5px;font-weight:700}
+.s-bl{stroke:var(--block);stroke-width:1.8;fill:none}
+.s-lab{fill:var(--muted);font-size:11px}
+.s-labh{fill:var(--hook);font-weight:700}
+.s-labb{fill:var(--block);font-weight:700}
+.numc{fill:var(--accent)}
+.numt{fill:var(--bg);font-size:11px;font-weight:700}
+</style><rect class="bg" x="0" y="0" width="922" height="560"/>
+<defs><marker id="sa" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0,0 L10,5 L0,10 z" fill="currentColor" style="color:var(--muted)"/></marker></defs>
+<rect x="10" y="30" width="250" height="304" rx="12" class="lane"/>
+<text x="135" y="20" text-anchor="middle" class="s-t">하네스 저장소 (ai-harness)</text>
+<rect x="26" y="50" width="218" height="96" rx="9" class="r-file"/>
+<text x="135" y="74" text-anchor="middle" class="s-m">template/</text>
+<text x="135" y="92" text-anchor="middle" class="s-s">AGENTS.md 하네스 영역 · 규칙</text>
+<text x="135" y="108" text-anchor="middle" class="s-s">scripts/harness/</text>
+<text x="135" y="124" text-anchor="middle" class="s-s">record · passed · wiki · doctor · setup</text>
+<rect x="26" y="160" width="218" height="100" rx="9" class="r-hook"/>
+<text x="135" y="184" text-anchor="middle" class="s-m">plugin/ (harness)</text>
+<text x="135" y="202" text-anchor="middle" class="s-s">훅 7개 · task 스킬</text>
+<text x="135" y="218" text-anchor="middle" class="s-s">reviewer 서브에이전트</text>
+<text x="135" y="234" text-anchor="middle" class="s-s">harness-network MCP(가짜 응답)</text>
+<text x="135" y="250" text-anchor="middle" class="s-lab s-labh">업데이트 뒤 다시 불러와야 적용</text>
+<rect x="26" y="274" width="218" height="46" rx="9" class="r-file"/>
+<text x="135" y="296" text-anchor="middle" class="s-m">scripts/init · sync</text>
+<text x="135" y="312" text-anchor="middle" class="s-s">설치·업데이트 도구</text>
+
+<rect x="330" y="30" width="300" height="520" rx="12" class="lane"/>
+<text x="480" y="20" text-anchor="middle" class="s-t">프로젝트 저장소 (하네스를 깐 앱)</text>
+<rect x="346" y="50" width="268" height="96" rx="9" class="r-file"/>
+<text x="480" y="70" text-anchor="middle" class="s-m">복사된 것 (git 커밋)</text>
+<text x="480" y="87" text-anchor="middle" class="s-s">AGENTS.md · CLAUDE.md</text>
+<text x="480" y="102" text-anchor="middle" class="s-s">.claude/rules/harness/</text><text x="480" y="117" text-anchor="middle" class="s-s">.claude/settings.json(플러그인 켜기 · deny)</text>
+<text x="480" y="132" text-anchor="middle" class="s-s">scripts/harness/*</text>
+<rect x="346" y="160" width="268" height="96" rx="9" class="r-human"/>
+<text x="480" y="182" text-anchor="middle" class="s-m">사람이 정한 것 (git 커밋)</text>
+<text x="480" y="200" text-anchor="middle" class="s-s">.harness/checks.json: 검사 목록</text>
+<text x="480" y="216" text-anchor="middle" class="s-s">+ 단계 지시(stages, 위키 찾기·쓰기)</text>
+<text x="480" y="232" text-anchor="middle" class="s-s">.harness/project.json: 하네스 켜기 · 생성 파일</text>
+<rect x="346" y="270" width="268" height="62" rx="9" class="r-pass"/>
+<text x="480" y="292" text-anchor="middle" class="s-m">쌓이는 것 (git 커밋)</text>
+<text x="480" y="310" text-anchor="middle" class="s-s">docs/wiki/*.md: 규칙·사실 기록</text>
+<rect x="346" y="346" width="268" height="112" rx="9" class="r-ai"/>
+<text x="480" y="368" text-anchor="middle" class="s-m">작업 중에만 (git 무시)</text>
+<text x="480" y="386" text-anchor="middle" class="s-s">.harness/state/task.json: 진도표</text>
+<text x="480" y="402" text-anchor="middle" class="s-s">task.owner · started · base · wip · seen</text>
+<text x="480" y="418" text-anchor="middle" class="s-s">task.history: 훅이 쓰는 일지</text>
+<text x="480" y="434" text-anchor="middle" class="s-s">wiki-search.log · tool-seq</text>
+<rect x="346" y="472" width="268" height="62" rx="9" class="r-ai"/>
+<text x="480" y="494" text-anchor="middle" class="s-m">검사 결과 (git 무시)</text>
+<text x="480" y="512" text-anchor="middle" class="s-s">.harness/out/&lt;검사&gt;.json · .log</text>
+
+<rect x="700" y="30" width="212" height="520" rx="12" class="lane"/>
+<text x="806" y="20" text-anchor="middle" class="s-t">Claude Code 세션</text>
+<rect x="716" y="50" width="180" height="70" rx="9" class="r-ai"/>
+<text x="806" y="78" text-anchor="middle" class="s-m">메인 AI (Claude)</text>
+<text x="806" y="96" text-anchor="middle" class="s-s">AGENTS.md를 읽고 일함</text>
+<rect x="716" y="134" width="180" height="210" rx="9" class="r-hook"/>
+<text x="806" y="156" text-anchor="middle" class="s-m">훅 스크립트 7개</text>
+<text x="806" y="178" text-anchor="middle" class="s-s">session-start</text>
+<text x="806" y="196" text-anchor="middle" class="s-s">tool-count</text>
+<text x="806" y="214" text-anchor="middle" class="s-s">protect-generated</text>
+<text x="806" y="232" text-anchor="middle" class="s-s">guard-state</text>
+<text x="806" y="250" text-anchor="middle" class="s-s">stage-context</text>
+<text x="806" y="268" text-anchor="middle" class="s-s">review-record</text>
+<text x="806" y="286" text-anchor="middle" class="s-s">stop-gate (단계 넘김)</text>
+<text x="806" y="312" text-anchor="middle" class="s-s">plugin/에서 설치됨</text>
+<text x="806" y="330" text-anchor="middle" class="s-s">AI가 부르지 않아도 자동 실행</text>
+<rect x="716" y="358" width="180" height="62" rx="9" class="r-ai"/>
+<text x="806" y="382" text-anchor="middle" class="s-m">task 스킬</text>
+<text x="806" y="400" text-anchor="middle" class="s-s">시작할 때 묻는 절차서</text>
+<rect x="716" y="434" width="180" height="62" rx="9" class="r-ai"/>
+<text x="806" y="458" text-anchor="middle" class="s-m">리뷰어</text>
+<text x="806" y="476" text-anchor="middle" class="s-s">Edit·Write 없는 서브에이전트</text>
+
+<path d="M244 98 H342" class="s-line" marker-end="url(#sa)"/>
+<text x="293" y="88" text-anchor="middle" class="s-lab">init·sync</text><text x="293" y="116" text-anchor="middle" class="s-lab">복사</text>
+<path d="M712 240 H618" class="s-hl" marker-end="url(#sa)"/>
+<text x="665" y="232" text-anchor="middle" class="s-lab s-labh">읽고 씀</text>
+<path d="M712 390 H618" class="s-hl" marker-end="url(#sa)"/>
+<text x="665" y="382" text-anchor="middle" class="s-lab s-labh">진도표</text>
+</svg>
