@@ -119,7 +119,16 @@ assert_eq "wiki: 추천 위키 지시를 옮기면 주의가 없다" "no" "$(has
 jq '. + {wiki: false}' "$work/checks.bak" > "$p/.harness/checks.json"
 run_doctor
 assert_eq "wiki: \"wiki\": false면 묻지 않는다" "no" "$(has "위키가 없어")"
-rm -f "$p/.harness/checks.json"
+jq '. + {wiki: false, stages: {plan: {prompt_file: "docs/wiki/e2e.md"}}}' "$work/checks.bak" > "$p/.harness/checks.json"
+run_doctor
+assert_eq "prompt_file: 파일이 없으면 문제로 알린다" "yes|1" "$(has "stages.plan.prompt_file(docs/wiki/e2e.md)이 없다")|$code"
+mkdir -p "$p/docs/wiki" && echo x > "$p/docs/wiki/e2e.md"
+run_doctor
+assert_eq "  파일이 있으면 알리지 않는다" "no" "$(has "prompt_file")"
+jq '.stages.plan.prompt_file = "/etc/hosts"' "$p/.harness/checks.json" > "$work/c.json" && mv "$work/c.json" "$p/.harness/checks.json"
+run_doctor
+assert_eq "  프로젝트 밖 경로는 문제로 알린다" "yes" "$(has "프로젝트 안의 상대 경로가 아니다")"
+rm -rf "$p/.harness/checks.json" "$p/docs/wiki/e2e.md"
 
 rc=0; out="$(cd "$p" && env PATH="$(nojq_path "$work")" /bin/bash scripts/harness/doctor)" || rc=$?
 assert_eq "jq가 없으면 문제로 알린다" "1" "$rc"

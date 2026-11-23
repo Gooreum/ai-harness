@@ -212,4 +212,31 @@ echo d >> "$g/a.txt"
 gtask
 assert_eq "finish: 시작 커밋이 없으면 확인하지 않는다" "0" "$(gstop)"
 
+# --- 단계 확인(stages.<단계>.run) ---------------------------------------------
+cp "$p/.harness/checks.json" "$work/checks.bak"
+jq '.stages.plan.run = "grep -q \"e2e 판단\" .harness/state/plan.md"' "$work/checks.bak" > "$p/.harness/checks.json"
+rm -f "$sd/plan.md" "$sd/task.history"
+set_task plan plan
+assert_eq "stages.plan.run: 실패하면 막고 단계를 그대로 둔다" "2|plan" "$(stop s1)|$(now)"
+set_task plan plan
+out="$(reason)"
+assert_eq "  첫 줄에 어느 단계 확인인지 알린다" '[하네스] plan 단계의 확인(stages.plan.run)을 통과하지 못해 다음 단계로 넘어갈 수 없습니다. 작업 "시트"은 아직 plan 단계입니다.' "$(printf '%s\n' "$out" | sed -n 1p)"
+assert_eq "  plan이면 ExitPlanMode로 다시 승인받으라고 한다" "yes" "$(has "ExitPlanMode로 다시 승인받으세요" "$out")"
+assert_eq "  plan.md가 없으면 세션을 다시 시작하라고 한다" "yes" "$(has "claude -c로 세션을 다시 열어 달라고" "$out")"
+assert_eq "  기록에 run 결과를 남긴다(plan.md가 없어 grep이 2)" "blocked|stages.plan.run:2" "$(jq -rs '.[-1] | "\(.event)|\(.runs | map("\(.name):\(.rc)") | join(","))"' "$sd/task.history")"
+printf -- '- e2e 판단: 불필요 (U1)\n' > "$sd/plan.md"
+set_task plan plan
+assert_eq "stages.plan.run: 통과하면 implement로 넘긴다" "2|implement" "$(stop s1)|$(now)"
+assert_eq "  기록에 run 결과를 남긴다" "advance|stages.plan.run:0" "$(jq -rs '.[-1] | "\(.event)|\(.runs | map("\(.name):\(.rc)") | join(","))"' "$sd/task.history")"
+jq '.stages.verify.run = "sleep 3"' "$work/checks.bak" > "$p/.harness/checks.json"
+lint true
+set_task plan verify '["lint"]'
+assert_eq "stages.verify.run: 검사 run과 예산을 나눠 쓴다(넘으면 막는다)" "2|verify" "$(HARNESS_RUN_BUDGET=1 stop s1)|$(now)"
+set_task plan verify '["lint"]'
+assert_eq "  시간 초과를 알린다" "yes" "$(has "제한 시간 1초를 넘겼다" "$(HARNESS_RUN_BUDGET=1 reason)")"
+jq '.stages.plan.run = "grep -q \"e2e 판단\" .harness/state/plan.md"' "$work/checks.bak" > "$p/.harness/checks.json"
+set_task plan implement
+assert_eq "다른 단계에는 plan의 run을 돌리지 않는다" "2|verify" "$(rm "$sd/plan.md"; stop s1)|$(now)"
+cp "$work/checks.bak" "$p/.harness/checks.json"
+
 finish

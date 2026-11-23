@@ -18,7 +18,7 @@
 
 | 단계 | 하네스가 넣는 지시 |
 |---|---|
-| plan | EnterPlanMode로 계획하고 ExitPlanMode로 사용자 승인을 받는다 + `stages.plan.prompt` |
+| plan | EnterPlanMode로 계획하고 ExitPlanMode로 사용자 승인을 받는다 + `stages.plan.prompt` + `stages.plan.prompt_file`의 내용 |
 | implement | 구현한다 + `stages.implement.prompt` |
 | verify | 고른 검사의 `prompt`를 `checks.json`에 적힌 순서대로 하나씩 실행하고 실제 출력으로 확인한다 |
 | finish | `stages.finish.prompt`(위키 기록 등)를 먼저 하고, 바꾼 파일을 하나씩 add해 커밋하고 push한다(기본 브랜치면 새 브랜치). Stop 훅이 커밋·push를 확인한 뒤 닫는다(ADR 0028). 그다음 작업 보고를 일곱 섹션(1. 상황 · 2. 조치 · 3. 평가 · 4. 단계 기록 · 5. 위키 · 6. 건의 · 7. 결정 사항)으로 쓴다. 섹션 사이는 구분선, 문장마다 줄을 바꾸고, 평가는 근거(결과 파일·명령)가 있는 표로, 단계 기록은 `.harness/state/task.history`에서, 위키는 시작 커밋 이후 `docs/wiki/` 변경에서 옮긴다 |
@@ -59,6 +59,28 @@ ReadSharp는 예전 iOS 묶음의 스크립트를 `scripts/ios/`로 넘겨받아
   { "name": "regression", "description": "회귀 묶음 전체 (배포 전·리팩터링 뒤에 고른다)", "prompt": "scripts/harness/record regression scripts/ios/e2e --tag regression을 실행하고, 실패하면 이번 변경 때문인지 먼저 확인한 뒤 고친다", "run": "scripts/harness/passed regression" }
   ```
 
+## 계획 기준과 계획 확인 예시 (PetCycle, e2e 판단)
+
+plan 단계에서 e2e 시나리오가 필요한지 정하게 하는 설정이다. 기준은 프로젝트 위키에 두고, 훅이 그 내용을 plan 단계 지시에 넣는다. 계획에 판단 줄이 없으면 승인 창이 뜨기 전에 막는다([ADR 0030](decisions/0030-plan-check.md)).
+
+```json
+{
+  "stages": {
+    "plan": {
+      "prompt": "먼저 scripts/harness/wiki search로 관련 정책·결정 기록을 찾아 읽는다",
+      "prompt_file": "docs/wiki/e2e-scenario-criteria.md",
+      "run": "bash scripts/e2e-planned.sh plan"
+    }
+  }
+}
+```
+
+- `scripts/e2e-planned.sh plan`은 PetCycle 스크립트다. `plan.md`에 `- e2e 판단: 필요|불필요|기존 수정 (기준 번호)` 줄이 있는지, 필요·기존 수정이면 `- e2e 시나리오: <파일>` 줄이 있는지 본다. 하네스는 이 줄의 뜻을 모르고 명령을 돌릴 뿐이다.
+- verify에서는 e2e 검사의 run에 같은 스크립트를 붙인다: `scripts/harness/passed e2e-ios && bash scripts/e2e-planned.sh verify e2e-ios`. 이 스크립트는 세 가지를 본다.
+  - 계획한 시나리오 파일이 있다.
+  - 그 파일이 이번 작업에서 생겼거나 고쳐졌다.
+  - `record`가 결과 파일에 남긴 실행 명령(`command`)에 그 파일이 들어 있다.
+
 ## 검사 목록 예시 (저장소의 명령을 record로: RN·Android·웹)
 
 하네스는 어느 플랫폼의 빌드·테스트·e2e 도구도 고르지 않는다. 저장소가 쓰는 명령을 `record`로 돌리고 `passed`로 확인한다([ADR 0023](decisions/0023-no-pack-repo.md), [ADR 0024](decisions/0024-no-platform.md)).
@@ -84,6 +106,8 @@ ReadSharp는 예전 iOS 묶음의 스크립트를 `scripts/ios/`로 넘겨받아
 |---|---|---|
 | `schemaVersion` | `1` | 파일 형식 버전 |
 | `stages.<단계>.prompt` | 문장, 선택 | 그 단계에 들어갈 때 기본 지시 뒤에 붙인다. 계획 기준, 위키 찾기·쓰기 등. setup이 위키 지시(`common-checks.json`의 `stages`)를 추천한다 |
+| `stages.<단계>.prompt_file` | 프로젝트 루트 기준 상대 경로, 선택 | 그 단계에 들어갈 때 훅이 이 파일의 내용을 지시에 그대로 넣는다. 에이전트가 기준 문서를 읽지 않고 넘어가지 못하게 하려는 것이다. 파일이 없으면 지시에 그 사실을 넣고 doctor가 문제로 친다. 파일 내용이 지시에 통째로 들어가니 파일을 짧게 쓴다([ADR 0030](decisions/0030-plan-check.md)) |
+| `stages.<단계>.run` | 명령, 선택 | 그 단계를 지날 때마다 Stop 훅이 돌리는 확인(0이면 통과). 사람이 고르지 않는다. plan 단계면 `plan-gate.sh`가 ExitPlanMode 직전에도 돌린다. 이 명령이 볼 계획 글은 `.harness/state/plan.md`에 있다(ADR 0030) |
 | `wiki` | `false`, 선택 | 위키를 쓰지 않기로 한 프로젝트. doctor가 위키 단계 지시가 없다고 주의를 주지 않는다 |
 | `checks[].name` | 문자열 | 검사 이름. 상태 파일의 `checks`에 이 이름을 적는다 |
 | `checks[].description` | 문장 | 검사를 고를 때 보여 주는 설명 |
@@ -110,6 +134,7 @@ ReadSharp는 예전 iOS 묶음의 스크립트를 `scripts/ios/`로 넘겨받아
 - 리뷰의 결과 파일 `.harness/out/review.json`은 리뷰어가 아니라 플러그인 훅 `review-record.sh`가 쓴다. 리뷰어가 바뀐 파일을 Read로 다 열었고 차단이 0이어야 통과다([plugin.md](plugin.md), [ADR 0016](decisions/0016-review-record.md)).
 - 고른 검사가 `checks.json`에 없으면(이름이 바뀌었거나 오타) 막는다. 건너뛰면 검사 없이 통과로 보이기 때문이다.
 - 새 작업은 그 모드의 첫 단계(plan은 `plan`, simple은 `implement`)로만 연다. `guard-state.sh`가 중간 단계로 여는 것과 진행 중인 단계를 고치는 것, Bash로 상태 파일을 쓰는 것을 막는다.
+- 어느 단계든 `stages.<단계>.run`이 있으면 그 단계를 넘길 때 돌린다. 실패하면 막는다. plan 단계에서는 ExitPlanMode 직전에 `plan-gate.sh`가 먼저 돌린다. 실패하면 승인 창이 뜨지 않는다(ADR 0030).
 - run은 결과 파일을 본다. `scripts/harness/passed <검사>`를 쓴다: `.harness/out/<검사>.json`의 `passed`가 참이고 결과가 최신이어야 통과다.
   - 최신이 아니라는 것은 이번 작업을 시작하기 전 결과이거나(`.harness/state/task.started`), 그 뒤에 고친 파일이 있다는 뜻이다. 바뀐 파일은 작업을 시작한 커밋(`.harness/state/task.base`)부터 본다. 작업 중에 커밋해도 빠지지 않는다. 기준은 ai-bouncer의 `bouncer passed`와 같다.
 
@@ -122,7 +147,8 @@ ReadSharp는 예전 iOS 묶음의 스크립트를 `scripts/ios/`로 넘겨받아
 | `start` | stage-context | 새 작업. 지난 기록을 지우고 `stage`·`mode`·`checks` |
 | `resume` · `cancel` | stage-context | 같은 단계로 다시 저장 / 사용자가 취소 (`from`) |
 | `advance` | stop-gate | `from` → `to`. verify면 `runs`(검사별 `rc`, run 없음은 `run: false`, 설정에 없음은 `missing`), finish면 `commit`·`push` 확인 결과 |
-| `blocked` | stop-gate | 막은 이유 첫 줄(`why`)과 `runs` |
+| `blocked` | stop-gate | 막은 이유 첫 줄(`why`)과 `runs`(단계 확인은 `stages.<단계>.run`) |
+| `plan-check` | plan-gate | ExitPlanMode 직전 계획 확인의 `runs`(`stages.plan.run`의 `rc`) |
 | `release` · `handoff` | stop-gate | 도구 없이 재진입해 풀어 줌 / 10번 연속이라 사용자에게 넘김 |
 | `guard` | guard-state | 막은 `task.json` 쓰기(`tool`, `why`) |
 - run 합계는 1700초(`HARNESS_RUN_BUDGET`)까지다. 넘으면 시간 초과로 막는다.

@@ -96,6 +96,17 @@ if [ -f "$checks_file" ] && jq empty "$checks_file" 2> /dev/null; then
   done < <(jq -r '.checks // [] | .[] | [.name // "?", .run // "", .prompt // ""] | map(gsub("[\t\n]"; " ")) | @tsv' "$checks_file")
 fi
 
+# 단계 지시 파일(stages.<단계>.prompt_file): 없으면 훅이 그 단계 지시에 기준 대신 "읽지 못했다"를 넣는다(ADR 0030).
+if [ -f "$checks_file" ] && jq empty "$checks_file" 2> /dev/null; then
+  while IFS=$'\t' read -r st pf; do
+    [ -n "$pf" ] || continue
+    case "/$pf/" in
+      //* | */../*) problem "checks.json의 stages.$st.prompt_file($pf)이 프로젝트 안의 상대 경로가 아니다" "프로젝트 루트 기준 상대 경로로 적는다" ;;
+      *) [ -f "$root/$pf" ] || problem "checks.json의 stages.$st.prompt_file($pf)이 없다" "파일을 만들거나 경로를 고친다" ;;
+    esac
+  done < <(jq -r '.stages // {} | to_entries[] | [.key, .value.prompt_file // ""] | @tsv' "$checks_file")
+fi
+
 # 위키 단계 지시: 없으면 작업을 시작할 때 기록을 찾지 않고, 마무리할 때 정한 것을 남기지 않는다(ADR 0008).
 # 지시는 프로젝트 checks.json의 stages에 둔다. 쓰지 않기로 했으면 "wiki": false로 끈다.
 if [ -f "$checks_file" ] && jq empty "$checks_file" 2> /dev/null \

@@ -153,4 +153,41 @@ assert_eq "기록: 같은 단계로 다시 저장하면 resume" "resume|plan" "$
 ctx '{"title":"기록","mode":"plan","stage":"done","cancelled":true}' > /dev/null
 assert_eq "기록: 취소하면 cancel과 그때 단계" "cancel|plan" "$(jq -rs '.[-1] | "\(.event)|\(.from)"' "$hist")"
 
+# --- 단계 지시 파일(prompt_file)과 단계 확인(run) --------------------------------
+cp "$p/.harness/checks.json" "$work/checks.bak"
+mkdir -p "$p/docs/wiki"
+printf '# e2e 기준\n- N1 새 화면이 생기면 시나리오를 쓴다\n' > "$p/docs/wiki/e2e.md"
+cat > "$p/.harness/checks.json" <<'JSON'
+{ "schemaVersion": 1,
+  "stages": { "plan": { "prompt": "계획에 MVI 흐름을 적는다", "prompt_file": "docs/wiki/e2e.md", "run": "grep -q e2e .harness/state/plan.md" } } }
+JSON
+echo '이전 계획' > "$p/.harness/state/plan.md"
+rm -f "$p/.harness/state/task.seen"
+out="$(ctx '{"title":"스트릭","mode":"plan","stage":"plan","checks":[]}')"
+assert_eq "prompt_file: 파일 내용을 지시에 넣는다" "yes" "$(has "- N1 새 화면이 생기면 시나리오를 쓴다" "$out")"
+assert_eq "  어느 파일인지 알린다" "yes" "$(has "아래는 docs/wiki/e2e.md의 내용이다" "$out")"
+assert_eq "  stages.prompt도 그대로 붙인다" "yes" "$(has "계획에 MVI 흐름을 적는다" "$out")"
+assert_eq "run: 단계를 마칠 때 돌리는 확인을 알린다" "yes" "$(has '확인 명령 `grep -q e2e .harness/state/plan.md`을 돌린다' "$out")"
+assert_eq "  plan이면 ExitPlanMode 때 먼저 확인한다고 알린다" "yes" "$(has "ExitPlanMode를 호출하면 하네스가 계획 글을" "$out")"
+[ -e "$p/.harness/state/plan.md" ] && left=yes || left=no
+assert_eq "새 작업이면 지난 계획 글을 지운다" "no" "$left"
+out="$(ctx '{"title":"스트릭","mode":"plan","stage":"implement","checks":[]}')"
+assert_eq "prompt_file: 다른 단계에는 넣지 않는다" "no" "$(has "N1 새 화면" "$out")"
+rm "$p/docs/wiki/e2e.md"
+out="$(ctx '{"title":"스트릭","mode":"plan","stage":"plan","checks":[]}')"
+assert_eq "prompt_file: 파일이 없으면 그 사실을 넣는다" "yes" "$(has "stages.plan.prompt_file(docs/wiki/e2e.md)을 읽지 못했다: 파일이 없다" "$out")"
+jq '.stages.plan.prompt_file = "../secret.md"' "$p/.harness/checks.json" > "$work/c.json" && mv "$work/c.json" "$p/.harness/checks.json"
+out="$(ctx '{"title":"스트릭","mode":"plan","stage":"plan","checks":[]}')"
+assert_eq "prompt_file: 프로젝트 밖 경로는 읽지 않는다" "yes" "$(has "프로젝트 안의 상대 경로가 아니다" "$out")"
+echo "밖의 비밀" > "$work/outside.md"
+ln -s "$work/outside.md" "$p/docs/wiki/link.md"
+jq '.stages.plan.prompt_file = "docs/wiki/link.md"' "$p/.harness/checks.json" > "$work/c.json" && mv "$work/c.json" "$p/.harness/checks.json"
+out="$(ctx '{"title":"스트릭","mode":"plan","stage":"plan","checks":[]}')"
+assert_eq "prompt_file: 프로젝트 밖을 가리키는 링크는 읽지 않는다" "no|yes" "$(has "밖의 비밀" "$out")|$(has "프로젝트 안의 상대 경로가 아니다" "$out")"
+printf '# 안\n' > "$p/docs/wiki/inside.md"; ln -s inside.md "$p/docs/wiki/link2.md"
+jq '.stages.plan.prompt_file = "docs/wiki/link2.md"' "$p/.harness/checks.json" > "$work/c.json" && mv "$work/c.json" "$p/.harness/checks.json"
+out="$(ctx '{"title":"스트릭","mode":"plan","stage":"plan","checks":[]}')"
+assert_eq "  프로젝트 안을 가리키는 링크는 읽는다" "yes" "$(has "# 안" "$out")"
+cp "$work/checks.bak" "$p/.harness/checks.json"
+
 finish
