@@ -67,6 +67,8 @@ if [ -n "$stage_now" ] && [ "$stage_now" != done ] && { [ -z "$seen" ] || [ "$se
   git -C "$root" status --porcelain --untracked-files=all 2>/dev/null | cut -c4- > "$root/.harness/state/task.wip" 2>/dev/null \
     || rm -f "$root/.harness/state/task.wip"
   : > "$history" 2>/dev/null || true
+  # 지난 작업의 계획 글(plan-gate.sh가 저장)이 남아 있으면 계획 확인(stages.plan.run)이 지난 계획으로 통과한다.
+  rm -f "$root/.harness/state/plan.md"
   hist --slurpfile t "$file" '{at: $at, event: "start", stage: $t[0].stage, mode: $t[0].mode, checks: ($t[0].checks // [])}'
 elif [ "$stage_now" = done ] && [ "$seen" != done ] && [ "$(jq -r '.cancelled // false' "$file" 2>/dev/null)" = true ]; then
   hist --arg s "$seen" '{at: $at, event: "cancel", from: $s}'
@@ -82,10 +84,7 @@ else
   checks=""
 fi
 
-# 모드별 단계 순서는 flows.json, 단계 지시 글은 stage-text.jq 한 곳에 둔다. stop-gate.sh도 같은 파일을 읽는다.
-here="$(dirname "$0")"
-flows="$(cat "$here/flows.json" 2>/dev/null)" || exit 0
-context="$(jq -r --argjson flows "$flows" --slurpfile conf <(if [ -n "$checks" ]; then cat "$checks"; else echo '{}'; fi) \
-  -f "$here/stage-text.jq" "$file" 2>/dev/null)" || exit 0
+# 모드별 단계 순서는 flows.json, 단계 지시 글은 stage-text.sh(stage-text.jq) 한 곳에 둔다. stop-gate.sh도 같은 파일을 쓴다.
+context="$("$(dirname "$0")/stage-text.sh" "$file" "$checks" "$root" 2>/dev/null)" || exit 0
 [ -n "$context" ] && emit "$context"
 exit 0

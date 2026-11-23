@@ -7,6 +7,7 @@
 #   발표는 AI가 단계를 고쳐 적었지만, Bash로 고치면 훅이 돌지 않아 검사를 건너뛸 수 있었다.
 #   ai-bouncer(hooks/stop.sh)처럼 훅이 단계를 쓴다(ADR 0027).
 #   - 검증 단계면 고른 검사의 run을 프로젝트 루트에서 돌린다. 하나라도 실패하면 이유를 주고 막는다. 단계는 그대로다.
+#   - 어느 단계든 checks.json에 stages.<단계>.run이 있으면 돌리고, 실패하면 막는다(ai-bouncer stages.<단계>.run, ADR 0030).
 #   - 통과했거나 run이 없는 단계면 task.json의 stage를 다음 단계로 쓰고, 다음 단계 지시를 주며 막는다.
 #   - 마지막 단계(finish)면 커밋·push를 확인하고(ADR 0028), 마쳤으면 stage를 done으로 쓰고 끝내게 둔다.
 # 발표가 다루지 않는 부분은 ai-bouncer(hooks/stop.sh)를 따른다.
@@ -133,6 +134,8 @@ checks="$root/.harness/checks.json"
 jq -e . "$checks" > /dev/null 2>&1 || checks=""
 
 # --- 1. 검사: 검증 단계면 고른 검사의 run을 돌린다 ----------------------------------------
+# 검사 run과 단계 확인(stages.<단계>.run)이 예산 하나를 나눠 쓴다. 합계가 훅 timeout보다 짧아야 한다.
+deadline=$(($(date +%s) + ${HARNESS_RUN_BUDGET:-1700}))
 if [ "$stage" = verify ]; then
   names="$(jq -r '(.checks // [])[]' "$state" 2>/dev/null)" || names=""
   failures=""
@@ -140,7 +143,6 @@ if [ "$stage" = verify ]; then
     failures="- .harness/checks.json이 없거나 JSON 형식이 아니라 고른 검사를 확인할 수 없다. 사용자에게 알린다"$'\n'
     names=""
   fi
-  deadline=$(($(date +%s) + ${HARNESS_RUN_BUDGET:-1700}))
   while IFS= read -r name; do
     [ -n "$name" ] || continue
     # 고른 검사가 설정에 없으면(이름이 바뀌었거나 오타) run을 찾을 수 없다. 건너뛰면 검사 없이 통과로 보이므로 막는다.
@@ -173,6 +175,31 @@ if [ "$stage" = verify ]; then
   if [ -n "$failures" ]; then
     guarded_block "[하네스] 검사를 통과하지 못해 다음 단계로 넘어갈 수 없습니다. 작업 \"$title\"은 아직 verify 단계입니다.
 ${failures}실패한 검사의 prompt대로 다시 실행해 원인을 고치고, 통과한 뒤에 응답을 마치세요. 그때 다시 확인합니다."
+  fi
+fi
+
+# --- 1-1. 단계 확인: stages.<단계>.run이 있으면 돌린다 (ADR 0030) -------------------------
+# ai-bouncer의 stages.<단계>.run과 같다. 검사(checks)와 달리 사람이 고르지 않고, 그 단계를 지날 때마다 돈다.
+# plan 단계면 plan-gate.sh가 ExitPlanMode 때 저장한 계획 글(.harness/state/plan.md)을 프로젝트의 명령이 본다.
+if [ -n "$checks" ]; then
+  srun="$(jq -r --arg s "$stage" '.stages[$s].run // empty' "$checks" 2> /dev/null)" || srun=""
+  if [ -n "$srun" ]; then
+    left=$((deadline - $(date +%s)))
+    [ "$left" -gt 0 ] || left=1
+    out="$(cd "$root" && run_timeout "$left" bash -c "$srun" 2>&1)"
+    rc=$?
+    runs="$(jq -c --arg n "stages.$stage.run" --argjson rc "$rc" '. + [{name: $n, rc: $rc}]' <<<"$runs")"
+    if [ "$rc" -ne 0 ]; then
+      hint="위 출력에서 무엇이 빠졌는지 보고 고친 뒤 응답을 마치세요. 그때 다시 확인합니다."
+      [ "$stage" != plan ] || hint="계획을 고쳐 ExitPlanMode로 다시 승인받으세요. 하네스가 그때 계획 글을 .harness/state/plan.md에 저장하고 같은 명령으로 확인합니다."
+      # ExitPlanMode를 했는데도 plan.md가 없으면 이 세션이 plan-gate.sh 등록 전에 시작된 것이다. 훅 목록은 세션을 시작할 때만 읽는다.
+      [ "$stage" != plan ] || [ -f "$state_dir/plan.md" ] || hint="$hint
+.harness/state/plan.md가 없습니다. ExitPlanMode를 이미 호출했다면 이 세션이 하네스 갱신 전에 시작돼 계획을 저장하는 훅(plan-gate.sh)이 등록되지 않은 것입니다. 사용자에게 claude -c로 세션을 다시 열어 달라고 하고, 그 뒤 ExitPlanMode를 한 번 더 호출하세요. plan.md를 직접 쓰지 마세요."
+      guarded_block "[하네스] $stage 단계의 확인(stages.$stage.run)을 통과하지 못해 다음 단계로 넘어갈 수 없습니다. 작업 \"$title\"은 아직 $stage 단계입니다.
+- run \`$srun\`이 $(if [ "$rc" = 124 ]; then echo "제한 시간 ${HARNESS_RUN_BUDGET:-1700}초를 넘겼다. 검사 run과 이 단계 확인이 이 시간을 함께 쓴다"; else echo "실패했다"; fi). 종료 코드는 ${rc}다
+$(printf '%s\n' "$out" | sed -n '1,10p' | sed 's/^/    /')
+$hint"
+    fi
   fi
 fi
 
@@ -232,7 +259,6 @@ rm -f "$gate"
 # 마지막 단계까지 마쳤다. 이제야 멈출 수 있다.
 [ "$next" = done ] && exit 0
 
-text="$(jq -r --argjson flows "$flows" --slurpfile conf <(if [ -n "$checks" ]; then cat "$checks"; else echo '{}'; fi) \
-  -f "$here/stage-text.jq" "$state" 2> /dev/null)" || text=""
+text="$("$here/stage-text.sh" "$state" "$checks" "$root" 2> /dev/null)" || text=""
 printf '%s\n' "[하네스] $stage 단계를 마쳤습니다 → $next 단계로 넘어갑니다." "$text" >&2
 exit 2

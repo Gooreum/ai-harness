@@ -1,6 +1,6 @@
 # 하네스 쉽게 보기
 
-*harness 0.15.1 · 2026-11-10*
+*harness 0.16.0 · 2026-11-23*
 
 AI에게 코드를 맡기면 계획 없이 바로 고치거나, 확인도 안 하고 끝났다고 하거나, 커밋을 빠뜨리곤 합니다. 커밋은 바꾼 내용을 변경 이력에 남기는 일입니다. 하네스는 이런 실수를 줄이는 장치입니다. 이 문서는 하네스가 어떻게 돌아가는지 설명합니다. Claude를 써 본 적 없는 사람도 처음부터 따라 읽을 수 있게, 용어는 처음 나올 때 풀어 씁니다.
 
@@ -269,8 +269,8 @@ Claude Code에는 Plan 모드라는 기능이 따로 있습니다. 이 모드에
 
    이어서 도구 결과에 메모를 붙입니다. 메모에는 지시가 두 가지 들어 있습니다. 하나는 "계획만 세운다"는 하네스의 지시입니다. 다른 하나는 프로젝트가 `checks.json`의 계획 단계 칸에 적어 둔 "위키부터 찾아라"입니다.
 6. **위키 찾기**: AI가 `scripts/harness/wiki search 로그인`을 실행합니다. 이 스크립트는 `docs/wiki/`에서 검색어가 모두 들어간 기록을 찾아 보여 주고, 검색어를 `wiki-search.log`에 적어 둡니다. 요청이 기록과 어긋나면 AI는 바로 고치지 않고 사람에게 묻습니다.
-7. **계획과 승인**: AI가 계획을 쓰고 Claude Code의 계획 창으로 승인을 받습니다. 물을 게 있으면 질문 창으로 묻습니다. 승인을 받으라는 말은 지시에만 있고, 훅은 승인을 받았는지 확인하지 않습니다.
-8. **구현 단계로 넘김**: AI가 응답을 마치면 Stop 훅 `stop-gate.sh`가 실행됩니다. 이 세션이 작업 주인인지, 작업이 done이 아닌지, 서브에이전트를 기다리는 중이 아닌지 봅니다. 계획 단계는 따로 볼 조건이 없으므로, Stop 훅은 `stage`를 plan에서 implement로 바꾸고 일지에 단계를 넘겼다는 뜻으로 advance라고 적습니다. 그런 다음 구현 지시를 주며 종료 코드 2로 붙잡습니다. AI는 턴을 끝내지 못하고 구현을 시작합니다.
+7. **계획과 승인**: AI가 계획을 쓰고 Claude Code의 계획 창으로 승인을 받습니다. 물을 게 있으면 질문 창으로 묻습니다. 승인을 받으라는 말은 지시에만 있고, 훅은 승인을 받았는지 확인하지 않습니다. 프로젝트가 `checks.json`에 계획 확인 명령(`stages.plan.run`)을 적어 두었으면, 계획 창을 띄우기 직전에 PreToolUse 훅 `plan-gate.sh`가 계획 글을 `.harness/state/plan.md`에 저장하고 그 명령을 돌립니다. 통과하지 못하면 계획 창이 뜨지 않고 이유가 AI에게 돌아가, AI가 계획을 고쳐 다시 올립니다.
+8. **구현 단계로 넘김**: AI가 응답을 마치면 Stop 훅 `stop-gate.sh`가 실행됩니다. 이 세션이 작업 주인인지, 작업이 done이 아닌지, 서브에이전트를 기다리는 중이 아닌지 봅니다. 계획 확인 명령이 있으면 여기서도 한 번 더 돌립니다. 없거나 통과하면 Stop 훅은 `stage`를 plan에서 implement로 바꾸고 일지에 단계를 넘겼다는 뜻으로 advance라고 적습니다. 그런 다음 구현 지시를 주며 종료 코드 2로 붙잡습니다. AI는 턴을 끝내지 못하고 구현을 시작합니다.
 9. **코드 고치기**: AI가 Edit로 `src/login.js`를 고칩니다. Edit 직전에 PreToolUse 훅 세 개가 실행됩니다.
    - `tool-count.sh`: 도구를 쓴 횟수를 셉니다. Stop 훅은 이 숫자로 AI가 도구를 썼는지 봅니다(13절 "같은 이유로 되풀이되면 놓아주기").
    - `protect-generated.sh`: 고치려는 파일이 `project.json`의 `generated`에 적힌 자동 생성 파일이면 막습니다.
@@ -309,6 +309,7 @@ Claude Code에는 Plan 모드라는 기능이 따로 있습니다. 이 모드에
 | `protect-generated.sh` | PreToolUse (Edit·Write·MultiEdit·NotebookEdit) | 자동 생성 파일을 고치려 하면 막음 | **막음** |
 | `guard-state.sh` | PreToolUse (Edit·Write·MultiEdit·Bash) | 작업을 시작하거나 이어서 하거나 취소할 때만 진도표를 쓰게 하고 나머지는 막음 | **막음** |
 | `stage-context.sh` | PostToolUse (Edit·Write·MultiEdit) | 진도표를 쓰면 시작 기록(작업 주인 세션, 작업을 시작할 때 있던 마지막 커밋 등)을 남기고, 단계 지시를 메모로 붙임 | 안 막음 |
+| `plan-gate.sh` | PreToolUse (ExitPlanMode) | 계획 단계에서 계획 창을 띄우기 직전에 계획 글을 저장하고, 프로젝트의 계획 확인 명령이 실패하면 막음 | **막음** |
 | `review-record.sh` | PostToolUse (Read·SubagentHandback), SubagentStop | 리뷰어가 연 파일을 기록하고, 리뷰어가 끝나면 리뷰 통과 여부를 정해 `review.json`에 씀 | 안 막음 |
 | `stop-gate.sh` | Stop | 검사의 run 명령을 실행하고 git을 확인함. 통과하면 단계를 넘기고 다음 지시를 주며 붙잡음. 통과하지 못하면 단계를 그대로 두고 붙잡음. 마무리 단계를 통과하면 done으로 바꾸고 놓아줌 | **붙잡음** |
 
@@ -596,4 +597,4 @@ AI가 응답을 마칠 때 Stop 훅이 넘깁니다. 계획 단계와 구현 단
 
 **요약**: AI는 도구를 요청만 하고 실행은 Claude Code가 하므로, 그 앞뒤에 훅이 끼어들 수 있습니다. AI는 작업을 시작할 때, 이어서 할 때, 취소할 때만 진도표를 씁니다. 단계는 AI가 응답을 마칠 때 Stop 훅이 검사 결과와 git 상태를 보고 넘깁니다. 확인에 걸리면 Stop 훅이 AI를 붙잡습니다. 어떤 검사를 돌릴지는 사람이 고릅니다. AI는 동작을 바꾸기 전에 위키를 찾아 읽습니다. 프로젝트가 위키 지시를 넣어 두면, 작업을 마칠 때 정한 것과 그 이유를 위키에 남깁니다. 하네스가 못 막는 것은 13절에 있습니다.
 
-**확인한 자료**: Gooreum/ai-harness main cf8d91f(plugin 0.14.1)의 `plugin/hooks/`, `plugin/skills/task/SKILL.md`, `plugin/agents/reviewer.md`, `template/scripts/harness/`. ADR 0004·0007·0008·0013·0016·0026·0027·0028. 12절의 PR 영상은 harness 0.15.1의 `template/scripts/harness/pr-video`·`template/AGENTS.md`와 ADR 0029. 발표 슬라이드 5·27·29·32·41~54·87. ai-bouncer 173d39a.
+**확인한 자료**: Gooreum/ai-harness main cf8d91f(plugin 0.14.1)의 `plugin/hooks/`, `plugin/skills/task/SKILL.md`, `plugin/agents/reviewer.md`, `template/scripts/harness/`. ADR 0004·0007·0008·0013·0016·0026·0027·0028. 12절의 PR 영상은 harness 0.15.1의 `template/scripts/harness/pr-video`·`template/AGENTS.md`와 ADR 0029. 계획 확인은 harness 0.16.0의 `plugin/hooks/plan-gate.sh`·`stage-text.sh`와 ADR 0030. 발표 슬라이드 5·27·29·32·41~54·87. ai-bouncer 173d39a.

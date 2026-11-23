@@ -196,6 +196,7 @@ scripts/harness/passed typecheck                            # 결과가 통과�
 - 에이전트가 단계의 일을 마치고 응답을 마치려 하면, Stop 훅이 확인하고 `.harness/state/task.json`의 `stage`를 다음 단계로 넘기며 그 단계의 지시를 준다. 검증 단계에는 고른 검사의 지시만 들어간다. 에이전트는 `stage`를 고칠 수 없다(`guard-state.sh`, Bash 쓰기 포함, [ADR 0027](docs/decisions/0027-stop-advances-stage.md)).
 - 검사 목록은 프로젝트의 `.harness/checks.json`에 있다. 훅은 검사 내용을 모르고 이 파일의 글을 옮길 뿐이다([docs/checks.md](docs/checks.md), [ADR 0007](docs/decisions/0007-task-flow.md)).
 - 검증 단계에서 응답을 마치려 하면 Stop 훅 `stop-gate.sh`가 고른 검사의 `run`(결과 파일 확인)을 돌린다. 실패하면 넘어가지 못한다(발표 슬라이드 29, [ADR 0012](docs/decisions/0012-run-gate.md)). 작업을 시작한 세션만 done 전에 막는다. 계획 승인은 Plan 모드로 받는다.
+- 프로젝트는 단계마다 기준 문서(`stages.<단계>.prompt_file`)와 확인 명령(`stages.<단계>.run`)을 둘 수 있다. 기준 문서는 훅이 그 단계 지시에 그대로 넣는다. plan 단계에서는 ExitPlanMode 직전에 `plan-gate.sh`가 이 확인을 먼저 돌린다. 통과하지 못하면 승인 창이 뜨지 않는다([ADR 0030](docs/decisions/0030-plan-check.md)).
 - 마무리 단계에서는 바꾼 파일을 커밋하고 push한다(기본 브랜치면 새 브랜치). Stop 훅이 커밋·push를 확인한 뒤 작업을 닫는다. 시작 전부터 있던 무관한 변경은 그대로 둔다([ADR 0028](docs/decisions/0028-finish-commit-push.md)).
 - 마무리 보고는 일곱 섹션으로 쓴다: 상황 · 조치 · 평가 · 단계 기록 · 위키 · 건의 · 결정 사항. 평가는 검사마다 결과 파일을 근거로 쓰고, 마지막 줄은 커밋·push(브랜치·해시)다.
 - "단계 기록"은 에이전트의 기억이 아니라 훅이 남긴 `.harness/state/task.history`(시작·넘김·차단·막은 쓰기·풀어 줌)를 옮긴다([docs/checks.md](docs/checks.md#단계-기록-harnessstatetaskhistory)).
@@ -263,12 +264,14 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | 파일 | 계층 | 역할 |
 |---|---|---|
 | `.claude-plugin/plugin.json` | — | 플러그인 이름(`harness`)과 버전 |
-| `hooks/hooks.json` | Enforcement + Context | 세션 시작 때 `session-start.sh`, 모든 도구 전에 `tool-count.sh`, 편집·Bash 직전에 `protect-generated.sh`·`guard-state.sh`, 편집 직후에 `stage-context.sh`, Read 직후·서브에이전트가 끝날 때 `review-record.sh`, 끝낼 때 `stop-gate.sh`를 실행하도록 등록 |
+| `hooks/hooks.json` | Enforcement + Context | 세션 시작 때 `session-start.sh`, 모든 도구 전에 `tool-count.sh`, 편집·Bash 직전에 `protect-generated.sh`·`guard-state.sh`, ExitPlanMode 직전에 `plan-gate.sh`, 편집 직후에 `stage-context.sh`, Read 직후·서브에이전트가 끝날 때 `review-record.sh`, 끝낼 때 `stop-gate.sh`를 실행하도록 등록 |
 | `hooks/session-start.sh` | Context | 세션을 열 때 작업이 없으면 task 스킬로 시작하라고, 있으면 그 단계를 알려 주는 훅 |
 | `hooks/protect-generated.sh` | Enforcement | `project.json`의 `generated`에 적힌 생성 파일 편집을 막는 훅 |
 | `hooks/guard-state.sh` | Enforcement | 에이전트가 작업 상태 파일로 단계를 넘기지 못하게 막는 훅. 시작(첫 단계로만)·이어서 하기·취소만 허용하고 Bash 쓰기는 막는다. 막은 일은 `task.history`에 남긴다 |
-| `hooks/stop-gate.sh` | Enforcement + Validation | 응답을 마치려 할 때 검증 단계면 고른 검사의 `run`을 돌리고, 통과하면 다음 단계로 넘기는 훅. 마무리 단계면 커밋·push를 확인한다. done 전에는 끝내지 못한다. 넘김·차단은 `task.history`에 남긴다 (반복 방지는 ai-bouncer와 같다. 백그라운드 서브에이전트를 기다리는 동안은 막지 않는다) |
-| `hooks/stage-text.jq` | Context | 단계 지시 글. `stage-context.sh`와 `stop-gate.sh`가 같이 쓴다 |
+| `hooks/stop-gate.sh` | Enforcement + Validation | 응답을 마치려 할 때 그 단계의 확인을 돌리고, 통과하면 다음 단계로 넘기는 훅. 검증 단계에서는 고른 검사의 `run`을 돌린다. `stages.<단계>.run`이 있으면 어느 단계에서든 돌린다. 마무리 단계면 커밋·push를 확인한다. done 전에는 끝내지 못한다. 넘김·차단은 `task.history`에 남긴다 (반복 방지는 ai-bouncer와 같다. 백그라운드 서브에이전트를 기다리는 동안은 막지 않는다) |
+| `hooks/plan-gate.sh` | Enforcement + Validation | ExitPlanMode 직전에 계획 글을 `.harness/state/plan.md`에 저장하고 `stages.plan.run`을 돌리는 훅. 실패하면 승인 창을 띄우지 않고 이유를 돌려준다 |
+| `hooks/stage-text.sh` | Context | 단계 지시 글을 내는 스크립트. `stages.<단계>.prompt_file`의 내용을 읽어 붙인다. `stage-context.sh`와 `stop-gate.sh`가 같이 쓴다 |
+| `hooks/stage-text.jq` | Context | 단계 지시 글. `stage-text.sh`가 쓴다 |
 | `hooks/tool-count.sh` | State | 작업 주인 세션의 도구 호출 수를 세는 훅 (stop-gate.sh가 쓴다) |
 | `hooks/stage-context.sh` | Context + State | 작업 상태 파일(`.harness/state/task.json`)을 시작하거나 이어서 할 때 그 단계의 지시를 `.harness/checks.json`에서 꺼내 넣는 훅. 새 작업이면 주인 세션·시작 시각·시작 커밋(`task.base`)·이미 바뀌어 있던 파일(`task.wip`)을 적고 `task.history`를 새로 연다 |
 | `hooks/review-record.sh` | Validation | reviewer가 Read로 연 파일과 보고서의 차단 수로 `.harness/out/review.json`을 남기는 훅. `passed review`가 이 파일을 본다 |
@@ -294,9 +297,10 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `run.sh` | 모든 `*.test.sh`를 실행한다 |
 | `lib.sh` | `assert_eq`, `finish` 같은 테스트 도우미 |
 | `hooks.test.sh` | 훅이 막을 것만 막고, 판단할 수 없으면 통과시키는지 |
-| `stage.test.sh` | 단계 지시 훅이 상태 파일이 바뀔 때만, 고른 검사의 지시만 넣는지. 시작 때 `task.wip`·`task.history`를 적는지 |
+| `stage.test.sh` | 단계 지시 훅이 상태 파일이 바뀔 때만, 고른 검사의 지시만 넣는지. 시작 때 `task.wip`·`task.history`를 적는지. `prompt_file` 내용을 그 단계에만 넣는지 |
+| `plan-gate.test.sh` | 계획 확인 훅이 주인 세션의 plan 단계에서만 계획 글을 저장하고, `stages.plan.run`이 실패하면 막는지 |
 | `run-gate.test.sh` | 검증 강제 훅이 verify를 지나 넘어갈 때 고른 검사의 run을 돌려, 실패하면 막는지 |
-| `stop-gate.test.sh` | Stop 훅이 작업 주인 세션만 막고, 도구 없는 반복과 연속 차단을 ai-bouncer처럼 풀어 주는지. 마무리에서 커밋 안 한 변경·기본 브랜치 커밋·push 안 함을 막고 무관한 WIP는 두는지 |
+| `stop-gate.test.sh` | Stop 훅이 작업 주인 세션만 막고, 도구 없는 반복과 연속 차단을 ai-bouncer처럼 풀어 주는지. 마무리에서 커밋 안 한 변경·기본 브랜치 커밋·push 안 함을 막고 무관한 WIP는 두는지. `stages.<단계>.run`이 실패하면 막는지 |
 | `guard-state.test.sh` | 상태 파일 보호 훅: 시작(첫 단계로만)·이어서 하기·취소만 허용하고, 단계 바꾸기와 Bash 쓰기를 막는지 |
 | `session-start.test.sh` | 세션 시작 훅: 작업이 없으면 task 스킬 안내, 있으면 지금 단계를 알리는지 |
 | `review-record.test.sh` | 리뷰 기록 훅: reviewer의 Read만 적기, 안 연 파일·차단 수로 판정, `passed review`의 최신 판정 |

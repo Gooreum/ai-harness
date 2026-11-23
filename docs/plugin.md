@@ -17,12 +17,14 @@ plugin/
 ├── skills/
 │   └── task/SKILL.md               작업 시작: 모드·검사를 사용자에게 묻고 상태 파일을 만든다 (harness:task)
 └── hooks/
-    ├── hooks.json                  훅 등록: 세션 시작 때 session-start.sh, 모든 도구 전 tool-count.sh, 편집·Bash 전 protect-generated.sh·guard-state.sh, 편집 후 stage-context.sh, Read·SubagentHandback 후와 서브에이전트가 끝날 때 review-record.sh, 끝낼 때 stop-gate.sh
+    ├── hooks.json                  훅 등록: 세션 시작 때 session-start.sh, 모든 도구 전 tool-count.sh, 편집·Bash 전 protect-generated.sh·guard-state.sh, ExitPlanMode 전 plan-gate.sh, 편집 후 stage-context.sh, Read·SubagentHandback 후와 서브에이전트가 끝날 때 review-record.sh, 끝낼 때 stop-gate.sh
     ├── session-start.sh            세션을 열 때 작업 시작 방법이나 진행 중인 작업을 알려 준다
     ├── protect-generated.sh        생성 파일(project.json의 generated) 편집 차단
     ├── guard-state.sh              에이전트가 작업 상태 파일로 단계를 넘기지 못하게 막는다(시작·이어서 하기·취소만 허용, Bash 쓰기 차단)
-    ├── stop-gate.sh                응답을 마치려 할 때 검증 단계면 고른 검사의 run을 돌리고, 통과하면 다음 단계로 넘긴다. done 전에는 끝내지 못한다
-    ├── stage-text.jq               단계 지시 글 (stage-context.sh·stop-gate.sh가 같이 쓴다)
+    ├── stop-gate.sh                응답을 마치려 할 때 그 단계의 확인을 돌리고, 통과하면 다음 단계로 넘긴다. 확인은 검증 단계의 고른 검사 run과 stages.<단계>.run이다. done 전에는 끝내지 못한다
+    ├── plan-gate.sh                ExitPlanMode 직전에 계획 글을 저장하고 stages.plan.run을 돌린다. 실패하면 승인 창을 띄우지 않는다
+    ├── stage-text.sh               단계 지시 글을 낸다. stages.<단계>.prompt_file을 읽어 붙인다 (stage-context.sh·stop-gate.sh가 같이 쓴다)
+    ├── stage-text.jq               단계 지시 글 (stage-text.sh가 쓴다)
     ├── tool-count.sh               작업 주인 세션의 도구 호출 수를 센다 (stop-gate.sh의 반복 방지용)
     ├── stage-context.sh            작업을 시작하거나 이어서 할 때 그 단계의 지시를 넣는다
     └── review-record.sh            reviewer가 연 파일과 보고서의 차단 수로 리뷰 결과 파일을 남긴다
@@ -55,7 +57,7 @@ plugin/
 작업 흐름(plan/simple 모드, 사람이 고른 검사)을 만든다. 동작과 설정 형식은 [checks.md](checks.md)에 있다.
 
 - PostToolUse(Edit·Write·MultiEdit)에서 고친 파일이 `<프로젝트>/.harness/state/task.json`일 때만 동작한다. 프로젝트는 `.harness/project.json`이 있어야 한다.
-- 에이전트가 이 파일을 쓰는 것은 작업을 시작할 때, 이어서 할 때(같은 내용으로 다시 저장), 취소할 때뿐이다. 그 뒤 단계 지시는 `stop-gate.sh`가 단계를 넘길 때 준다. 지시 글은 `stage-text.jq` 한 곳에 있다([ADR 0027](decisions/0027-stop-advances-stage.md)).
+- 에이전트가 이 파일을 쓰는 것은 작업을 시작할 때, 이어서 할 때(같은 내용으로 다시 저장), 취소할 때뿐이다. 그 뒤 단계 지시는 `stop-gate.sh`가 단계를 넘길 때 준다. 지시 글은 `stage-text.jq` 한 곳에 있고, `stage-text.sh`가 `stages.<단계>.prompt_file`의 내용을 읽어 함께 넣는다([ADR 0027](decisions/0027-stop-advances-stage.md), [ADR 0030](decisions/0030-plan-check.md)).
 - 지금 단계의 지시를 `.harness/checks.json`에서 꺼내 `additionalContext`로 넣고 0으로 끝난다. 막지 않는다.
 - `task` 스킬은 모드와 검사를 사용자에게 묻고 상태 파일을 만든다. 모드와 검사를 AI가 대신 고르지 않는다.
 - jq가 없으면 모든 훅이 아무것도 하지 않는다. 이 훅만 jq 없이 상태 파일 경로를 찾아, 훅이 꺼져 있다고 고정 문구로 알린다([ADR 0018](decisions/0018-core-and-packs.md)). doctor도 jq가 없으면 문제로 친다.
@@ -78,11 +80,23 @@ plugin/
 
 - Stop에서 cwd의 프로젝트(`.harness/project.json`)를 찾고 `.harness/state/task.json`의 stage를 본다. 작업 주인 세션(`.harness/state/task.owner`, `stage-context.sh`가 적는다)만 본다.
 - verify 단계면 고른 검사 중 `run`이 있는 것을 프로젝트 루트에서 실행한다. 하나라도 실패하면 이유를 stderr로 내고 2로 끝난다. 단계는 그대로다. run 합계는 1700초(`HARNESS_RUN_BUDGET`)까지이고 훅 timeout은 1800초다.
+- 어느 단계든 `checks.json`에 `stages.<단계>.run`이 있으면 프로젝트 루트에서 돌린다. 실패하면 막고 단계는 그대로다. 사람이 고르는 검사와 달리 그 단계를 지날 때마다 돈다(ai-bouncer `stages.<단계>.run`, [ADR 0030](decisions/0030-plan-check.md)).
 - 통과했거나 run이 없는 단계면 `stage`를 다음 단계로 쓰고 다음 단계 지시를 stderr로 주며 2로 끝난다. finish면 커밋·push를 확인한다. 시작 때(`.harness/state/task.wip`) 없던 변경이 남았거나, 커밋이 기본 브랜치에 있거나, push하지 않았으면 막는다. 마쳤으면 `done`으로 쓰고 끝내게 둔다(ADR 0028).
 - 계획 승인은 Plan 모드(ExitPlanMode)로 턴 안에서 받는다. 승인되면 응답을 마치고, 구현 지시를 받아 시작한다.
 - 반복 방지는 ai-bouncer를 따른다: 도구 없이 같은 이유로 재진입하면 끝내게 두고(`tool-count.sh`가 도구 수를 센다), 같은 단계에서 10번 연속이면 사용자에게 넘기게 한다. 상태는 `.harness/state/stop-gate.json`.
 - 백그라운드 서브에이전트가 돌고 있으면(Stop 입력의 `background_tasks`에 `type: "subagent"`) 기다리는 중으로 보고 막지도 넘기지도 않는다. 끝나면 알림으로 턴이 다시 열리고 그때 다시 본다. 셸·모니터는 끝나지 않을 수 있어 넣지 않는다([ADR 0013](decisions/0013-stop-wait-subagent.md)).
 - 상태 파일이 없거나 깨졌을 때, 주인이 아닌 세션, 모르는 모드·단계는 막지 않는다.
+
+## 훅: plan-gate.sh
+
+계획을 사용자에게 승인받기 전에 프로젝트의 계획 확인을 돌린다([ADR 0030](decisions/0030-plan-check.md)).
+
+- PreToolUse(ExitPlanMode)에서 작업 주인 세션이 plan 단계에 있을 때만 동작한다. 하네스 작업이 아닌 계획 모드는 막지 않는다.
+- 입력의 계획 글(`tool_input.plan`, 없으면 `tool_input.planFilePath`의 파일)을 `.harness/state/plan.md`에 저장한다. Claude Code 2.1.330에서 두 값이 입력에 들어오는 것을 확인했다.
+- `checks.json`에 `stages.plan.run`이 있으면 프로젝트 루트에서 돌린다. 실패하면 이유를 stderr로 내고 2로 끝난다. ExitPlanMode가 실행되지 않아 승인 창이 뜨지 않고, 이유가 에이전트에게 돌아간다. 결과는 `task.history`에 `plan-check`로 남는다.
+- 하네스는 계획이 무엇을 담아야 하는지 모른다. 프로젝트가 적은 명령이 `plan.md`를 본다. 같은 명령을 Stop 훅도 plan 단계를 넘길 때 돌린다. 에이전트가 ExitPlanMode를 부르지 않고 응답을 마쳐도 확인이 빠지지 않는다.
+- 새 작업을 시작하면 `stage-context.sh`가 지난 `plan.md`를 지운다.
+- Claude Code는 훅 목록을 세션을 시작할 때 한 번 읽는다. 하네스를 갱신하기 전에 시작한 세션에서는 `plan-gate.sh`가 돌지 않아 `plan.md`가 생기지 않는다. 이때 Stop 훅은 세션을 다시 시작한 뒤 ExitPlanMode를 한 번 더 호출하라고 알린다(PetCycle, 2026-11-23).
 
 ## 서브에이전트: reviewer
 
