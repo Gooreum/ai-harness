@@ -18,7 +18,7 @@
 
 | 단계 | 하네스가 넣는 지시 |
 |---|---|
-| plan | EnterPlanMode로 계획하고 ExitPlanMode로 사용자 승인을 받는다 + `stages.plan.prompt` + `stages.plan.prompt_file`의 내용 |
+| plan | EnterPlanMode로 계획하고 ExitPlanMode로 사용자 승인을 받는다. ExitPlanMode가 없는 세션은 계획을 `.harness/state/plan.md`에 쓰고 사용자가 `scripts/harness/approve-plan`으로 승인한다. 승인된 계획이 있어야 구현 단계로 넘어간다(ADR 0031) + `stages.plan.prompt` + `stages.plan.prompt_file`의 내용 |
 | implement | 구현한다 + `stages.implement.prompt` |
 | verify | 고른 검사의 `prompt`를 `checks.json`에 적힌 순서대로 하나씩 실행하고 실제 출력으로 확인한다 |
 | finish | `stages.finish.prompt`(위키 기록 등)를 먼저 하고, 바꾼 파일을 하나씩 add해 커밋하고 push한다(기본 브랜치면 새 브랜치). Stop 훅이 커밋·push를 확인한 뒤 닫는다(ADR 0028). 그다음 작업 보고를 일곱 섹션(1. 상황 · 2. 조치 · 3. 평가 · 4. 단계 기록 · 5. 위키 · 6. 건의 · 7. 결정 사항)으로 쓴다. 섹션 사이는 구분선, 문장마다 줄을 바꾸고, 평가는 근거(결과 파일·명령)가 있는 표로, 단계 기록은 `.harness/state/task.history`에서, 위키는 시작 커밋 이후 `docs/wiki/` 변경에서 옮긴다 |
@@ -149,8 +149,10 @@ plan 단계에서 e2e 시나리오가 필요한지 정하게 하는 설정이다
 | `advance` | stop-gate | `from` → `to`. verify면 `runs`(검사별 `rc`, run 없음은 `run: false`, 설정에 없음은 `missing`), finish면 `commit`·`push` 확인 결과 |
 | `blocked` | stop-gate | 막은 이유 첫 줄(`why`)과 `runs`(단계 확인은 `stages.<단계>.run`) |
 | `plan-check` | plan-gate | ExitPlanMode 직전 계획 확인의 `runs`(`stages.plan.run`의 `rc`) |
+| `wait` | stop-gate | 계획이 아직 승인되지 않아 Stop 훅이 단계를 넘기지 않고 끝내게 둠. 같은 계획이면 한 번만 |
+| `approve` | plan-approved · approve-plan | 계획 승인. `by`는 `ExitPlanMode` 또는 `approve-plan` |
 | `release` · `handoff` | stop-gate | 도구 없이 재진입해 풀어 줌 / 10번 연속이라 사용자에게 넘김 |
-| `guard` | guard-state | 막은 `task.json` 쓰기(`tool`, `why`) |
+| `guard` | guard-state | 막은 `task.json` 쓰기와 Bash로 상태 파일(`task.json`·`plan.approved`·`plan.waiting`) 쓰기(`tool`, `why`). Edit·Write로 승인 기록을 쓰거나 `approve-plan`을 실행하려 한 것은 기록하지 않는다 |
 - run 합계는 1700초(`HARNESS_RUN_BUDGET`)까지다. 넘으면 시간 초과로 막는다.
 - run은 묻지 않고 실행된다. `checks.json`은 저장소에 커밋되므로, 남의 저장소를 내려받아 하네스 작업을 하면 그 저장소가 적은 명령이 그대로 돈다. 처음에는 `checks.json`을 열어 확인한다. `scripts/harness/doctor`는 `scripts/harness/passed`가 아닌 run을 "참고"로 보여 준다.
 - 같은 Stop 훅이 done 전에는 끝내지 못하게 한다. 작업 주인 세션(상태 파일을 마지막으로 쓴 세션)만 보고 다른 세션은 막지 않는다.

@@ -372,6 +372,11 @@
   - 관찰(2026-11-07): PetCycle을 setup하니 검사 후보가 typecheck·test·review뿐이었다. setup은 찾은 명령만 후보로 내고, PetCycle에는 E2E 명령도 시나리오도 없어 앱을 띄워 보는 검사를 아무도 묻지 않았다. 발표는 동작 확인(E2E)을 검증의 한 축으로 둔다(슬라이드 56·80)
   - 할 일: setup이 E2E 단서(찾은 e2e 명령, `.maestro/`, Playwright·Cypress·Detox 설정)를 보여 주고, 없으면 앱·웹·서버 저장소에 한해 둘지 묻는다. 두면 시나리오 하나를 통과시킨 뒤 e2e 검사로 적는다
   - 완료 기준: `bash tests/run.sh` 통과. PetCycle에서 setup을 다시 돌리면 E2E를 묻는다
+- [x] **35. 승인된 계획이 있어야 plan 단계를 넘긴다** (ADR 0031)
+  - 관찰(2026-11-25): PetCycle 임시 워크트리에서 `claude -p`로 plan 모드를 돌렸다. 세션에 ExitPlanMode가 없었고, 승인 없이 plan부터 done까지 37초 만에 닫혔다. project-manager가 승인된 이슈를 하네스로 작업하려면 승인 창 없이 계획을 승인받는 길이 필요했다
+  - 할 일: Stop 훅이 승인된 계획(`plan.approved`)과 계획 글(`plan.md`)이 같을 때만 넘긴다. ExitPlanMode 승인은 `plan-approved.sh`가, 승인 창이 없는 세션은 사용자가 `scripts/harness/approve-plan`으로 남긴다. `guard-state.sh`가 에이전트의 승인 기록 쓰기와 `approve-plan` 실행을 막는다
+  - 완료 기준: `bash tests/run.sh` 통과. PetCycle 사본에서 `claude -p`로 plan 모드를 돌리면 계획을 남기고 멈추고, `approve-plan` 뒤 `--resume`하면 구현으로 넘어간다
+  - 결과(2026-11-25): PetCycle 임시 사본을 `sync --dev`로 0.17.0에 맞추고 `claude -p`로 돌렸다. 계획을 `plan.md`에 쓰고 plan 단계에서 멈췄다(`wait`). `approve-plan` 뒤 `--resume`하니 implement·verify·finish 단계를 차례로 지나 커밋까지 했다. push는 실험이라 막았다
 - [ ] **34. 문서 검수에서 찾은 훅의 빈틈** (2026-11-09)
   - 찾은 경위: 설명 문서("하네스 쉽게 보기")를 검수하며 코드와 대조해 찾았다. 시험장에서 실제로 일어난 일은 아니다. ai-bouncer가 막는 세 가지만 여기서 다루고, 나머지는 아래 "관찰되면 할 것"에 둔다
   - [ ] 검사 결과 파일 쓰기 막기
@@ -390,7 +395,6 @@
   - 자동 생성 파일을 Bash(`sed -i`, `>`)로 고치면 `protect-generated.sh`가 못 막는다
   - 시작 전에 바뀌어 있던 파일(`task.wip`)을 이번 작업이 또 고치고 커밋하지 않아도 마무리 확인이 못 잡는다
   - 에이전트가 `checks.json`의 run이나 `project.json`을 고치거나 지울 수 있다
-  - 계획 승인은 지시뿐이라 승인 없이도 plan에서 implement로 넘어간다
   - 가짜 응답 서버: 스트리밍 응답(SSE), 요청 본문 기록
   - 위키 폴더가 `dist/`·`out/`·`build/` 무시 규칙에 걸리는지 `wiki check`에서 본다(11-03에 한 번 겪었다)
   - 검사가 많아져 질문이 길어질 때 묶음별 기본 선택
