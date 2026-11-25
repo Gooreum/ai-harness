@@ -8,6 +8,7 @@
 #   ai-bouncer(hooks/stop.sh)처럼 훅이 단계를 쓴다(ADR 0027).
 #   - 검증 단계면 고른 검사의 run을 프로젝트 루트에서 돌린다. 하나라도 실패하면 이유를 주고 막는다. 단계는 그대로다.
 #   - 어느 단계든 checks.json에 stages.<단계>.run이 있으면 돌리고, 실패하면 막는다(ai-bouncer stages.<단계>.run, ADR 0030).
+#   - plan 단계는 승인된 계획(plan.approved)이 계획 글(plan.md)과 같아야 넘긴다. 아니면 막지 않고 승인을 기다리며 끝내게 둔다(ADR 0031).
 #   - 통과했거나 run이 없는 단계면 task.json의 stage를 다음 단계로 쓰고, 다음 단계 지시를 주며 막는다.
 #   - 마지막 단계(finish)면 커밋·push를 확인하고(ADR 0028), 마쳤으면 stage를 done으로 쓰고 끝내게 둔다.
 # 발표가 다루지 않는 부분은 ai-bouncer(hooks/stop.sh)를 따른다.
@@ -194,7 +195,7 @@ if [ -n "$checks" ]; then
       [ "$stage" != plan ] || hint="계획을 고쳐 ExitPlanMode로 다시 승인받으세요. 하네스가 그때 계획 글을 .harness/state/plan.md에 저장하고 같은 명령으로 확인합니다."
       # ExitPlanMode를 했는데도 plan.md가 없으면 이 세션이 plan-gate.sh 등록 전에 시작된 것이다. 훅 목록은 세션을 시작할 때만 읽는다.
       [ "$stage" != plan ] || [ -f "$state_dir/plan.md" ] || hint="$hint
-.harness/state/plan.md가 없습니다. ExitPlanMode를 이미 호출했다면 이 세션이 하네스 갱신 전에 시작돼 계획을 저장하는 훅(plan-gate.sh)이 등록되지 않은 것입니다. 사용자에게 claude -c로 세션을 다시 열어 달라고 하고, 그 뒤 ExitPlanMode를 한 번 더 호출하세요. plan.md를 직접 쓰지 마세요."
+.harness/state/plan.md가 없습니다. ExitPlanMode를 이미 호출했다면 이 세션이 하네스 갱신 전에 시작돼 계획을 저장하는 훅(plan-gate.sh)이 등록되지 않은 것입니다. 사용자에게 claude -c로 세션을 다시 열어 달라고 하고, 그 뒤 ExitPlanMode를 한 번 더 호출하세요. ExitPlanMode가 없는 세션(claude -p 등)이면 계획을 Write로 .harness/state/plan.md에 쓰세요."
       guarded_block "[하네스] $stage 단계의 확인(stages.$stage.run)을 통과하지 못해 다음 단계로 넘어갈 수 없습니다. 작업 \"$title\"은 아직 $stage 단계입니다.
 - run \`$srun\`이 $(if [ "$rc" = 124 ]; then echo "제한 시간 ${HARNESS_RUN_BUDGET:-1700}초를 넘겼다. 검사 run과 이 단계 확인이 이 시간을 함께 쓴다"; else echo "실패했다"; fi). 종료 코드는 ${rc}다
 $(printf '%s\n' "$out" | sed -n '1,10p' | sed 's/^/    /')
@@ -203,7 +204,30 @@ $hint"
   fi
 fi
 
-# --- 1-2. 마무리: 커밋·push를 확인한다 (ADR 0028) -----------------------------------------
+# --- 1-2. 계획 승인: 승인된 계획이 있어야 plan 단계를 넘긴다 (ADR 0031) ----------------------
+# 발표·ai-bouncer는 승인을 지시로만 둔다. ExitPlanMode가 없는 세션(claude -p)에서는 승인 없이 implement로 넘어갔다.
+# 승인된 계획(plan.approved)은 ExitPlanMode 승인(plan-approved.sh)이나 사용자의 scripts/harness/approve-plan만 쓴다.
+# 계획 글(plan.md)과 내용이 같아야 승인으로 본다. 승인 뒤에 계획을 바꾸면 다시 승인받아야 한다.
+if [ "$stage" = plan ]; then
+  if [ ! -s "$state_dir/plan.md" ]; then
+    guarded_block "[하네스] 계획이 없어 다음 단계로 넘어갈 수 없습니다. 작업 \"$title\"은 아직 plan 단계입니다.
+- 계획을 세워 ExitPlanMode로 사용자 승인을 받는다. 하네스가 그때 계획 글을 .harness/state/plan.md에 저장한다.
+- ExitPlanMode가 없는 세션(claude -p 등)이면 계획을 Write로 .harness/state/plan.md에 쓰고 응답을 마친다. 하네스가 사용자 승인을 기다린다."
+  fi
+  if ! cmp -s "$state_dir/plan.md" "$state_dir/plan.approved" 2> /dev/null; then
+    # 승인을 기다린다. 막지 않고 끝내게 둔다(막아도 에이전트가 할 일이 없다). 단계는 plan 그대로다.
+    # 같은 계획으로 여러 번 멈춰도 단계 기록에는 한 번만 남긴다.
+    if ! cmp -s "$state_dir/plan.md" "$state_dir/plan.waiting" 2> /dev/null; then
+      cp "$state_dir/plan.md" "$state_dir/plan.waiting" 2> /dev/null || true
+      hist '{at: $at, event: "wait", stage: $s, why: "계획 승인 대기"}'
+    fi
+    rm -f "$gate"
+    jq -n --arg t "$title" '{systemMessage: "[하네스] 작업 \"\($t)\"의 계획(.harness/state/plan.md)이 승인을 기다립니다. 승인하려면 scripts/harness/approve-plan을 실행하고 세션을 이어 가세요."}'
+    exit 0
+  fi
+fi
+
+# --- 1-3. 마무리: 커밋·push를 확인한다 (ADR 0028) -----------------------------------------
 # ai-bouncer finalize는 커밋·push를 지시만 한다. 지시만으로는 빠뜨린다(발표 슬라이드 5)는 문제라 확인까지 한다.
 # 시작 커밋(task.base)이 없거나 git 저장소가 아니면 확인하지 않는다.
 base="$(cat "$state_dir/task.base" 2>/dev/null)"

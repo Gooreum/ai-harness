@@ -31,7 +31,7 @@ bash_cmd() { # 명령 [cwd]
 }
 stage_block='2|[하네스] 단계는 하네스가 넘깁니다. task.json의 stage·mode를 바꿀 수 없습니다. 상태 파일은 바뀌지 않았습니다.'
 first_plan='2|[하네스] 새 작업은 첫 단계("plan")에서 시작합니다. 상태 파일은 바뀌지 않았습니다.'
-bash_block='2|[하네스] .harness/state/task.json은 Bash로 쓰거나 지우지 않습니다. 명령은 실행되지 않았습니다.'
+bash_block='2|[하네스] .harness/state/의 task.json·plan.approved·plan.waiting은 Bash로 쓰거나 지우지 않습니다. 명령은 실행되지 않았습니다.'
 
 # --- 새 작업 시작 ---------------------------------------------------------------
 assert_eq "새 작업을 첫 단계로 연다" "0|" "$(call "$(write '{"title":"t","mode":"plan","stage":"plan","checks":["lint"]}')")"
@@ -89,6 +89,32 @@ mkdir -p "$work/other/.harness/state"
 assert_eq "project.json이 없는 곳은 보지 않는다" "0|" "$(call "$(write '{"mode":"plan","stage":"verify"}' "$work/other/.harness/state/task.json")")"
 assert_eq "깨진 입력은 막지 않는다" "0|" "$(call 'not json')"
 
+
+# --- 계획 승인 (ADR 0031) -------------------------------------------------------
+sd="$p/.harness/state"
+approved_block='2|[하네스] 계획 승인 기록은 하네스와 사용자만 씁니다. 파일은 바뀌지 않았습니다.'
+approve_block='2|[하네스] 계획 승인(scripts/harness/approve-plan)은 사용자가 직접 실행합니다. 명령은 실행되지 않았습니다.'
+printf '%s' '{"title":"t","mode":"plan","stage":"plan","checks":[]}' > "$state"
+rm -f "$sd/plan.md" "$sd/plan.approved"
+assert_eq "plan 단계에서 계획 글(plan.md)을 쓸 수 있다" "0|" "$(call "$(write '# 계획' "$sd/plan.md")")"
+assert_eq "승인 기록(plan.approved)은 쓰지 못한다" "$approved_block" "$(call "$(write '# 계획' "$sd/plan.approved")")"
+assert_eq "승인 대기 표시(plan.waiting)도 쓰지 못한다" "$approved_block" "$(call "$(write '# 계획' "$sd/plan.waiting")")"
+printf '# 계획\n' > "$sd/plan.md"
+cp "$sd/plan.md" "$sd/plan.approved"
+assert_eq "승인된 계획은 고치지 못한다" "2|[하네스] 이 계획은 이미 승인됐습니다. 바꾸지 말고 응답을 마치세요. 하네스가 구현 단계로 넘깁니다. 파일은 바뀌지 않았습니다." "$(call "$(write '# 바꿈' "$sd/plan.md")")"
+printf '# 고친 계획\n' > "$sd/plan.md"
+assert_eq "승인 뒤 바뀐 계획(재승인 대기)은 다시 고칠 수 있다" "0|" "$(call "$(write '# 또 고침' "$sd/plan.md")")"
+printf '%s' '{"title":"t","mode":"plan","stage":"implement","checks":[]}' > "$state"
+assert_eq "plan 단계가 아니면 계획 글을 고치지 못한다" "2|[하네스] 계획은 plan 단계에서만 씁니다. 지금은 implement 단계라 승인받은 계획을 바꿀 수 없습니다. 파일은 바뀌지 않았습니다." "$(call "$(write '# 바꿈' "$sd/plan.md")")"
+printf '%s' '{"title":"t","mode":"plan","stage":"done","checks":[]}' > "$state"
+assert_eq "진행 중인 작업이 없으면 계획 글은 보지 않는다" "0|" "$(call "$(write '# 계획' "$sd/plan.md")")"
+assert_eq "Bash로 승인 기록을 쓰면 막는다" "$bash_block" "$(call "$(bash_cmd "cp .harness/state/plan.md .harness/state/plan.approved")")"
+assert_eq "Bash로 승인 기록을 읽는 것은 막지 않는다" "0|" "$(call "$(bash_cmd "cat .harness/state/plan.approved")")"
+assert_eq "approve-plan 실행을 막는다" "$approve_block" "$(call "$(bash_cmd "scripts/harness/approve-plan")")"
+assert_eq "  다른 명령 뒤에 실행해도 막는다" "$approve_block" "$(call "$(bash_cmd "cd sub && ../scripts/harness/approve-plan")")"
+assert_eq "  bash로 실행해도 막는다" "$approve_block" "$(call "$(bash_cmd "bash scripts/harness/approve-plan --show")")"
+assert_eq "approve-plan 파일을 읽는 것은 막지 않는다" "0|" "$(call "$(bash_cmd "cat scripts/harness/approve-plan")")"
+assert_eq "approve-plan을 검색하는 것은 막지 않는다" "0|" "$(call "$(bash_cmd "grep -rn approve-plan docs")")"
 
 # --- 막은 일은 단계 기록(task.history)에 남는다 --------------------------------------
 printf '%s' '{"title":"t","mode":"plan","stage":"implement","checks":["lint"]}' > "$state"

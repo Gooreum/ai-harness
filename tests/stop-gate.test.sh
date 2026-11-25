@@ -55,9 +55,32 @@ assert_eq "깨진 상태 파일은 막지 않는다" "0" "$(stop s1)"
 set_task big plan
 assert_eq "모르는 모드는 막지 않는다" "0" "$(stop s1)"
 
+# --- 계획 승인 (ADR 0031) -------------------------------------------------------
+out_of() { jq -n --arg cwd "$p" '{session_id: "s1", cwd: $cwd}' | "$hook" 2> /dev/null || true; }
+rm -f "$sd/plan.md" "$sd/plan.approved" "$sd/plan.waiting" "$sd/task.history"
+set_task plan plan
+assert_eq "plan: 계획이 없으면 막고 단계를 그대로 둔다" "2|plan" "$(stop s1)|$(now)"
+set_task plan plan
+out="$(reason)"
+assert_eq "  첫 줄에 계획이 없다고 알린다" '[하네스] 계획이 없어 다음 단계로 넘어갈 수 없습니다. 작업 "시트"은 아직 plan 단계입니다.' "$(printf '%s\n' "$out" | sed -n 1p)"
+assert_eq "  ExitPlanMode가 없으면 plan.md에 쓰라고 한다" "yes" "$(has "Write로 .harness/state/plan.md에 쓰고" "$out")"
+printf '# 계획\n' > "$sd/plan.md"
+set_task plan plan
+assert_eq "plan: 승인되지 않은 계획이면 막지 않고 단계를 그대로 둔다" "0|plan" "$(stop s1)|$(now)"
+assert_eq "  승인 대기를 단계 기록에 남긴다" "wait" "$(jq -rs '.[-1].event' "$sd/task.history")"
+set_task plan plan
+stop s1 > /dev/null
+assert_eq "  같은 계획으로 다시 멈춰도 기록은 한 번만 남긴다" "1" "$(jq -s 'map(select(.event == "wait")) | length' "$sd/task.history")"
+set_task plan plan
+assert_eq "  승인하는 방법을 사용자에게 알린다" "yes" "$(has "scripts/harness/approve-plan" "$(out_of | jq -r .systemMessage)")"
+printf '# 다른 계획\n' > "$sd/plan.approved"
+set_task plan plan
+assert_eq "plan: 승인된 계획과 내용이 다르면 넘기지 않는다" "0|plan" "$(stop s1)|$(now)"
+cp "$sd/plan.md" "$sd/plan.approved"
+
 # --- 단계 넘기기 ---------------------------------------------------------------
 set_task plan plan
-assert_eq "plan: 막고 implement로 넘긴다" "2" "$(stop s1)"
+assert_eq "plan: 승인된 계획이면 막고 implement로 넘긴다" "2" "$(stop s1)"
 assert_eq "  (stage가 implement)" "implement" "$(now)"
 assert_eq "  (본 단계를 적는다)" "implement" "$(cat "$sd/task.seen")"
 set_task plan plan
@@ -225,6 +248,7 @@ assert_eq "  plan이면 ExitPlanMode로 다시 승인받으라고 한다" "yes" 
 assert_eq "  plan.md가 없으면 세션을 다시 시작하라고 한다" "yes" "$(has "claude -c로 세션을 다시 열어 달라고" "$out")"
 assert_eq "  기록에 run 결과를 남긴다(plan.md가 없어 grep이 2)" "blocked|stages.plan.run:2" "$(jq -rs '.[-1] | "\(.event)|\(.runs | map("\(.name):\(.rc)") | join(","))"' "$sd/task.history")"
 printf -- '- e2e 판단: 불필요 (U1)\n' > "$sd/plan.md"
+cp "$sd/plan.md" "$sd/plan.approved"
 set_task plan plan
 assert_eq "stages.plan.run: 통과하면 implement로 넘긴다" "2|implement" "$(stop s1)|$(now)"
 assert_eq "  기록에 run 결과를 남긴다" "advance|stages.plan.run:0" "$(jq -rs '.[-1] | "\(.event)|\(.runs | map("\(.name):\(.rc)") | join(","))"' "$sd/task.history")"

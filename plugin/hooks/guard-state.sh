@@ -8,6 +8,11 @@
 #   - 취소: stage "done"과 "cancelled": true. 사용자가 그만두자고 했을 때만 쓴다(ai-bouncer `bouncer cancel`).
 # Bash로 이 파일을 쓰거나 지우는 명령은 늘 막는다. Bash로 쓰면 훅이 돌지 않는다(IntervalTimer #8, ReadSharp에서 관찰).
 #
+# 계획 승인(ADR 0031): 승인은 사용자만 한다. 에이전트가 승인을 만들지 못하게 한다.
+#   - 승인된 계획(plan.approved)과 승인 대기 표시(plan.waiting)는 Edit·Write·Bash로 쓰지 못한다.
+#   - scripts/harness/approve-plan은 Bash로 실행하지 못한다. 사용자가 터미널에서 실행한다.
+#   - 계획 글(plan.md)은 plan 단계에서 아직 승인되지 않았을 때만 Edit·Write로 쓴다(ExitPlanMode가 없는 세션용).
+#
 # - 입력은 stdin JSON만 읽는다 (tool_name, tool_input, cwd). Codex에서도 재사용하기 위해서다.
 # - 막을 때는 이유를 stderr로 내고 2로 끝난다(슬라이드 25). 상태 파일은 바뀌지 않는다.
 # - 판단할 수 없으면(상태 파일이 아님, 프로젝트가 아님, 단계 순서를 못 읽음) 막지 않는다.
@@ -22,13 +27,24 @@ cwd="$(printf '%s' "$input" | jq -r '.cwd // empty' 2>/dev/null)" || cwd=""
 # --- Bash: 상태 파일을 쓰거나 지우는 명령을 막는다 --------------------------------------
 if [ "$tool" = "Bash" ]; then
   cmd="$(printf '%s' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null)" || exit 0
-  case "$cmd" in *task.json*) ;; *) exit 0 ;; esac
+  # 명령 자리(맨 앞, ; & | ( 뒤, bash·sh 뒤)에 approve-plan이 오면 실행으로 본다. 파일을 읽거나 찾는 명령(cat, grep)은 막지 않는다.
+  case "$cmd" in
+    *approve-plan*)
+      printf '%s' "$cmd" | grep -Eq '(^|[;&|(]|(^|[[:space:]])(bash|sh|exec|env)[[:space:]])[[:space:]]*([^[:space:];&|()]*/)?approve-plan([[:space:];&|)]|$)' || exit 0
+      {
+        echo "[하네스] 계획 승인(scripts/harness/approve-plan)은 사용자가 직접 실행합니다. 명령은 실행되지 않았습니다."
+        echo "계획을 .harness/state/plan.md에 남기고 응답을 마치세요. 하네스가 사용자 승인을 기다립니다."
+      } >&2
+      exit 2
+      ;;
+  esac
+  case "$cmd" in *task.json* | *plan.approved* | *plan.waiting*) ;; *) exit 0 ;; esac
   case "$cmd$cwd" in *.harness/state*) ;; *) exit 0 ;; esac
   # 출력을 버리거나 합치는 리다이렉션(2>/dev/null, 2>&1)은 쓰기가 아니다.
   rest="$(printf '%s' "$cmd" | sed -E 's#[0-9]*>&[0-9]##g; s#[0-9]*>>?[[:space:]]*/dev/null##g')"
   if printf '%s' "$rest" | grep -Eq '>|(^|[^[:alnum:]_-])(tee|cp|mv|rm|ln|dd|truncate|install|python3?|node|ruby|perl|sed[[:space:]]+-i)([^[:alnum:]_-]|$)'; then
     {
-      echo "[하네스] .harness/state/task.json은 Bash로 쓰거나 지우지 않습니다. 명령은 실행되지 않았습니다."
+      echo "[하네스] .harness/state/의 task.json·plan.approved·plan.waiting은 Bash로 쓰거나 지우지 않습니다. 명령은 실행되지 않았습니다."
       echo "단계는 하네스가 넘깁니다. 이 단계의 일을 마치면 응답을 마치세요."
       echo "새 작업 시작과 취소는 task 스킬대로 Write로 씁니다. 읽기만 할 때는 Read 도구를 씁니다."
     } >&2
@@ -36,7 +52,7 @@ if [ "$tool" = "Bash" ]; then
     d="$cwd"
     while [ -n "$d" ] && [ "$d" != "/" ] && [ ! -f "$d/.harness/project.json" ]; do d="$(dirname "$d")"; done
     [ -f "$d/.harness/state/task.json" ] && jq -nc --arg at "$(date -u +%FT%TZ)" \
-      '{at: $at, event: "guard", tool: "Bash", why: "task.json을 Bash로 쓰려 함"}' >> "$d/.harness/state/task.history" 2>/dev/null
+      '{at: $at, event: "guard", tool: "Bash", why: "상태 파일(task.json·plan.approved·plan.waiting)을 Bash로 쓰려 함"}' >> "$d/.harness/state/task.history" 2>/dev/null
     exit 2
   fi
   exit 0
@@ -54,6 +70,30 @@ case "$file" in
 esac
 case "$file" in
   */.harness/state/task.json) ;;
+  */.harness/state/plan.approved | */.harness/state/plan.waiting)
+    [ -f "${file%/.harness/state/*}/.harness/project.json" ] || exit 0
+    {
+      echo "[하네스] 계획 승인 기록은 하네스와 사용자만 씁니다. 파일은 바뀌지 않았습니다."
+      echo "계획은 ExitPlanMode로 승인받습니다. ExitPlanMode가 없는 세션이면 .harness/state/plan.md에 쓰고 응답을 마칩니다."
+    } >&2
+    exit 2
+    ;;
+  */.harness/state/plan.md)
+    sd="${file%/plan.md}"
+    [ -f "${sd%/.harness/state}/.harness/project.json" ] || exit 0
+    st="$(jq -r '.stage // empty' "$sd/task.json" 2> /dev/null)" || st=""
+    # 진행 중인 작업이 없으면 상관하지 않는다.
+    case "$st" in "" | done) exit 0 ;; esac
+    if [ "$st" != plan ]; then
+      echo "[하네스] 계획은 plan 단계에서만 씁니다. 지금은 $st 단계라 승인받은 계획을 바꿀 수 없습니다. 파일은 바뀌지 않았습니다." >&2
+      exit 2
+    fi
+    if [ -f "$sd/plan.approved" ] && cmp -s "$sd/plan.md" "$sd/plan.approved"; then
+      echo "[하네스] 이 계획은 이미 승인됐습니다. 바꾸지 말고 응답을 마치세요. 하네스가 구현 단계로 넘깁니다. 파일은 바뀌지 않았습니다." >&2
+      exit 2
+    fi
+    exit 0
+    ;;
   *) exit 0 ;;
 esac
 root="${file%/.harness/state/task.json}"
