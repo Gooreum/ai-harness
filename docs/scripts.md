@@ -73,11 +73,16 @@ scripts/harness/passed unit-test   # .harness/out/unit-test.json이 통과했고
 ```bash
 scripts/harness/wiki search <단어>...   # 정책·결정 기록 찾기
 scripts/harness/wiki check [파일...]     # 기록 형식 검사
+scripts/harness/wiki done                # 마무리 확인: 위키 기록이 있는지, 없으면 그 이유가 있는지
 ```
 
 - 기록 형식과 쓰는 때는 [wiki.md](wiki.md)에 있다.
 - search 결과는 한 줄에 `종류	경로	제목`이다. 내용은 그 파일을 열어 읽는다. 검색마다 `.harness/state/wiki-search.log`에 남긴다.
-- 종료 코드: search는 찾으면 0, 없으면 1. check는 문제가 없으면 0, 있으면 1. 인자 오류 2
+- done은 `checks.json`의 `stages.finish.run`에 두는 확인이다([ADR 0032](decisions/0032-wiki-finish-check.md)).
+  - 시작 커밋(`.harness/state/task.base`) 이후 `docs/wiki/`의 md 파일이 바뀌었으면 바뀐 기록만 check로 검사한다. 커밋하지 않은 것, 새 파일, 지운 파일도 센다.
+  - 바뀐 기록이 없으면 `.harness/state/wiki.skip`에 남기지 않은 이유가 한 줄 이상 있어야 통과한다. 새 작업을 시작하면 훅이 이 파일을 지운다.
+  - 시작 커밋이 없으면 확인하지 않고 통과한다.
+- 종료 코드: search는 찾으면 0, 없으면 1. check·done은 문제가 없으면 0, 있으면 1. 인자 오류 2
 
 ## doctor
 

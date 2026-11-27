@@ -21,7 +21,7 @@
 | plan | EnterPlanMode로 계획하고 ExitPlanMode로 사용자 승인을 받는다. ExitPlanMode가 없는 세션은 계획을 `.harness/state/plan.md`에 쓰고 사용자가 `scripts/harness/approve-plan`으로 승인한다. 승인된 계획이 있어야 구현 단계로 넘어간다(ADR 0031) + `stages.plan.prompt` + `stages.plan.prompt_file`의 내용 |
 | implement | 구현한다 + `stages.implement.prompt` |
 | verify | 고른 검사의 `prompt`를 `checks.json`에 적힌 순서대로 하나씩 실행하고 실제 출력으로 확인한다 |
-| finish | `stages.finish.prompt`(위키 기록 등)를 먼저 하고, 바꾼 파일을 하나씩 add해 커밋하고 push한다(기본 브랜치면 새 브랜치). Stop 훅이 커밋·push를 확인한 뒤 닫는다(ADR 0028). 그다음 작업 보고를 일곱 섹션(1. 상황 · 2. 조치 · 3. 평가 · 4. 단계 기록 · 5. 위키 · 6. 건의 · 7. 결정 사항)으로 쓴다. 섹션 사이는 구분선, 문장마다 줄을 바꾸고, 평가는 근거(결과 파일·명령)가 있는 표로, 단계 기록은 `.harness/state/task.history`에서, 위키는 시작 커밋 이후 `docs/wiki/` 변경에서 옮긴다 |
+| finish | `stages.finish.prompt`(위키 기록 등)를 먼저 하고, 바꾼 파일을 하나씩 add해 커밋하고 push한다(기본 브랜치면 새 브랜치). Stop 훅이 커밋·push를 확인한 뒤 닫는다(ADR 0028). 추천 설정의 `stages.finish.run`에는 `scripts/harness/wiki done`이 들어 있다. 이 확인은 이번 작업에 위키 기록이 있거나, 기록이 없는 이유를 `.harness/state/wiki.skip`에 적었을 때 통과한다(ADR 0032). 그다음 작업 보고를 일곱 섹션(1. 상황 · 2. 조치 · 3. 평가 · 4. 단계 기록 · 5. 위키 · 6. 건의 · 7. 결정 사항)으로 쓴다. 섹션 사이는 구분선, 문장마다 줄을 바꾸고, 평가는 근거(결과 파일·명령)가 있는 표로, 단계 기록은 `.harness/state/task.history`에서, 위키는 시작 커밋 이후 `docs/wiki/` 변경에서 옮긴다 |
 
 ## 상태 파일 (`.harness/state/task.json`)
 
@@ -40,7 +40,7 @@ ReadSharp는 예전 iOS 묶음의 스크립트를 `scripts/ios/`로 넘겨받아
   "schemaVersion": 1,
   "stages": {
     "plan": { "prompt": "먼저 scripts/harness/wiki search로 관련 정책·결정 기록을 찾아 읽는다. 계획에는 View → Intent → Processor → State 중 어디를 바꾸는지 적는다" },
-    "finish": { "prompt": "이번에 정한 정책·결정과 알게 된 사실을 docs/wiki/에 기록한다(비슷한 기록이 있으면 고친다). 쓴 뒤 scripts/harness/wiki check를 돌린다" }
+    "finish": { "prompt": "이번에 정한 정책·결정과 알게 된 사실을 docs/wiki/에 기록한다(비슷한 기록이 있으면 고친다). 쓴 뒤 scripts/harness/wiki check를 돌린다. 남길 것이 없으면 그 이유를 한 줄로 .harness/state/wiki.skip에 쓴다", "run": "scripts/harness/wiki done" }
   },
   "checks": [
     { "name": "build", "description": "앱 빌드만", "prompt": "scripts/ios/build를 실행하고 통과할 때까지 고친다", "run": "scripts/harness/passed build" },
