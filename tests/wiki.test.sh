@@ -103,6 +103,8 @@ gitc() { git -C "$p" -c user.name=t -c user.email=t@t "$@"; }
 mkdir -p "$p/docs/wiki/old"; printf '# 예전 기록\n' > "$p/docs/wiki/old/old.md"
 gitc add docs/wiki/old/old.md; gitc commit -q -m init
 git -C "$p" rev-parse HEAD > "$sd/task.base"
+echo '{"title":"t","mode":"simple","stage":"finish"}' > "$sd/task.json"
+date -u +%FT%TZ > "$sd/task.started"
 rm -f "$sd/wiki.skip"
 assert_eq "done: 위키를 바꾸지 않았고 이유도 없으면 1" "1" "$(done_rc)"
 out="$( (cd "$p" && "$wiki" done) 2>&1 || true)"
@@ -132,11 +134,43 @@ tags: [홈]
 ## 예외
 없음
 MD
-assert_eq "done: 이번에 바꾼 기록(커밋 전)만 검사해 통과한다" "✓ wiki · 기록 1개" "$(cd "$p" && "$wiki" done)"
+assert_eq "done: 이번에 바꾼 기록(커밋 전)만 검사해 통과한다" "✓ wiki · 이번에 바꾼 기록 1개" "$(cd "$p" && "$wiki" done)"
 gitc add docs/wiki/home/new.md; gitc commit -q -m wiki
 assert_eq "done: 커밋한 기록도 센다" "0" "$(done_rc)"
 git -C "$p" rev-parse HEAD > "$sd/task.base"
 gitc rm -q docs/wiki/home/new.md
 assert_eq "done: 기록을 지운 것도 바꾼 것으로 본다" "✓ wiki · 기록 1개를 지움" "$(cd "$p" && "$wiki" done)"
+gitc commit -q -m rm
+git -C "$p" rev-parse HEAD > "$sd/task.base"
+# 한글·공백 경로도 이번에 바꾼 기록으로 센다(core.quotePath, 파일마다 따로 검사)
+mkdir -p "$p/docs/wiki/홈 화면"
+printf -- '---\nkind: rule\n---\n\n# 제목\n' > "$p/docs/wiki/홈 화면/bad.md"
+out="$( (cd "$p" && "$wiki" done) 2>&1 || true)"
+assert_eq "done: 한글·공백 경로의 기록도 형식을 검사한다" "yes|no" \
+  "$(printf '%s' "$out" | grep -qF '이번에 바꾼 기록 1개 중 1개에 문제' && echo yes || echo no)|$(printf '%s' "$out" | grep -qF '파일이 없습니다' && echo yes || echo no)"
+rm -rf "$p/docs/wiki/홈 화면"
+# 작업 전부터 있던 추적 안 된 초안은 이번 작업의 변경이 아니다
+# 형식이 맞는 초안이라, 이번 변경으로 잘못 세면 통과(0)가 나온다
+printf -- '---\nkind: rule\ntags: [a]\n---\n\n# 초안\n\n## 규칙\nx\n## 적용 범위\nx\n## 근거\nx\n## 예외\n없음\n' > "$p/docs/wiki/old/draft.md"
+assert_eq "  (초안 형식은 맞다)" "0" "$( (cd "$p" && "$wiki" check docs/wiki/old/draft.md > /dev/null) && echo 0 || echo 1)"
+touch -t 202001010000 "$p/docs/wiki/old/draft.md"
+assert_eq "done: 작업 전부터 있던 추적 안 된 초안은 세지 않는다" "1" "$(done_rc)"
+rm "$p/docs/wiki/old/draft.md"
+# git이 무시하는 곳에 쓴 기록은 그 사실을 알린다
+printf 'docs/wiki/tmp/\n' > "$p/.gitignore"
+mkdir -p "$p/docs/wiki/tmp"; printf '# x\n' > "$p/docs/wiki/tmp/x.md"
+out="$( (cd "$p" && "$wiki" done) 2>&1 || true)"
+assert_eq "done: 무시되는 경로에 쓴 기록을 알린다" "yes" "$(printf '%s' "$out" | grep -qF 'git이 무시하는 경로에 쓴 기록' && echo yes || echo no)"
+rm -rf "$p/docs/wiki/tmp" "$p/.gitignore"
+# 하위 폴더에 설치한 프로젝트(모노레포)도 프로젝트 루트 기준으로 본다
+m="$work/mono"; mp="$m/apps/ios"
+mkdir -p "$mp/.harness/state" "$mp/docs/wiki/home"
+echo '{"schemaVersion":1}' > "$mp/.harness/project.json"
+git -C "$m" init -q -b main; git -C "$m" -c user.name=t -c user.email=t@t commit -q --allow-empty -m init
+git -C "$m" rev-parse HEAD > "$mp/.harness/state/task.base"
+echo '{"title":"t","mode":"simple","stage":"finish"}' > "$mp/.harness/state/task.json"
+printf -- '---\nkind: rule\n---\n\n# 제목\n' > "$mp/docs/wiki/home/bad.md"
+git -C "$m" add apps/ios/docs/wiki/home/bad.md; git -C "$m" -c user.name=t -c user.email=t@t commit -q -m bad
+assert_eq "done: 하위 폴더 설치에서도 커밋한 기록의 형식을 검사한다" "1" "$( (cd "$mp" && "$wiki" done > /dev/null 2>&1) && echo 0 || echo $?)"
 
 finish
