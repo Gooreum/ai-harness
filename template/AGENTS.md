@@ -33,6 +33,7 @@
 | 하네스가 제대로 설치됐는지 점검 (도구, 설정, 플러그인 버전) | `scripts/harness/doctor` |
 | 검사 목록(`.harness/checks.json`)을 사용자와 정하기 (안내만 출력) | `scripts/harness/setup` |
 | PR에 올릴 영상 준비 (이번 작업에서 찍은 것만) | `scripts/harness/pr-video` |
+| 승인 창 없이 멈춘 계획 보기 / 승인 (사용자만 실행한다. 에이전트는 실행하지 않는다) | `scripts/harness/approve-plan --show` / `scripts/harness/approve-plan` |
 
 - 코드를 고치는 작업은 `task` 스킬(harness 플러그인)로 시작한다. 계획할지(plan/simple)와 돌릴 검사는 사용자가 고르고, 단계마다 할 일은 하네스가 알려 준다. 검사 목록은 `.harness/checks.json`에 있다.
 - 실패하면 출력에 나온 첫 에러의 위치부터 고친다. `record`로 돌린 검사의 전체 로그는 `.harness/out/`에 있다.

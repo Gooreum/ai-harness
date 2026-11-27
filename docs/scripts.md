@@ -11,6 +11,7 @@
 | `doctor` | 하네스가 이 프로젝트에서 돌 수 있는지 점검한다 |
 | `setup` | 설정을 사용자와 정하는 안내를 낸다 |
 | `pr-video` | 이번 작업에서 찍은 영상을 PR에 올릴 크기로 바꾼다 |
+| `approve-plan` | 승인 창 없이 멈춘 계획을 사용자가 승인한다. 에이전트는 실행하지 못한다 |
 | `lib.sh` | 위 스크립트가 `source`로 불러 쓰는 공통 함수 |
 | `common-checks.json` | setup이 추천하는 검사(review)와 위키 단계 지시(`stages`) |
 
@@ -132,6 +133,21 @@ scripts/harness/pr-video
 - 출력: 한 줄에 하나씩 `<제목><탭><파일 경로>`. `<이름>-before.mp4`는 `수정 전`, 나머지는 `수정 후`이고 수정 전이 먼저 나온다. `수정 후`가 둘 이상이면 영상마다 제목 뒤에 파일 이름을 붙인다(`수정 후 (e2e)`). 나눈 영상은 끝에 `(1/3)`처럼 순서를 붙인다. 파일은 `.harness/out/pr-video/`에 둔다.
 - 종료 코드: 올릴 영상이 없으면 아무것도 출력하지 않고 0. `avconvert`가 없거나, 변환에 실패하거나, 나눠야 하는데 길이를 읽지 못하거나, 나눠도 9.5MB 이상이면 2.
 - 올리는 일은 에이전트가 template `AGENTS.md`의 안내대로 한다. GitHub PR 본문에서 영상으로 재생되는 링크는 웹에서 올린 첨부(`user-attachments`)뿐이고 `gh`나 API로는 올릴 수 없다. 그래서 Chrome으로 PR 본문 편집 칸을 열어 파일을 첨부하고 저장한다.
+
+## approve-plan
+
+ExitPlanMode 승인 창이 없는 세션(`claude -p`)에서 멈춘 계획을 사용자가 승인한다([ADR 0031](decisions/0031-plan-approval.md)).
+
+```bash
+scripts/harness/approve-plan --show   # 계획만 출력한다
+scripts/harness/approve-plan          # 승인한다
+```
+
+- 진행 중인 작업이 plan 단계이고 `.harness/state/plan.md`가 있어야 한다. 아니면 이유를 알리고 2로 끝난다.
+- 승인하면 `plan.md`를 `plan.approved`로 복사하고 `task.history`에 `approve`(`by: "approve-plan"`)를 남긴다. 출력은 `✓ 계획 승인 · <작업 제목>` 한 줄과 다음 할 일이다.
+- 승인한 뒤 멈춰 있던 세션을 이어 가면(`claude -p --resume <세션>`) 다음 응답 끝에 Stop 훅이 구현 단계로 넘긴다. 승인 뒤 계획이 바뀌면 다시 승인해야 한다.
+- 고칠 점이 있으면 승인하지 않고 세션에 수정 요청을 보낸다. 에이전트가 `plan.md`를 고쳐 쓰고 다시 멈춘다.
+- 에이전트는 이 스크립트를 실행하지 못한다(`guard-state.sh`). 사람이나, 사람의 승인을 전달하는 도구(예: 이슈 라벨로 승인을 받는 자동화)가 실행한다.
 
 ## 예전 iOS 스크립트
 

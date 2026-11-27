@@ -68,7 +68,8 @@ if [ -n "$stage_now" ] && [ "$stage_now" != done ] && { [ -z "$seen" ] || [ "$se
     || rm -f "$root/.harness/state/task.wip"
   : > "$history" 2>/dev/null || true
   # 지난 작업의 계획 글(plan-gate.sh가 저장)이 남아 있으면 계획 확인(stages.plan.run)이 지난 계획으로 통과한다.
-  rm -f "$root/.harness/state/plan.md"
+  # 지난 계획의 승인(plan.approved)도 지운다. 남아 있으면 새 계획이 승인 없이 넘어간다(ADR 0031).
+  rm -f "$root/.harness/state/plan.md" "$root/.harness/state/plan.approved" "$root/.harness/state/plan.waiting"
   hist --slurpfile t "$file" '{at: $at, event: "start", stage: $t[0].stage, mode: $t[0].mode, checks: ($t[0].checks // [])}'
 elif [ "$stage_now" = done ] && [ "$seen" != done ] && [ "$(jq -r '.cancelled // false' "$file" 2>/dev/null)" = true ]; then
   hist --arg s "$seen" '{at: $at, event: "cancel", from: $s}'

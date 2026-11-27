@@ -35,6 +35,13 @@
 
 ## 기록
 
+### 2026-11-25 — claude -p에서 plan 모드가 승인 없이 끝까지 넘어갔다
+- 프로젝트·작업: PetCycle 임시 워크트리. project-manager가 승인된 이슈를 하네스로 작업할 수 있는지 확인하려고 돌렸다
+- 무슨 일이 있었나: `claude -p --setting-sources user,project --permission-mode bypassPermissions`로 "task 스킬, plan 모드" 작업을 시켰다. 에이전트가 ExitPlanMode를 ToolSearch로 찾았지만 "No matching deferred tools found"가 나왔다. 응답을 마칠 때마다 Stop 훅이 단계를 넘겨 plan부터 done까지 모든 단계가 37초 만에 지나갔다. `--permission-mode plan`으로 다시 돌리니 ExitPlanMode는 여전히 없었고, `task.json` 쓰기가 막혀 작업이 시작되지 않았다
+- 원인: Enforcement. 계획 승인은 지시에만 있었고 Stop 훅은 확인하지 않았다
+- 조치: 승인된 계획이 있어야 plan 단계를 넘기게 했다. 승인 창이 없는 세션은 사용자가 `scripts/harness/approve-plan`으로 승인한다(ADR 0031)
+- 상태: 반영됨 (단위 35)
+
 ### 2026-11-09 — PetCycle에 위키 지시가 없어 정책·결정 기록이 하나도 쌓이지 않았다
 - 프로젝트·작업: PetCycle, 11-06부터 하네스로 한 작업 전체(커밋 65개)
 - 무슨 일이 있었나

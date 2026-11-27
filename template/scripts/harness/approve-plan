@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# 진행 중인 작업의 계획(.harness/state/plan.md)을 사용자가 승인한다. ExitPlanMode 승인 창이 없는 세션(claude -p)용이다.
+#
+# 발표(슬라이드 17)와 ai-bouncer는 계획 승인을 ExitPlanMode 승인 창으로만 받는다. 승인 창이 없는 세션에서는
+# 승인 없이 구현으로 넘어갔다. 하네스는 승인된 계획이 있어야 plan 단계를 넘긴다(ADR 0031).
+#   - 승인하면 계획 글을 .harness/state/plan.approved로 복사한다. Stop 훅은 두 파일이 같을 때만 넘긴다.
+#   - 에이전트는 이 스크립트를 실행하지 못한다(guard-state.sh). 사람이나 사람의 승인을 전달하는 도구가 실행한다.
+#   - 승인한 뒤 멈춰 있던 세션을 이어 가면(claude -p --resume <세션>) 다음 응답 끝에 구현 단계로 넘어간다.
+set -euo pipefail
+
+here="$(cd "$(dirname "$0")" && pwd)"
+. "$here/lib.sh"
+
+show=0
+case "${1:-}" in
+  -h | --help)
+    cat <<'HELP'
+사용법: scripts/harness/approve-plan [--show]
+
+  진행 중인 작업이 plan 단계이고 계획(.harness/state/plan.md)이 있으면 그 계획을 승인한다.
+  승인한 뒤 멈춰 있던 에이전트 세션을 이어 가면 구현 단계로 넘어간다.
+  --show  승인하지 않고 계획만 출력한다.
+
+  종료 코드: 승인함(또는 --show 출력) 0, 승인할 계획이 없음 2
+HELP
+    exit 0
+    ;;
+  --show) show=1 ;;
+  "") ;;
+  *) harness_die "알 수 없는 인자: $1 (scripts/harness/approve-plan --help)" ;;
+esac
+
+harness_init
+task="$state_dir/task.json"
+plan="$state_dir/plan.md"
+
+[ -f "$task" ] || harness_die "진행 중인 작업이 없다 (.harness/state/task.json 없음)"
+stage="$(jq -r '.stage // empty' "$task" 2> /dev/null)" || harness_die ".harness/state/task.json이 JSON 형식이 아니다"
+title="$(jq -r '.title // ""' "$task")"
+[ "$stage" = plan ] || harness_die "작업 \"$title\"은 plan 단계가 아니다 (지금 단계: ${stage:-없음})"
+[ -s "$plan" ] || harness_die "승인할 계획이 없다 (.harness/state/plan.md 없음). 에이전트가 계획을 쓴 뒤 다시 실행한다"
+
+if [ "$show" = 1 ]; then
+  cat "$plan"
+  exit 0
+fi
+if [ -f "$state_dir/plan.approved" ] && cmp -s "$plan" "$state_dir/plan.approved"; then
+  echo "✓ 이미 승인한 계획이다 · $title"
+  exit 0
+fi
+cp "$plan" "$state_dir/plan.approved"
+jq -nc --arg at "$(date -u +%FT%TZ)" '{at: $at, event: "approve", stage: "plan", by: "approve-plan"}' \
+  >> "$state_dir/task.history" 2> /dev/null || true
+echo "✓ 계획 승인 · $title"
+echo "  멈춰 있던 세션을 이어 가면 구현 단계로 넘어간다"

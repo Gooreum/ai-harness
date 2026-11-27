@@ -66,4 +66,21 @@ echo '{"schemaVersion":1}' > "$p/.harness/checks.json"
 assert_eq "stages.plan.run이 없으면 막지 않는다" "0" "$(gate s1 "$bad")"
 assert_eq "  (계획 글은 저장한다)" "$bad" "$(cat "$sd/plan.md")"
 
+# --- 승인 기록 훅(plan-approved.sh, ADR 0031) -------------------------------------
+approved_hook="$here/../plugin/hooks/plan-approved.sh"
+post() { # 세션 [cwd]
+  jq -n --arg s "$1" --arg cwd "${2:-$p}" '{hook_event_name: "PostToolUse", tool_name: "ExitPlanMode", session_id: $s, cwd: $cwd}' \
+    | "$approved_hook" && echo 0 || echo $?
+}
+rm -f "$sd/plan.approved"
+printf '%s\n' "$good" > "$sd/plan.md"
+set_stage implement
+assert_eq "승인 훅: plan 단계가 아니면 쓰지 않는다" "0|no" "$(post s1)|$([ -e "$sd/plan.approved" ] && echo yes || echo no)"
+set_stage plan
+assert_eq "승인 훅: 다른 세션이면 쓰지 않는다" "0|no" "$(post s2)|$([ -e "$sd/plan.approved" ] && echo yes || echo no)"
+assert_eq "승인 훅: 승인되면 계획 글을 plan.approved로 남긴다" "0|yes" "$(post s1)|$(cmp -s "$sd/plan.md" "$sd/plan.approved" && echo yes || echo no)"
+assert_eq "  단계 기록에 남긴다" '{"event":"approve","by":"ExitPlanMode"}' "$(tail -1 "$sd/task.history" | jq -c '{event, by}')"
+rm -f "$sd/plan.approved" "$sd/plan.md"
+assert_eq "승인 훅: 계획 글이 없으면 쓰지 않는다" "0|no" "$(post s1)|$([ -e "$sd/plan.approved" ] && echo yes || echo no)"
+
 finish
