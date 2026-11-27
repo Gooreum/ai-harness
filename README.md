@@ -199,6 +199,7 @@ scripts/harness/passed typecheck                            # 결과가 통과�
 - plan 단계는 승인된 계획이 있어야 넘어간다. 대화형 세션은 Plan 모드(ExitPlanMode) 승인 창으로 받는다. `claude -p`처럼 승인 창이 없는 세션은 계획을 `.harness/state/plan.md`에 남기고 멈춘다. 사용자가 `scripts/harness/approve-plan`으로 승인하고 세션을 이어 가면 구현으로 넘어간다([ADR 0031](docs/decisions/0031-plan-approval.md)).
 - 프로젝트는 단계마다 기준 문서(`stages.<단계>.prompt_file`)와 확인 명령(`stages.<단계>.run`)을 둘 수 있다. 기준 문서는 훅이 그 단계 지시에 그대로 넣는다. plan 단계에서는 ExitPlanMode 직전에 `plan-gate.sh`가 이 확인을 먼저 돌린다. 통과하지 못하면 승인 창이 뜨지 않는다([ADR 0030](docs/decisions/0030-plan-check.md)).
 - 마무리 단계에서는 바꾼 파일을 커밋하고 push한다(기본 브랜치면 새 브랜치). Stop 훅이 커밋·push를 확인한 뒤 작업을 닫는다. 시작 전부터 있던 무관한 변경은 그대로 둔다([ADR 0028](docs/decisions/0028-finish-commit-push.md)).
+- 추천 설정을 쓰면 마무리 단계에서 위키도 확인한다. 이번 작업에서 `docs/wiki/`를 바꿨으면 바꾼 기록의 형식을 본다. 바꾸지 않았으면 남기지 않은 이유를 `.harness/state/wiki.skip`에 적어야 작업이 닫힌다. 이 확인은 `stages.finish.run`의 `scripts/harness/wiki done`이다([ADR 0032](docs/decisions/0032-wiki-finish-check.md)).
 - 마무리 보고는 일곱 섹션으로 쓴다: 상황 · 조치 · 평가 · 단계 기록 · 위키 · 건의 · 결정 사항. 평가는 검사마다 결과 파일을 근거로 쓰고, 마지막 줄은 커밋·push(브랜치·해시)다.
 - "단계 기록"은 에이전트의 기억이 아니라 훅이 남긴 `.harness/state/task.history`(시작·넘김·차단·막은 쓰기·풀어 줌)를 옮긴다([docs/checks.md](docs/checks.md#단계-기록-harnessstatetaskhistory)).
 
@@ -311,7 +312,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `passed.test.sh` | passed가 결과 파일이 통과했고 최신인지 보는지 |
 | `approve-plan.test.sh` | approve-plan이 plan 단계의 계획만 승인하고, 승인한 뒤 Stop 훅이 구현 단계로 넘기는지 |
 | `pr-video.test.sh` | pr-video가 이번 작업에서 찍은 영상만 골라 올릴 크기로 바꾸고, 크면 나누는지 |
-| `wiki.test.sh` | 기록 찾기·검색 로그·형식 검사 |
+| `wiki.test.sh` | 기록 찾기·검색 로그·형식 검사, 마무리 위키 확인(`wiki done`) |
 | `network-mcp.test.sh` | 가짜 응답 MCP: 켠 프로젝트에서만 도구, 상태·지연·본문 응답, 구체적인 match 우선, 프로젝트끼리 독립 |
 | `setup.test.sh` | setup이 파일을 쓰지 않고, 찾은 명령·추천 검사·생성 파일 단서를 보여 주는지 |
 | `sync.test.sh` | init·sync의 파일 배치, AGENTS.md 관리 블록 교체, 설정 병합, 플러그인 등록, `--dev`, iOS 묶음 넘기기, 반복 실행 |

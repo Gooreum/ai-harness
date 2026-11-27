@@ -377,6 +377,10 @@
   - 할 일: Stop 훅이 승인된 계획(`plan.approved`)과 계획 글(`plan.md`)이 같을 때만 넘긴다. ExitPlanMode 승인은 `plan-approved.sh`가, 승인 창이 없는 세션은 사용자가 `scripts/harness/approve-plan`으로 남긴다. `guard-state.sh`가 에이전트의 승인 기록 쓰기와 `approve-plan` 실행을 막는다
   - 완료 기준: `bash tests/run.sh` 통과. PetCycle 사본에서 `claude -p`로 plan 모드를 돌리면 계획을 남기고 멈추고, `approve-plan` 뒤 `--resume`하면 구현으로 넘어간다
   - 결과(2026-11-25): PetCycle 임시 사본을 `sync --dev`로 0.17.0에 맞추고 `claude -p`로 돌렸다. 계획을 `plan.md`에 쓰고 plan 단계에서 멈췄다(`wait`). `approve-plan` 뒤 `--resume`하니 implement·verify·finish 단계를 차례로 지나 커밋까지 했다. push는 실험이라 막았다
+- [x] **36. 마무리 단계에서 위키 기록을 건너뛰지 못하게 한다** (ADR 0032)
+  - 관찰(2026-11-28, project-manager 세션이 알림): PetCycle `development`에는 11월 7일 이후 커밋이 66개 있었지만 `docs/wiki/`가 없었다. PetCycle의 `stages.finish`에는 지시(prompt)만 있고 확인(run)은 없었다. 임시 프로젝트에서 재현하니 위키 없이 커밋·push만 해도 작업이 done으로 닫혔다
+  - 할 일: `scripts/harness/wiki done`을 만들어 추천 설정의 `stages.finish.run`에 둔다. 바꾼 기록이 있으면 그 기록의 형식을, 없으면 남기지 않은 이유(`.harness/state/wiki.skip`)를 확인한다. 새 작업을 시작하면 이유 파일을 지운다. run이 빠진 프로젝트는 doctor가 알리고, setup은 묻지 않고 run을 더한다
+  - 완료 기준: `bash tests/run.sh` 통과. PetCycle을 0.18.0으로 sync하고 `stages.finish.run`을 더한 PR을 `development`로 낸다
 - [ ] **34. 문서 검수에서 찾은 훅의 빈틈** (2026-11-09)
   - 찾은 경위: 설명 문서("하네스 쉽게 보기")를 검수하며 코드와 대조해 찾았다. 시험장에서 실제로 일어난 일은 아니다. ai-bouncer가 막는 세 가지만 여기서 다루고, 나머지는 아래 "관찰되면 할 것"에 둔다
   - [ ] 검사 결과 파일 쓰기 막기

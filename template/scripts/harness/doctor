@@ -114,6 +114,12 @@ if [ -f "$checks_file" ] && jq empty "$checks_file" 2> /dev/null \
   warn "checks.json의 단계 지시(stages)에 위키가 없어 정책·결정이 기록되지 않는다" \
     "scripts/harness/setup 안내대로 위키 단계 지시를 더한다. 쓰지 않을 거면 checks.json에 \"wiki\": false"
 fi
+# 마무리 위키 확인: 지시만 있으면 기록을 건너뛰어도 작업이 닫힌다(ADR 0032).
+if [ -f "$checks_file" ] && jq empty "$checks_file" 2> /dev/null \
+  && jq -e '.wiki != false and (.stages.finish.prompt // "" | test("wiki")) and ((.stages.finish.run // "") | test("wiki done") | not)' "$checks_file" > /dev/null; then
+  warn "checks.json의 stages.finish에 위키 확인(run)이 없어 위키를 건너뛰어도 작업이 닫힌다" \
+    "stages.finish.run에 scripts/harness/wiki done을 넣는다. run이 이미 있으면 scripts/harness/wiki done && <원래 run>"
+fi
 
 # --- 설치된 파일 -----------------------------------------------------------------
 

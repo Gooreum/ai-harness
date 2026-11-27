@@ -9,9 +9,10 @@
 |---|---|---|
 | 작업 시작 (plan 단계, simple이면 implement 단계 처음) | 에이전트 | `scripts/harness/wiki search <단어>`로 관련 기록을 찾아 읽는다 |
 | 기록과 반대되는 요청 | 에이전트 → 사람 | 바로 고치지 않고 기록과 근거를 보여 주며 정책을 유지할지 묻는다 |
-| 작업 마무리 (finish 단계) | 에이전트 | 이번에 정한 결정·알게 된 사실을 쓴다. 비슷한 기록이 있으면 고친다 |
+| 작업 마무리 (finish 단계) | 에이전트 | 이번에 정한 결정·알게 된 사실을 쓴다. 비슷한 기록이 있으면 고친다. 남길 것이 없으면 이유를 `.harness/state/wiki.skip`에 한 줄로 쓴다 |
 
 - 언제 찾고 쓰라는 지시는 하네스 코드가 아니라 프로젝트의 `.harness/checks.json`의 `stages.<단계>.prompt`에 한 줄씩 둔다. 발표에서도 마무리 단계에 config 한 줄을 더했다.
+- PetCycle에서는 지시가 있는데도 기록이 쌓이지 않았다. 그래서 추천 설정의 `stages.finish.run`에 확인 명령 `scripts/harness/wiki done`을 넣었다. 기록을 남기거나, 남길 것이 없으면 그 이유를 적어야 작업이 닫힌다([ADR 0032](decisions/0032-wiki-finish-check.md)).
 - 추천 문장은 `scripts/harness/common-checks.json`의 `stages`에 있고, setup이 둘지 묻는다. 지시가 없으면 doctor가 주의를 준다. 위키를 쓰지 않을 프로젝트는 `checks.json`에 `"wiki": false`를 쓴다.
 - 위키를 찾았는지·썼는지를 훅이 확인하지는 않는다. 지시가 있는 시험장에서는 빠뜨린 일이 관찰되지 않았다. 관찰되면 그때 확인을 넣는다.
 - 템플릿 규칙 `.claude/rules/harness/wiki.md`가 `docs/wiki/`의 파일을 열 때 함께 읽혀 형식과 절차를 알려 준다.
@@ -45,6 +46,7 @@ tags: [번역, 글자수]
 scripts/harness/wiki search 번역 500   # 모든 단어가 든 기록: "종류  경로  제목"
 scripts/harness/wiki check             # 모든 기록의 형식 검사
 scripts/harness/wiki check docs/wiki/translation/x.md
+scripts/harness/wiki done              # 마무리 확인(stages.finish.run): 이번 작업의 기록이나 남기지 않은 이유
 ```
 
 - search는 대소문자를 무시하고 모든 단어가 들어 있는 기록을 찾는다. 찾으면 0, 없으면 1로 끝난다.

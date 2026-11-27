@@ -116,6 +116,10 @@ assert_eq "wiki: 위키가 아닌 단계 지시만 있어도 주의를 준다" "
 jq --slurpfile c "$p/scripts/harness/common-checks.json" '. + {stages: $c[0].stages}' "$work/checks.bak" > "$p/.harness/checks.json"
 run_doctor
 assert_eq "wiki: 추천 위키 지시를 옮기면 주의가 없다" "no" "$(has "위키가 없어")"
+assert_eq "wiki: 추천 위키 확인(run)도 옮기면 주의가 없다" "no" "$(has "위키 확인(run)이 없어")"
+jq --slurpfile c "$p/scripts/harness/common-checks.json" '. + {stages: $c[0].stages} | del(.stages.finish.run)' "$work/checks.bak" > "$p/.harness/checks.json"
+run_doctor
+assert_eq "wiki: 마무리 위키 지시만 있고 확인(run)이 없으면 주의를 준다" "yes" "$(has "! checks.json의 stages.finish에 위키 확인(run)이 없어")"
 jq '. + {wiki: false}' "$work/checks.bak" > "$p/.harness/checks.json"
 run_doctor
 assert_eq "wiki: \"wiki\": false면 묻지 않는다" "no" "$(has "위키가 없어")"

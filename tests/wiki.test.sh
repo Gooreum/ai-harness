@@ -94,4 +94,49 @@ assert_eq "기록 폴더가 없으면 search는 없음" '· wiki · "홈"에 맞
 out="$(run 2>&1)" && code=0 || code=$?
 assert_eq "인자가 없으면 2" "2" "$code"
 
+# --- done: 마무리 단계의 위키 확인 (ADR 0032) ---------------------------------------------
+sd="$p/.harness/state"
+done_rc() { (cd "$p" && "$wiki" done > /dev/null 2>&1) && echo 0 || echo $?; }
+assert_eq "done: 시작 커밋이 없으면 막지 않는다" "0" "$(done_rc)"
+gitc() { git -C "$p" -c user.name=t -c user.email=t@t "$@"; }
+# 시작 전부터 있던 기록은 형식이 틀려도 이번 작업의 확인에 넣지 않는다
+mkdir -p "$p/docs/wiki/old"; printf '# 예전 기록\n' > "$p/docs/wiki/old/old.md"
+gitc add docs/wiki/old/old.md; gitc commit -q -m init
+git -C "$p" rev-parse HEAD > "$sd/task.base"
+rm -f "$sd/wiki.skip"
+assert_eq "done: 위키를 바꾸지 않았고 이유도 없으면 1" "1" "$(done_rc)"
+out="$( (cd "$p" && "$wiki" done) 2>&1 || true)"
+assert_eq "  (wiki.skip에 이유를 쓰라고 한다)" "yes" "$(printf '%s' "$out" | grep -qF .harness/state/wiki.skip && echo yes || echo no)"
+printf '\n  \n' > "$sd/wiki.skip"
+assert_eq "done: 이유가 비어 있으면 1" "1" "$(done_rc)"
+echo "문구만 바꿔 정한 정책이 없다" > "$sd/wiki.skip"
+assert_eq "done: 이유를 적었으면 통과하고 이유를 보여 준다" "✓ wiki · 이번 작업은 기록하지 않음: 문구만 바꿔 정한 정책이 없다" "$(cd "$p" && "$wiki" done)"
+rm "$sd/wiki.skip"
+mkdir -p "$p/docs/wiki/home"
+printf -- '---\nkind: rule\n---\n\n# 제목\n' > "$p/docs/wiki/home/new.md"
+assert_eq "done: 새 기록의 형식이 틀리면 1" "1" "$(done_rc)"
+cat > "$p/docs/wiki/home/new.md" <<'MD'
+---
+kind: rule
+tags: [홈]
+---
+
+# 홈 추천은 20개까지만 보여 준다
+
+## 규칙
+20개에서 자른다
+## 적용 범위
+홈
+## 근거
+기획 논의
+## 예외
+없음
+MD
+assert_eq "done: 이번에 바꾼 기록(커밋 전)만 검사해 통과한다" "✓ wiki · 기록 1개" "$(cd "$p" && "$wiki" done)"
+gitc add docs/wiki/home/new.md; gitc commit -q -m wiki
+assert_eq "done: 커밋한 기록도 센다" "0" "$(done_rc)"
+git -C "$p" rev-parse HEAD > "$sd/task.base"
+gitc rm -q docs/wiki/home/new.md
+assert_eq "done: 기록을 지운 것도 바꾼 것으로 본다" "✓ wiki · 기록 1개를 지움" "$(cd "$p" && "$wiki" done)"
+
 finish
