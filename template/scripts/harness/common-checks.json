@@ -5,6 +5,7 @@
   "stages": {
     "plan": {"prompt": "먼저 scripts/harness/wiki search로 관련 정책·결정 기록을 찾아 읽는다"},
     "implement": {"prompt": "plan 단계를 거치지 않았으면 먼저 scripts/harness/wiki search로 관련 정책·결정 기록을 찾아 읽는다"},
-    "finish": {"prompt": "이번에 정한 정책·결정과 알게 된 사실을 docs/wiki/에 기록한다(비슷한 기록이 있으면 고친다). 코드와 커밋만 보고 알 수 있는 것은 쓰지 않는다. 쓴 뒤 scripts/harness/wiki check를 돌린다"}
+    "finish": {"prompt": "이번에 정한 정책·결정과 알게 된 사실을 docs/wiki/에 기록한다(비슷한 기록이 있으면 고친다). 코드와 커밋만 보고 알 수 있는 것은 쓰지 않는다. 쓴 뒤 scripts/harness/wiki check를 돌린다. 남길 것이 없으면 그 이유를 한 줄로 .harness/state/wiki.skip에 쓴다",
+    "run": "scripts/harness/wiki done"}
   }
 }

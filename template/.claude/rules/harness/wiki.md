@@ -20,7 +20,7 @@ paths:
 
 ## 형식
 
-경로는 `docs/wiki/<주제>/<영문-소문자-하이픈>.md`다. 쓰고 나면 `scripts/harness/wiki check <파일>`로 형식을 검사한다.
+경로는 `docs/wiki/<주제>/<영문-소문자-하이픈>.md`다. 쓰고 나면 `scripts/harness/wiki check <파일>`로 형식을 검사한다. 마무리할 때 남길 것이 없으면 기록을 억지로 만들지 말고 그 이유를 `.harness/state/wiki.skip`에 한 줄로 쓴다.
 
 ```markdown
 ---

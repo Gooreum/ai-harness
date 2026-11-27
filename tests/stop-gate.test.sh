@@ -230,6 +230,18 @@ gtask
 rm -f "$gs/task.history"
 assert_eq "finish: 커밋·push를 마쳤으면 닫는다" "0|done" "$(gstop)|$(jq -r .stage "$gs/task.json")"
 assert_eq "  (기록에 commit·push 확인을 남긴다)" "commit:0,push:0" "$(jq -rs '.[-1].runs | map("\(.name):\(.rc)") | join(",")' "$gs/task.history")"
+# 마무리 위키 확인(stages.finish.run, ADR 0032): 추천 설정이면 위키도 이유도 없을 때 닫지 않는다
+wiki="$here/../template/scripts/harness/wiki"
+jq -n --arg r "$wiki done" '{schemaVersion: 1, checks: [], stages: {finish: {prompt: "위키", run: $r}}}' > "$g/.harness/checks.json"
+echo .harness/checks.json >> "$gs/task.wip"   # 시험용 설정 파일은 커밋 확인에서 뺀다
+gtask
+out="$(greason)"
+assert_eq "finish: 위키를 바꾸지 않았고 이유도 없으면 막는다" "2|finish" "$(gtask; gstop)|$(jq -r .stage "$gs/task.json")"
+assert_eq "  (wiki.skip을 알려 준다)" "yes" "$(has ".harness/state/wiki.skip" "$out")"
+echo "설정만 바꿔 정한 정책이 없다" > "$gs/wiki.skip"
+gtask
+assert_eq "finish: 이유를 적었으면 닫는다" "0|done" "$(gstop)|$(jq -r .stage "$gs/task.json")"
+rm -f "$gs/wiki.skip" "$g/.harness/checks.json"
 rm "$gs/task.base"
 echo d >> "$g/a.txt"
 gtask

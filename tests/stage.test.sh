@@ -100,7 +100,9 @@ assert_eq "started: 끝나지 않은 작업은 제목이 바뀌어도 이어서 
 ctx '{"title":"A","mode":"simple","stage":"done"}' > /dev/null
 assert_eq "started: done이 돼도 그대로 둔다" "202601010000" "$(stat -f %Sm -t %Y%m%d%H%M "$sfile")"
 echo x > "$p/wip.txt"
+echo '지난 작업의 이유' > "$p/.harness/state/wiki.skip"
 ctx '{"title":"A","mode":"simple","stage":"implement"}' > /dev/null
+assert_eq "wiki.skip: 새 작업이면 지난 작업의 이유를 지운다" "no" "$([ -e "$p/.harness/state/wiki.skip" ] && echo yes || echo no)"
 assert_eq "wip: 새 작업이면 시작 때 바뀌어 있던 파일을 적는다" "wip.txt" "$(grep -x wip.txt "$p/.harness/state/task.wip")"
 rm "$p/wip.txt"
 assert_eq "started: 끝난 뒤 같은 제목으로 다시 시작해도 새로 적는다" "no" "$([ "$(stat -f %Sm -t %Y%m%d%H%M "$sfile")" = 202601010000 ] && echo yes || echo no)"
