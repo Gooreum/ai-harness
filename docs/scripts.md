@@ -126,6 +126,25 @@ scripts/harness/doctor
 - 마지막에 `doctor`로 확인하고, 쓴 내용을 보여 주고 커밋해야 한다고 알린다.
 - AskUserQuestion을 쓸 수 없는 세션이면 묻지 않고 추천 검사만으로 `checks.json`을 쓴다. 다른 설정은 쓰지 않는다.
 
+## e2e-plan
+
+계획에서 e2e 시나리오가 필요하다고 정하면, e2e 검사를 고르지 않았어도 시나리오를 쓰게 한다. 돌릴지는 사람이 검사로 고른다([ADR 0033](decisions/0033-e2e-plan.md)). 설정은 [checks.md](checks.md#e2e-계획-확인-계획에서-정한-시나리오-쓰기돌리기)에 있다.
+
+```bash
+scripts/harness/e2e-plan plan           # stages.plan.run
+scripts/harness/e2e-plan written        # stages.implement.run
+scripts/harness/e2e-plan ran e2e-ios    # e2e 검사 run 끝에 && 로 잇는다
+scripts/harness/e2e-plan list           # 이번에 돌릴 시나리오
+```
+
+- `project.json`에 `e2e.scenarios`가 없으면 아무것도 확인하지 않고 0으로 끝난다.
+- `plan`: `.harness/state/plan.md`에서 `- e2e 판단: 필요|기존 수정|불필요 (기준 번호) 이유` 줄을 찾는다. 필요·기존 수정이면 `- e2e 시나리오: <시나리오 폴더>/<파일>` 줄이 있어야 하고, 필요면 시나리오마다 시작점·동작·확인이 있어야 한다. 불필요의 근거는 U 번호만 쓴다. 이번 작업에서 `"e2e": true`인 검사를 고르지 않았으면 `- e2e 실행: 안 함` 줄도 있어야 한다.
+- `written`: 계획한 시나리오 파일이 있고, 시작 커밋(`task.base`) 이후 바뀐 파일에 들어 있어야 한다. e2e 검사를 고르지 않았으면 그 경로를 `.harness/e2e-unrun`에 한 줄씩 더한다. 계획서가 없거나(simple 모드) 시작 커밋이 없으면 건너뛴다.
+- `ran <검사>`: 돌려야 할 시나리오는 계획한 것과 `.harness/e2e-unrun`의 것 가운데 지금 있는 파일이다. `.harness/out/<검사>.json`의 `command` 인자 가운데 그 파일이나 그 파일을 담은 폴더가 있어야 한다. 통과하면 돌린 것을 `.harness/e2e-unrun`에서 지우고, 비면 파일을 지운다.
+- `list`: 계획한 시나리오와 `.harness/e2e-unrun`을 겹치지 않게 한 줄에 하나씩 낸다.
+- 판단 기준은 같은 폴더의 `e2e-criteria.md`다. `stages.plan.prompt_file`에 두면 훅이 plan 단계 지시에 넣는다.
+- 종료 코드: 통과 0, 확인 실패 1, 인자 오류 2. 실패하면 무엇이 빠졌는지 한 줄로 낸다.
+
 ## pr-video
 
 PR을 만들 때 이번 작업에서 찍은 영상을 올릴 수 있게 준비한다. 발표 슬라이드 87처럼 리뷰어가 앱을 실행하지 않고 PR에서 수정 결과를 보게 한다([ADR 0029](decisions/0029-pr-video.md)).

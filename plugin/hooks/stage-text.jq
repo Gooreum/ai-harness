@@ -1,5 +1,5 @@
 # 지금 단계에서 할 일(지시 글). 입력은 task.json, 인자는 $flows(flows.json)와 $conf(checks.json을 --slurpfile로),
-# 그리고 stages.<단계>.prompt_file을 stage-text.sh가 읽은 결과($pf 경로, $doc 내용, $doc_err 못 읽은 이유).
+# 그리고 stages.<단계>.prompt_file을 stage-text.sh가 읽은 결과($docs: [{path, doc, err(못 읽은 이유)}]).
 # stage-text.sh가 부르고, stage-context.sh(작업을 시작할 때)와 stop-gate.sh(단계를 넘길 때)가 그 스크립트를 쓴다.
 # 훅은 검사 내용을 모른다. checks.json에 적힌 글을 단계에 맞춰 옮길 뿐이다(발표 슬라이드 27).
 ($conf[0]) as $c
@@ -27,9 +27,8 @@
          $base[$t.stage] ]
        + (if $c.stages[$t.stage].prompt then [$c.stages[$t.stage].prompt] else [] end)
        # prompt_file: 훅이 내용을 그대로 넣는다. 읽지 않고 넘어가지 못하게 하려는 것이다(ADR 0030).
-       + (if $pf == "" then []
-          elif $doc_err != "" then ["stages.\($t.stage).prompt_file(\($pf))을 읽지 못했다: \($doc_err). 사용자에게 알린다."]
-          else ["아래는 \($pf)의 내용이다. 하네스가 넣었으니 다시 열지 않아도 된다. 이 단계는 이 기준을 따른다.\n----- \($pf) -----\n\($doc)\n----- 끝 -----"] end)
+       + ($docs | map(if .err != "" then "stages.\($t.stage).prompt_file(\(.path))을 읽지 못했다: \(.err). 사용자에게 알린다."
+          else "아래는 \(.path)의 내용이다. 하네스가 넣었으니 다시 열지 않아도 된다. 이 단계는 이 기준을 따른다.\n----- \(.path) -----\n\(.doc)\n----- 끝 -----" end))
        # stages.<단계>.run: 이 단계를 마칠 때 하네스가 돌리는 확인. plan 단계는 ExitPlanMode 직전에도 돌린다(plan-gate.sh).
        + (if $c.stages[$t.stage].run then
             ["이 단계를 마칠 때 하네스가 프로젝트의 확인 명령 `\($c.stages[$t.stage].run)`을 돌린다. 통과하지 못하면 다음 단계로 넘어가지 못한다."

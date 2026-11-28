@@ -127,6 +127,13 @@ else
   echo "  없다 — 아래 ⑥으로 둘지 묻는다. 없으면 작업을 시작할 때 기록을 찾지 않고, 마무리할 때 정한 것을 남기지 않는다"
 fi
 echo
+echo "e2e 계획 확인 (계획에서 시나리오가 필요하다고 정하면, e2e를 고르지 않았어도 시나리오를 쓰게 한다):"
+if [ -n "$(jq -r '.e2e.scenarios // empty' "$root/.harness/project.json" 2> /dev/null)" ]; then
+  echo "  켜져 있다 (project.json의 e2e.scenarios). 빠진 설정은 scripts/harness/doctor가 알려 준다"
+else
+  echo "  꺼져 있다. e2e 검사를 두면 아래 ⑦대로 묻지 않고 켠다"
+fi
+echo
 echo "저장소에서 찾은 검사 명령:"
 if [ ${#found[@]} -eq 0 ]; then
   echo "  (찾지 못했다 — 무엇으로 테스트·린트·빌드하는지 사용자에게 묻는다)"
@@ -175,6 +182,13 @@ cat <<'EOF'
    - 위키를 두기로 하면 → common-checks.json의 "stages"를 checks.json의 "stages"에 합친다. 이미 그 단계에 prompt가 있으면
      지우지 말고 위키 문장을 앞에 붙인다. finish의 run(scripts/harness/wiki done)도 옮긴다. 이미 run이 있으면
      scripts/harness/wiki done && <원래 run>으로 잇는다. 두지 않기로 하면 checks.json에 "wiki": false를 쓴다(doctor가 다시 묻지 않는다).
+   - e2e 검사가 있으면 묻지 않고 e2e 계획 확인을 켠다(ADR 0033). e2e를 돌릴지는 작업마다 사용자가 검사로 고르고,
+     계획에서 필요하다고 정한 시나리오는 고르지 않았어도 쓴다.
+     ⑦ project.json에 "e2e": {"scenarios": "<시나리오 폴더>"}를 쓴다(예: .maestro). 이미 e2e 칸이 있으면 그 안에 더한다.
+        checks.json의 e2e 검사마다 "e2e": true를 더하고, run 끝에 && scripts/harness/e2e-plan ran <검사 이름>을 잇는다.
+        stages.plan.prompt_file에 scripts/harness/e2e-criteria.md를 둔다. 이미 파일이 있으면 배열로 둘 다 둔다.
+        stages.plan.run에 scripts/harness/e2e-plan plan, stages.implement.run에 scripts/harness/e2e-plan written을 둔다.
+        이미 run이 있으면 && 로 잇는다. 핵심 흐름(판단 기준 N3)이 위키에 없으면 사용자에게 물어 docs/wiki/에 rule로 남긴다.
    - 정한 빌드·테스트 명령 → AGENTS.md 위쪽 프로젝트 영역의 "빌드·테스트" 칸.
    - 팀 코딩 규칙이 있다고 하면 .claude/rules/project/<이름>.md에 paths를 달아 둔다(하네스 저장소의 docs/template.md).
 3. scripts/harness/doctor가 문제를 내지 않는지 확인한다. 쓴 내용을 사용자에게 보여 주고, 커밋해야 한다고 알린다.

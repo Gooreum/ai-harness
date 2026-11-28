@@ -381,6 +381,12 @@
   - 관찰(2026-11-28, project-manager 세션이 알림): PetCycle `development`에는 11월 7일 이후 커밋이 66개 있었지만 `docs/wiki/`가 없었다. PetCycle의 `stages.finish`에는 지시(prompt)만 있고 확인(run)은 없었다. 임시 프로젝트에서 재현하니 위키 없이 커밋·push만 해도 작업이 done으로 닫혔다
   - 할 일: `scripts/harness/wiki done`을 만들어 추천 설정의 `stages.finish.run`에 둔다. 바꾼 기록이 있으면 그 기록의 형식을, 없으면 남기지 않은 이유(`.harness/state/wiki.skip`)를 확인한다. 새 작업을 시작하면 이유 파일을 지운다. run이 빠진 프로젝트는 doctor가 알리고, setup은 묻지 않고 run을 더한다
   - 완료 기준: `bash tests/run.sh` 통과. PetCycle을 0.18.0으로 sync하고 `stages.finish.run`을 더한 PR을 `development`로 낸다
+- [x] **37. 계획에서 e2e가 필요하다고 정하면 시나리오를 쓰고, 돌릴지는 사람이 정한다** (ADR 0033)
+  - 관찰(2026-11-28): PetCycle의 e2e 판단 확인(`e2e-planned.sh verify`)은 e2e-ios 검사의 run에만 붙어 있었다. 검사는 시작할 때 고르고 판단은 계획에서 나오므로, e2e를 고르지 않은 작업에서 "필요"가 나오면 시나리오를 쓰지 않아도 작업이 끝났다. e2e-android에는 확인이 없었다
+  - 사용자 결정: e2e 실행은 사람이 정한다. 고르지 않았어도 계획이 필요하다고 정하면 시나리오는 쓴다. 하네스에서 고친다. 돌리지 않은 시나리오는 보고에 적고 표시를 남겨 다음에 e2e를 고른 작업에서 돌린다
+  - 할 일: `scripts/harness/e2e-plan`(plan·written·ran·list)과 판단 기준 `e2e-criteria.md`를 template에 둔다. 켜는 설정은 `project.json`의 `e2e.scenarios`와 검사의 `"e2e": true`, 단계 확인 명령이다. `prompt_file`이 배열을 받게 한다. doctor가 빠진 설정을 알리고, setup은 e2e 검사가 있으면 묻지 않고 켠다
+  - 완료 기준: `bash tests/run.sh` 통과. 임시 프로젝트에서 계획 판단 줄이 없으면 승인 창이 막히고, 시나리오를 쓰지 않으면 implement에서 막힌다. 시나리오를 쓰면 하네스가 implement를 넘기고, 그 시나리오를 `.harness/e2e-unrun`에 남긴다
+  - 결과(2026-11-28): 임시 프로젝트(`scripts/init`)에서 훅을 차례로 돌려 위 세 가지를 확인했다. PetCycle 적용은 따로 한다
 - [ ] **34. 문서 검수에서 찾은 훅의 빈틈** (2026-11-09)
   - 찾은 경위: 설명 문서("하네스 쉽게 보기")를 검수하며 코드와 대조해 찾았다. 시험장에서 실제로 일어난 일은 아니다. ai-bouncer가 막는 세 가지만 여기서 다루고, 나머지는 아래 "관찰되면 할 것"에 둔다
   - [ ] 검사 결과 파일 쓰기 막기

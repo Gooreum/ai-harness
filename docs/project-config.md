@@ -24,6 +24,7 @@
 |---|---|---|
 | `schemaVersion` | `2` | 파일 형식 버전 |
 | `generated` | 글롭 배열, 선택 | 직접 고치면 안 되는 생성 파일(루트 기준, `*`는 `/`도 넘는다). 예: Expo prebuild의 `["ios/*", "android/*"]`, Tuist·XcodeGen의 `["*.xcodeproj/*", "*.xcworkspace/*", "Derived/*", "*/Derived/*"]`, codegen 결과 `["src/gql/*.generated.ts"]`. 훅 `protect-generated.sh`가 편집을 막고, 리뷰어가 열지 않아도 된다. setup이 사용자에게 물어 정한다 |
+| `e2e.scenarios` | 폴더 경로 또는 없음 | e2e 시나리오 폴더(루트 기준, 예: `.maestro`). 있으면 `scripts/harness/e2e-plan`이 계획에서 정한 시나리오를 쓰고 돌렸는지 확인한다. 계획서의 시나리오 경로는 이 폴더 아래여야 한다([checks.md](checks.md#e2e-계획-확인-계획에서-정한-시나리오-쓰기돌리기), ADR 0033) |
 | `e2e.network.port` | 포트 번호 또는 없음 | 가짜 응답 서버(플러그인 MCP `harness-network`)가 쓸 포트. 있을 때만 MCP 도구가 보인다. 프로젝트마다 다른 번호를 쓴다. 같은 프로젝트의 다른 워크트리가 이미 쓰고 있으면 서버가 빈 포트로 띄우고 `.harness/state/network.port`에 남긴다([plugin.md](plugin.md#mcp-harness-network-가짜-응답-서버)) |
 
 - 생성물은 아니지만 손으로 고치면 깨지는 파일(예: `project.pbxproj`)은 여기에 적지 않고 `.claude/settings.json`의 deny에 `Edit(<글롭>)`으로 넣는다. setup이 함께 묻는다.

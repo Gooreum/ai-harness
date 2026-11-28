@@ -132,6 +132,30 @@ assert_eq "  파일이 있으면 알리지 않는다" "no" "$(has "prompt_file")
 jq '.stages.plan.prompt_file = "/etc/hosts"' "$p/.harness/checks.json" > "$work/c.json" && mv "$work/c.json" "$p/.harness/checks.json"
 run_doctor
 assert_eq "  프로젝트 밖 경로는 문제로 알린다" "yes" "$(has "프로젝트 안의 상대 경로가 아니다")"
+jq '.stages.plan.prompt_file = ["docs/wiki/e2e.md", "docs/wiki/none.md"]' "$p/.harness/checks.json" > "$work/c.json" && mv "$work/c.json" "$p/.harness/checks.json"
+run_doctor
+assert_eq "  배열이면 파일마다 본다" "yes|no" "$(has "prompt_file(docs/wiki/none.md)이 없다")|$(has "prompt_file(docs/wiki/e2e.md)이 없다")"
+
+# e2e 계획 확인(ADR 0033)
+cp "$p/.harness/project.json" "$work/project.bak"
+jq '. + {wiki: false, checks: [{name: "e2e-ios", run: "scripts/harness/passed e2e-ios", prompt: "scripts/harness/record e2e-ios \"x\""}]}' "$work/checks.bak" > "$p/.harness/checks.json"
+run_doctor
+assert_eq "e2e: e2e 검사가 있는데 꺼져 있으면 주의를 준다" "yes" "$(has "project.json에 e2e.scenarios가 없어")"
+jq '. + {e2e: {scenarios: ".maestro"}}' "$work/project.bak" > "$p/.harness/project.json"
+run_doctor
+assert_eq "e2e: 시나리오 폴더가 없으면 문제" "yes|1" "$(has "e2e.scenarios(.maestro) 폴더가 없다")|$code"
+assert_eq "e2e: e2e 표시가 없으면 주의" "yes" "$(has "\"e2e\": true인 검사가 없다")"
+assert_eq "e2e: 단계 확인이 없으면 주의" "yes|yes|yes" "$(has "stages.plan.run에 e2e 판단 확인이 없다")|$(has "e2e 판단 기준이 없다")|$(has "시나리오 작성 확인이 없어")"
+mkdir -p "$p/.maestro"
+jq '. + {wiki: false,
+  checks: [{name: "e2e-ios", e2e: true, run: "scripts/harness/passed e2e-ios && scripts/harness/e2e-plan ran e2e-ios", prompt: "scripts/harness/record e2e-ios \"x\""}],
+  stages: {plan: {prompt_file: ["scripts/harness/e2e-criteria.md"], run: "scripts/harness/e2e-plan plan"}, implement: {run: "scripts/harness/e2e-plan written"}}}' "$work/checks.bak" > "$p/.harness/checks.json"
+run_doctor
+assert_eq "e2e: 다 갖추면 e2e 주의가 없다" "no|no|no" "$(has "e2e-plan")|$(has "e2e.scenarios")|$(has "e2e 판단 기준")"
+jq '.checks[0].run = "scripts/harness/passed e2e-ios"' "$p/.harness/checks.json" > "$work/c.json" && mv "$work/c.json" "$p/.harness/checks.json"
+run_doctor
+assert_eq "e2e: e2e 검사 run에 실행 확인이 없으면 주의" "yes" "$(has "'e2e-ios' run에 계획한 시나리오를 돌렸는지 보는 확인이 없다")"
+cp "$work/project.bak" "$p/.harness/project.json"; rm -rf "$p/.maestro"
 rm -rf "$p/.harness/checks.json" "$p/docs/wiki/e2e.md"
 
 rc=0; out="$(cd "$p" && env PATH="$(nojq_path "$work")" /bin/bash scripts/harness/doctor)" || rc=$?

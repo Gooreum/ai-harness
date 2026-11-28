@@ -24,7 +24,7 @@ plugin/
     ├── stop-gate.sh                응답을 마치려 할 때 그 단계의 확인을 돌리고, 통과하면 다음 단계로 넘긴다. 확인은 검증 단계의 고른 검사 run과 stages.<단계>.run이다. done 전에는 끝내지 못한다
     ├── plan-gate.sh                ExitPlanMode 직전에 계획 글을 저장하고 stages.plan.run을 돌린다. 실패하면 승인 창을 띄우지 않는다
     ├── plan-approved.sh            ExitPlanMode가 승인되면 계획 글을 승인된 계획(plan.approved)으로 남긴다
-    ├── stage-text.sh               단계 지시 글을 낸다. stages.<단계>.prompt_file을 읽어 붙인다 (stage-context.sh·stop-gate.sh가 같이 쓴다)
+    ├── stage-text.sh               단계 지시 글을 낸다. stages.<단계>.prompt_file(경로 하나나 배열)을 읽어 붙인다 (stage-context.sh·stop-gate.sh가 같이 쓴다)
     ├── stage-text.jq               단계 지시 글 (stage-text.sh가 쓴다)
     ├── tool-count.sh               작업 주인 세션의 도구 호출 수를 센다 (stop-gate.sh의 반복 방지용)
     ├── stage-context.sh            작업을 시작하거나 이어서 할 때 그 단계의 지시를 넣는다

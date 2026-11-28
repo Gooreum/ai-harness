@@ -190,6 +190,11 @@ printf '# 안\n' > "$p/docs/wiki/inside.md"; ln -s inside.md "$p/docs/wiki/link2
 jq '.stages.plan.prompt_file = "docs/wiki/link2.md"' "$p/.harness/checks.json" > "$work/c.json" && mv "$work/c.json" "$p/.harness/checks.json"
 out="$(ctx '{"title":"스트릭","mode":"plan","stage":"plan","checks":[]}')"
 assert_eq "  프로젝트 안을 가리키는 링크는 읽는다" "yes" "$(has "# 안" "$out")"
+printf '# e2e 기준\n- N1 새 화면\n' > "$p/docs/wiki/e2e.md"
+jq '.stages.plan.prompt_file = ["docs/wiki/inside.md", "docs/wiki/e2e.md", "docs/wiki/none.md"]' "$p/.harness/checks.json" > "$work/c.json" && mv "$work/c.json" "$p/.harness/checks.json"
+out="$(ctx '{"title":"스트릭","mode":"plan","stage":"plan","checks":[]}')"
+assert_eq "prompt_file: 배열이면 파일마다 넣는다" "yes|yes" "$(has "아래는 docs/wiki/inside.md의 내용이다" "$out")|$(has "- N1 새 화면" "$out")"
+assert_eq "  배열 중 못 읽은 파일은 그 사실만 넣는다" "yes" "$(has "stages.plan.prompt_file(docs/wiki/none.md)을 읽지 못했다: 파일이 없다" "$out")"
 cp "$work/checks.bak" "$p/.harness/checks.json"
 
 finish

@@ -1,8 +1,9 @@
 # 하네스 스크립트가 만드는 로컬 산출물(state, out, DerivedData)은 커밋하지 않는다.
-# 설정 파일과 설치 기록(harness.json)만 커밋한다.
+# 설정 파일, 설치 기록(harness.json), 돌리지 않은 e2e 시나리오 목록(e2e-unrun)만 커밋한다.
 *
 !.gitignore
 !project.json
 !conventions.json
 !checks.json
 !harness.json
+!e2e-unrun

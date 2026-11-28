@@ -32,12 +32,15 @@
 | 정책·결정 기록 찾기 / 형식 검사 | `scripts/harness/wiki search <단어>` / `scripts/harness/wiki check` |
 | 하네스가 제대로 설치됐는지 점검 (도구, 설정, 플러그인 버전) | `scripts/harness/doctor` |
 | 검사 목록(`.harness/checks.json`)을 사용자와 정하기 (안내만 출력) | `scripts/harness/setup` |
+| 이번에 돌릴 e2e 시나리오 보기 (계획한 것과 아직 돌리지 않은 것) | `scripts/harness/e2e-plan list` |
 | PR에 올릴 영상 준비 (이번 작업에서 찍은 것만) | `scripts/harness/pr-video` |
 | 승인 창 없이 멈춘 계획 보기 / 승인 (사용자만 실행한다. 에이전트는 실행하지 않는다) | `scripts/harness/approve-plan --show` / `scripts/harness/approve-plan` |
 
 - 코드를 고치는 작업은 `task` 스킬(harness 플러그인)로 시작한다. 계획할지(plan/simple)와 돌릴 검사는 사용자가 고르고, 단계마다 할 일은 하네스가 알려 준다. 검사 목록은 `.harness/checks.json`에 있다.
 - 실패하면 출력에 나온 첫 에러의 위치부터 고친다. `record`로 돌린 검사의 전체 로그는 `.harness/out/`에 있다.
 - 동작·스펙을 바꾸기 전에 `scripts/harness/wiki search <단어>`로 관련 정책·결정 기록(`docs/wiki/`)을 찾아 읽는다. 기록과 다르게 바꿔야 하면 사용자에게 먼저 묻는다.
+- e2e를 돌릴지는 사용자가 정한다. 작업을 시작할 때 고른 e2e 검사만 돌리고, 고르지 않은 e2e 검사를 더하거나 따로 돌리지 않는다. 계획에서 시나리오가 필요하다고 정했으면 e2e를 고르지 않았어도 시나리오는 쓴다(`scripts/harness/e2e-criteria.md`).
+  - 하네스가 돌리지 않은 시나리오를 `.harness/e2e-unrun`에 남기면 그 파일도 함께 커밋하고, 작업 보고의 건의에 돌리지 않은 시나리오를 적는다.
 - 결과는 실제로 실행한 명령과 출력으로 보고한다. 실행하지 못한 검증은 못 했다고 밝힌다.
 - PR을 만들기 전에는 `reviewer` 서브에이전트(harness 플러그인)에 변경 검토를 맡기고, 차단 항목을 고친 뒤 올린다.
 - PR을 만들면 `scripts/harness/pr-video`를 돌린다. 출력이 없으면 영상 없이 끝낸다. 출력이 있으면 출력된 영상을 GitHub PR 본문에서 재생되게 넣는다.
