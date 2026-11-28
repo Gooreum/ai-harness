@@ -1,6 +1,6 @@
 # 하네스 쉽게 보기
 
-*harness 0.19.0 · 2026-11-28*
+*harness 0.20.0 · 2026-11-28*
 
 AI에게 코드를 맡기면 계획 없이 바로 고치거나, 확인도 안 하고 끝났다고 하거나, 커밋을 빠뜨리곤 합니다. 커밋은 바꾼 내용을 변경 이력에 남기는 일입니다. 하네스는 이런 실수를 줄이는 장치입니다. 이 문서는 하네스가 어떻게 돌아가는지 설명합니다. Claude를 써 본 적 없는 사람도 처음부터 따라 읽을 수 있게, 용어는 처음 나올 때 풀어 씁니다.
 
@@ -300,9 +300,9 @@ Claude Code에는 Plan 모드라는 기능이 따로 있습니다. 이 모드에
 20. **마지막 확인**: AI가 응답을 마치면 Stop 훅이 먼저 위키 확인(`wiki done`, 11절)을 돌리고, 이어서 git 상태를 봅니다(12절). 걸리는 게 있으면 AI를 finish 단계에 붙잡아 둡니다. 없으면 `stage`를 done으로 바꾸고, 메모 없이 종료 코드 0으로 끝납니다. 그러면 턴도 그대로 끝납니다.
 21. **사람 차례**: 사람이 보고를 읽고 PR을 만들지, 머지할지 정합니다. 20번까지 사람이 한 일은 요청, 모드·검사 고르기, 계획 승인 세 가지입니다. 이 밖에 사람이 답해야 하는 때도 있습니다. 요청이 위키 기록과 어긋날 때, 같은 단계에서 10번 연속 붙잡힐 때, 이번 일과 상관없는 변경이 남았을 때가 그런 예입니다. 끝난 뒤 "이것도 고쳐 줘"라고 하면 새 작업으로 시작합니다.
 
-### 훅 스크립트 7개
+### 훅 스크립트 10개
 
-4절에서 본 다섯 자리에 스크립트 일곱 개가 걸려 있습니다. 한 자리에 여러 개가 걸리기도 하고, `review-record.sh`처럼 한 스크립트가 두 자리에서 돌아가기도 합니다.
+4절에서 본 다섯 자리에 스크립트 열 개가 걸려 있습니다. 한 자리에 여러 개가 걸리기도 하고, `review-record.sh`처럼 한 스크립트가 두 자리에서 돌아가기도 합니다.
 
 | 훅 스크립트 | 자리 | 하는 일 | 막는지 |
 |---|---|---|---|
@@ -314,6 +314,7 @@ Claude Code에는 Plan 모드라는 기능이 따로 있습니다. 이 모드에
 | `plan-gate.sh` | PreToolUse (ExitPlanMode) | 계획 단계에서 계획 창을 띄우기 직전에 계획 글을 저장하고, 프로젝트의 계획 확인 명령이 실패하면 막음 | **막음** |
 | `plan-approved.sh` | PostToolUse (ExitPlanMode) | 사람이 계획 창에서 승인하면 계획 글을 승인된 계획으로 남김 | 안 막음 |
 | `review-record.sh` | PostToolUse (Read·SubagentHandback), SubagentStop | 리뷰어가 연 파일을 기록하고, 리뷰어가 끝나면 리뷰 통과 여부를 정해 `review.json`에 씀 | 안 막음 |
+| `wiki-use.sh` | PostToolUse (Read·Bash) | 검색에 걸린 기록과 AI가 Read로 연 기록을 세션별로 `wiki-use.jsonl`에 적음 | 안 막음 |
 | `stop-gate.sh` | Stop | 검사의 run 명령을 실행하고 git을 확인함. 통과하면 단계를 넘기고 다음 지시를 주며 붙잡음. 통과하지 못하면 단계를 그대로 두고 붙잡음. 마무리 단계를 통과하면 done으로 바꾸고 놓아줌 | **붙잡음** |
 
 표의 "자리" 열에서 괄호 안은 그 훅이 반응하는 도구입니다. MultiEdit는 예전 Claude Code에 있던 파일 고치기 도구입니다. 지금 도구 목록에는 없지만 훅 설정에 이름이 남아 있습니다. NotebookEdit는 Jupyter 노트북(코드와 실행 결과를 한 문서에 담는 `.ipynb` 파일)을 고치는 도구입니다. SubagentHandback은 auto 모드에서 서브에이전트가 일을 마치고 보고서를 넘길 때 쓰는 도구입니다(2절 도구 표). `review-record.sh`는 이때 리뷰어의 보고서를 받아 두었다가 리뷰 판정에 씁니다.
@@ -401,7 +402,7 @@ e2e는 앱을 실제로 띄워 화면을 눌러 보는 테스트라 오래 걸�
 
 AI는 아래 세 경우에 위키를 다룹니다. 둘째는 어느 프로젝트에서나 합니다. 첫째와 셋째는 프로젝트가 위키 지시를 넣어 두었을 때만 합니다. 그 까닭은 아래에 적었습니다.
 
-1. **시작할 때 읽기**: 계획 단계에서 `scripts/harness/wiki search 로그인`처럼 명령 뒤에 찾을 낱말을 넣어 검색하고, 나온 기록을 읽습니다. simple 모드라면 구현 단계를 시작할 때 읽습니다. 검색할 때마다 시각, 검색어, 찾은 개수가 `wiki-search.log`에 한 줄씩 남습니다. 나중에 사람이 이 로그를 보면 AI가 위키를 찾아봤는지 알 수 있습니다.
+1. **시작할 때 읽기**: 계획 단계에서 `scripts/harness/wiki search 로그인`처럼 명령 뒤에 찾을 낱말을 넣어 검색하고, 나온 기록을 읽습니다. simple 모드라면 구현 단계를 시작할 때 읽습니다. 검색할 때마다 시각, 검색어, 찾은 개수가 `wiki-search.log`에 한 줄씩 남습니다. 나중에 사람이 이 로그를 보면 AI가 위키를 찾아봤는지 알 수 있습니다. 훅 `wiki-use.sh`는 검색에 걸린 기록과 AI가 Read로 연 기록을 세션별로 따로 적어 둡니다. `scripts/harness/wiki stats`를 돌리면 검색 결과가 있었는데 하나도 열지 않은 검색이 몇 번인지 보입니다.
 2. **바꾸기 전에 읽고, 어긋나면 묻기**: 동작을 바꾸기 전에는 관련 기록을 찾아 읽습니다. 요청이 기록과 어긋나면 AI는 바로 고치지 않고 "위키에는 이렇게 정해져 있어요. 바꿀까요?"라고 사람에게 묻습니다. 바꾸기로 하면 위키도 함께 고칩니다.
 3. **마무리할 때 쓰기**: 커밋하기 전에 이번에 정한 것을 적습니다. 비슷한 기록이 이미 있으면 새로 만들지 않고 그 기록을 고칩니다. 다 쓰면 `scripts/harness/wiki check`로 형식을 검사합니다. 남길 것이 없으면 그 이유를 `.harness/state/wiki.skip`에 씁니다.
 
@@ -611,4 +612,4 @@ AI가 응답을 마칠 때 Stop 훅이 넘깁니다. 계획 단계와 구현 단
 
 **요약**: AI는 도구를 요청만 하고 실행은 Claude Code가 하므로, 그 앞뒤에 훅이 끼어들 수 있습니다. AI는 작업을 시작할 때, 이어서 할 때, 취소할 때만 진도표를 씁니다. 단계는 AI가 응답을 마칠 때 Stop 훅이 검사 결과와 git 상태를 보고 넘깁니다. 확인에 걸리면 Stop 훅이 AI를 붙잡습니다. 어떤 검사를 돌릴지는 사람이 고릅니다. AI는 동작을 바꾸기 전에 위키를 찾아 읽습니다. 프로젝트가 위키 지시를 넣어 두면, 작업을 마칠 때 정한 것과 그 이유를 위키에 남깁니다. 하네스가 못 막는 것은 13절에 있습니다.
 
-**확인한 자료**: Gooreum/ai-harness main cf8d91f(plugin 0.14.1)의 `plugin/hooks/`, `plugin/skills/task/SKILL.md`, `plugin/agents/reviewer.md`, `template/scripts/harness/`. ADR 0004·0007·0008·0013·0016·0026·0027·0028. 12절의 PR 영상은 harness 0.15.1의 `template/scripts/harness/pr-video`·`template/AGENTS.md`와 ADR 0029. 계획 확인은 harness 0.16.0의 `plugin/hooks/plan-gate.sh`·`stage-text.sh`와 ADR 0030. 계획 승인은 harness 0.17.0의 `plugin/hooks/plan-approved.sh`·`stop-gate.sh`·`template/scripts/harness/approve-plan`과 ADR 0031. 마무리 위키 확인은 harness 0.18.0의 `template/scripts/harness/wiki`·`common-checks.json`과 ADR 0032. e2e 계획 확인은 harness 0.19.0의 `template/scripts/harness/e2e-plan`·`e2e-criteria.md`와 ADR 0033. 발표 슬라이드 5·27·29·30·32·41~54·84·87. ai-bouncer 173d39a.
+**확인한 자료**: Gooreum/ai-harness main cf8d91f(plugin 0.14.1)의 `plugin/hooks/`, `plugin/skills/task/SKILL.md`, `plugin/agents/reviewer.md`, `template/scripts/harness/`. ADR 0004·0007·0008·0013·0016·0026·0027·0028. 12절의 PR 영상은 harness 0.15.1의 `template/scripts/harness/pr-video`·`template/AGENTS.md`와 ADR 0029. 계획 확인은 harness 0.16.0의 `plugin/hooks/plan-gate.sh`·`stage-text.sh`와 ADR 0030. 계획 승인은 harness 0.17.0의 `plugin/hooks/plan-approved.sh`·`stop-gate.sh`·`template/scripts/harness/approve-plan`과 ADR 0031. 마무리 위키 확인은 harness 0.18.0의 `template/scripts/harness/wiki`·`common-checks.json`과 ADR 0032. e2e 계획 확인은 harness 0.19.0의 `template/scripts/harness/e2e-plan`·`e2e-criteria.md`와 ADR 0033. 위키 사용 기록은 harness 0.20.0의 `plugin/hooks/wiki-use.sh`·`template/scripts/harness/wiki`와 ADR 0008 추가(2026-11-28). 발표 슬라이드 5·27·29·30·32·41~54·84·87. ai-bouncer 173d39a.
