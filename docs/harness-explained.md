@@ -1,6 +1,6 @@
 # 하네스 쉽게 보기
 
-*harness 0.18.0 · 2026-11-28*
+*harness 0.19.0 · 2026-11-28*
 
 AI에게 코드를 맡기면 계획 없이 바로 고치거나, 확인도 안 하고 끝났다고 하거나, 커밋을 빠뜨리곤 합니다. 커밋은 바꾼 내용을 변경 이력에 남기는 일입니다. 하네스는 이런 실수를 줄이는 장치입니다. 이 문서는 하네스가 어떻게 돌아가는지 설명합니다. Claude를 써 본 적 없는 사람도 처음부터 따라 읽을 수 있게, 용어는 처음 나올 때 풀어 씁니다.
 
@@ -346,6 +346,17 @@ Stop 훅이 프로젝트 루트에서 이 명령을 실행합니다. 종료 코�
 - 다만 AI가 결과 파일을 고치면 판정이 바뀔 수 있는데, 하네스는 이것을 막지 않습니다(13절).
 - 고른 검사만 돌립니다. 문구 한 줄을 고치는 일이라면 검사를 하나도 고르지 않아도 됩니다.
 
+### e2e는 시나리오를 쓰는 일과 돌리는 일을 나눠요
+
+e2e는 앱을 실제로 띄워 화면을 눌러 보는 테스트라 오래 걸립니다. 그래서 돌릴지는 사람이 작업을 시작할 때 검사로 고릅니다. 시나리오를 쓸지는 계획에서 정합니다.
+
+- 계획 단계에서 AI는 하네스의 판단 기준(`scripts/harness/e2e-criteria.md`)을 지시로 받습니다. 새 화면이 생기는지, 핵심 흐름이 바뀌는지 같은 기준으로 시나리오가 필요한지 정해 계획서에 적습니다.
+- 필요하다고 정했는데 사람이 e2e 검사를 고르지 않았다면, 계획서에 "e2e 실행: 안 함"을 적어야 승인 창이 뜹니다. 사람은 이 줄을 보고 그래도 돌릴지 정합니다.
+- 구현 단계를 넘길 때 Stop 훅은 계획한 시나리오 파일을 이번 작업에서 썼는지 확인합니다. e2e를 고르지 않았어도 확인합니다.
+- e2e를 고르지 않아 돌리지 않은 시나리오는 `.harness/e2e-unrun`에 남습니다. 다음에 e2e를 고른 작업에서 AI가 이 시나리오도 함께 돌려야, Stop 훅이 검증 단계를 넘깁니다.
+
+발표 팀은 시나리오를 끝까지 돌려 통과한 것만 저장했습니다(슬라이드 84). 이 하네스에서는 실행 시간 때문에 돌릴지를 사람이 정합니다. 대신 하네스가 돌리지 않은 시나리오를 목록으로 남겨, 다음에 빠뜨리지 않게 합니다(ADR 0033).
+
 <a id="s10"></a>
 ## 10절 · 리뷰는 다른 AI가 하고, 훅이 기록해요
 
@@ -600,4 +611,4 @@ AI가 응답을 마칠 때 Stop 훅이 넘깁니다. 계획 단계와 구현 단
 
 **요약**: AI는 도구를 요청만 하고 실행은 Claude Code가 하므로, 그 앞뒤에 훅이 끼어들 수 있습니다. AI는 작업을 시작할 때, 이어서 할 때, 취소할 때만 진도표를 씁니다. 단계는 AI가 응답을 마칠 때 Stop 훅이 검사 결과와 git 상태를 보고 넘깁니다. 확인에 걸리면 Stop 훅이 AI를 붙잡습니다. 어떤 검사를 돌릴지는 사람이 고릅니다. AI는 동작을 바꾸기 전에 위키를 찾아 읽습니다. 프로젝트가 위키 지시를 넣어 두면, 작업을 마칠 때 정한 것과 그 이유를 위키에 남깁니다. 하네스가 못 막는 것은 13절에 있습니다.
 
-**확인한 자료**: Gooreum/ai-harness main cf8d91f(plugin 0.14.1)의 `plugin/hooks/`, `plugin/skills/task/SKILL.md`, `plugin/agents/reviewer.md`, `template/scripts/harness/`. ADR 0004·0007·0008·0013·0016·0026·0027·0028. 12절의 PR 영상은 harness 0.15.1의 `template/scripts/harness/pr-video`·`template/AGENTS.md`와 ADR 0029. 계획 확인은 harness 0.16.0의 `plugin/hooks/plan-gate.sh`·`stage-text.sh`와 ADR 0030. 계획 승인은 harness 0.17.0의 `plugin/hooks/plan-approved.sh`·`stop-gate.sh`·`template/scripts/harness/approve-plan`과 ADR 0031. 마무리 위키 확인은 harness 0.18.0의 `template/scripts/harness/wiki`·`common-checks.json`과 ADR 0032. 발표 슬라이드 5·27·29·32·41~54·87. ai-bouncer 173d39a.
+**확인한 자료**: Gooreum/ai-harness main cf8d91f(plugin 0.14.1)의 `plugin/hooks/`, `plugin/skills/task/SKILL.md`, `plugin/agents/reviewer.md`, `template/scripts/harness/`. ADR 0004·0007·0008·0013·0016·0026·0027·0028. 12절의 PR 영상은 harness 0.15.1의 `template/scripts/harness/pr-video`·`template/AGENTS.md`와 ADR 0029. 계획 확인은 harness 0.16.0의 `plugin/hooks/plan-gate.sh`·`stage-text.sh`와 ADR 0030. 계획 승인은 harness 0.17.0의 `plugin/hooks/plan-approved.sh`·`stop-gate.sh`·`template/scripts/harness/approve-plan`과 ADR 0031. 마무리 위키 확인은 harness 0.18.0의 `template/scripts/harness/wiki`·`common-checks.json`과 ADR 0032. e2e 계획 확인은 harness 0.19.0의 `template/scripts/harness/e2e-plan`·`e2e-criteria.md`와 ADR 0033. 발표 슬라이드 5·27·29·30·32·41~54·84·87. ai-bouncer 173d39a.

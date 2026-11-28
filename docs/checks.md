@@ -59,27 +59,41 @@ ReadSharp는 예전 iOS 묶음의 스크립트를 `scripts/ios/`로 넘겨받아
   { "name": "regression", "description": "회귀 묶음 전체 (배포 전·리팩터링 뒤에 고른다)", "prompt": "scripts/harness/record regression scripts/ios/e2e --tag regression을 실행하고, 실패하면 이번 변경 때문인지 먼저 확인한 뒤 고친다", "run": "scripts/harness/passed regression" }
   ```
 
-## 계획 기준과 계획 확인 예시 (PetCycle, e2e 판단)
+## e2e 계획 확인 (계획에서 정한 시나리오 쓰기·돌리기)
 
-plan 단계에서 e2e 시나리오가 필요한지 정하게 하는 설정이다. 기준은 프로젝트 위키에 두고, 훅이 그 내용을 plan 단계 지시에 넣는다. 계획에 판단 줄이 없으면 승인 창이 뜨기 전에 막는다([ADR 0030](decisions/0030-plan-check.md)).
+plan 단계에서 e2e 시나리오가 필요한지 정하게 한다. 필요하다고 정하면 e2e 검사를 고르지 않았어도 implement에서 시나리오를 쓴다. 돌릴지는 작업을 시작할 때 사람이 e2e 검사로 고른다([ADR 0033](decisions/0033-e2e-plan.md)). setup은 e2e 검사가 있는 프로젝트에 묻지 않고 이 설정을 넣는다.
+
+`project.json`에 시나리오 폴더를 적는다.
+
+```json
+{ "e2e": { "scenarios": ".maestro" } }
+```
+
+`checks.json`에서 e2e 검사에 `"e2e": true`를 붙이고, 단계 확인을 둔다.
 
 ```json
 {
+  "checks": [
+    { "name": "e2e-ios", "e2e": true, "description": "iOS 시뮬레이터 E2E (Maestro)",
+      "prompt": "scripts/harness/e2e-plan list로 돌릴 시나리오를 보고 scripts/harness/record e2e-ios \"scripts/e2e.sh ios <시나리오들>\"를 실행해 통과할 때까지 고친다",
+      "run": "scripts/harness/passed e2e-ios && scripts/harness/e2e-plan ran e2e-ios" }
+  ],
   "stages": {
     "plan": {
       "prompt": "먼저 scripts/harness/wiki search로 관련 정책·결정 기록을 찾아 읽는다",
-      "prompt_file": "docs/wiki/e2e-scenario-criteria.md",
-      "run": "bash scripts/e2e-planned.sh plan"
-    }
+      "prompt_file": ["scripts/harness/e2e-criteria.md"],
+      "run": "scripts/harness/e2e-plan plan"
+    },
+    "implement": { "run": "scripts/harness/e2e-plan written" }
   }
 }
 ```
 
-- `scripts/e2e-planned.sh plan`은 PetCycle 스크립트다. `plan.md`에 `- e2e 판단: 필요|불필요|기존 수정 (기준 번호)` 줄이 있는지, 필요·기존 수정이면 `- e2e 시나리오: <파일>` 줄이 있는지 본다. 하네스는 이 줄의 뜻을 모르고 명령을 돌릴 뿐이다.
-- verify에서는 e2e 검사의 run에 같은 스크립트를 붙인다: `scripts/harness/passed e2e-ios && bash scripts/e2e-planned.sh verify e2e-ios`. 이 스크립트는 세 가지를 본다.
-  - 계획한 시나리오 파일이 있다.
-  - 그 파일이 이번 작업에서 생겼거나 고쳐졌다.
-  - `record`가 결과 파일에 남긴 실행 명령(`command`)에 그 파일이 들어 있다.
+- 판단 기준은 `scripts/harness/e2e-criteria.md`(하네스 문서)다. 훅이 plan 단계 지시에 그 내용을 넣는다. 무엇이 핵심 흐름인지(기준 N3)는 프로젝트 위키에 rule로 둔다.
+- `e2e-plan plan`은 계획서(`.harness/state/plan.md`)의 판단 줄, 시나리오 줄, 시작점·동작·확인을 본다. e2e 검사를 고르지 않았고 판단이 필요·기존 수정이면 `- e2e 실행: 안 함` 줄도 있어야 한다. 사람은 승인 창에서 이 줄을 보고 돌릴지 정한다.
+- `e2e-plan written`은 계획한 시나리오가 이번 작업에서 쓰이거나 고쳐졌는지 본다. e2e 검사를 고르지 않았으면 그 시나리오를 `.harness/e2e-unrun`에 남긴다. 이 파일은 커밋한다.
+- `e2e-plan ran <검사>`는 그 검사의 실행 명령(`record`가 결과 파일에 남긴 `command`)에 계획한 시나리오와 `.harness/e2e-unrun`의 시나리오가 들어 있는지 본다. 시나리오 폴더를 통째로 넣어도 된다. 통과하면 돌린 시나리오를 목록에서 지운다.
+- 빠진 설정은 doctor가 알린다.
 
 ## 검사 목록 예시 (저장소의 명령을 record로: RN·Android·웹)
 
@@ -106,12 +120,13 @@ plan 단계에서 e2e 시나리오가 필요한지 정하게 하는 설정이다
 |---|---|---|
 | `schemaVersion` | `1` | 파일 형식 버전 |
 | `stages.<단계>.prompt` | 문장, 선택 | 그 단계에 들어갈 때 기본 지시 뒤에 붙인다. 계획 기준, 위키 찾기·쓰기 등. setup이 위키 지시(`common-checks.json`의 `stages`)를 추천한다 |
-| `stages.<단계>.prompt_file` | 프로젝트 루트 기준 상대 경로, 선택 | 그 단계에 들어갈 때 훅이 이 파일의 내용을 지시에 그대로 넣는다. 에이전트가 기준 문서를 읽지 않고 넘어가지 못하게 하려는 것이다. 파일이 없으면 지시에 그 사실을 넣고 doctor가 문제로 친다. 파일 내용이 지시에 통째로 들어가니 파일을 짧게 쓴다([ADR 0030](decisions/0030-plan-check.md)) |
+| `stages.<단계>.prompt_file` | 프로젝트 루트 기준 상대 경로나 그 배열, 선택 | 그 단계에 들어갈 때 훅이 이 파일(배열이면 파일마다)의 내용을 지시에 그대로 넣는다. 에이전트가 기준 문서를 읽지 않고 넘어가지 못하게 하려는 것이다. 파일이 없으면 지시에 그 사실을 넣고 doctor가 문제로 친다. 파일 내용이 지시에 통째로 들어가니 파일을 짧게 쓴다([ADR 0030](decisions/0030-plan-check.md)) |
 | `stages.<단계>.run` | 명령, 선택 | 그 단계를 지날 때마다 Stop 훅이 돌리는 확인(0이면 통과). 사람이 고르지 않는다. plan 단계면 `plan-gate.sh`가 ExitPlanMode 직전에도 돌린다. 이 명령이 볼 계획 글은 `.harness/state/plan.md`에 있다(ADR 0030) |
 | `wiki` | `false`, 선택 | 위키를 쓰지 않기로 한 프로젝트. doctor가 위키 단계 지시가 없다고 주의를 주지 않는다 |
 | `checks[].name` | 문자열 | 검사 이름. 상태 파일의 `checks`에 이 이름을 적는다 |
 | `checks[].description` | 문장 | 검사를 고를 때 보여 주는 설명 |
 | `checks[].prompt` | 문장 | verify 단계에서 에이전트에게 시킬 일 |
+| `checks[].e2e` | `true`, 선택 | e2e 검사 표시. `e2e-plan`이 이 검사를 골랐는지 보고 e2e 계획 확인을 한다(위 "e2e 계획 확인") |
 | `checks[].run` | 명령, 선택 | 정말 했는지 확인하는 명령(0이면 통과). verify 단계를 지나 넘어가려 할 때 훅이 돌린다(아래 "run 확인") |
 
 - `project.json`은 프로젝트의 사실, `checks.json`은 팀이 정한 정책이라 나눈다(ADR 0005).

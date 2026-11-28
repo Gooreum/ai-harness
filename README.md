@@ -197,7 +197,8 @@ scripts/harness/passed typecheck                            # 결과가 통과�
 - 검사 목록은 프로젝트의 `.harness/checks.json`에 있다. 훅은 검사 내용을 모르고 이 파일의 글을 옮길 뿐이다([docs/checks.md](docs/checks.md), [ADR 0007](docs/decisions/0007-task-flow.md)).
 - 검증 단계에서 응답을 마치려 하면 Stop 훅 `stop-gate.sh`가 고른 검사의 `run`(결과 파일 확인)을 돌린다. 실패하면 넘어가지 못한다(발표 슬라이드 29, [ADR 0012](docs/decisions/0012-run-gate.md)). 작업을 시작한 세션만 done 전에 막는다.
 - plan 단계는 승인된 계획이 있어야 넘어간다. 대화형 세션은 Plan 모드(ExitPlanMode) 승인 창으로 받는다. `claude -p`처럼 승인 창이 없는 세션은 계획을 `.harness/state/plan.md`에 남기고 멈춘다. 사용자가 `scripts/harness/approve-plan`으로 승인하고 세션을 이어 가면 구현으로 넘어간다([ADR 0031](docs/decisions/0031-plan-approval.md)).
-- 프로젝트는 단계마다 기준 문서(`stages.<단계>.prompt_file`)와 확인 명령(`stages.<단계>.run`)을 둘 수 있다. 기준 문서는 훅이 그 단계 지시에 그대로 넣는다. plan 단계에서는 ExitPlanMode 직전에 `plan-gate.sh`가 이 확인을 먼저 돌린다. 통과하지 못하면 승인 창이 뜨지 않는다([ADR 0030](docs/decisions/0030-plan-check.md)).
+- 프로젝트는 단계마다 기준 문서(`stages.<단계>.prompt_file`)와 확인 명령(`stages.<단계>.run`)을 둘 수 있다. 기준 문서는 훅이 그 단계 지시에 그대로 넣는다. plan 단계에서는 ExitPlanMode 직전에 `plan-gate.sh`가 이 확인을 먼저 돌린다. 통과하지 못하면 승인 창이 뜨지 않는다([ADR 0030](docs/decisions/0030-plan-check.md)). `prompt_file`은 경로 하나나 배열이다.
+- e2e 검사가 있는 프로젝트는 계획에서 e2e 시나리오가 필요한지 정한다. 필요하면 e2e 검사를 고르지 않았어도 implement에서 시나리오를 쓴다. 돌릴지는 사람이 검사로 고르고, 돌리지 않은 시나리오는 다음에 e2e를 고른 작업에서 함께 돌린다([ADR 0033](docs/decisions/0033-e2e-plan.md)).
 - 마무리 단계에서는 바꾼 파일을 커밋하고 push한다(기본 브랜치면 새 브랜치). Stop 훅이 커밋·push를 확인한 뒤 작업을 닫는다. 시작 전부터 있던 무관한 변경은 그대로 둔다([ADR 0028](docs/decisions/0028-finish-commit-push.md)).
 - 추천 설정을 쓰면 마무리 단계에서 위키도 확인한다. 이번 작업에서 `docs/wiki/`를 바꿨으면 바꾼 기록의 형식을 본다. 바꾸지 않았으면 남기지 않은 이유를 `.harness/state/wiki.skip`에 적어야 작업이 닫힌다. 이 확인은 `stages.finish.run`의 `scripts/harness/wiki done`이다([ADR 0032](docs/decisions/0032-wiki-finish-check.md)).
 - 마무리 보고는 일곱 섹션으로 쓴다: 상황 · 조치 · 평가 · 단계 기록 · 위키 · 건의 · 결정 사항. 평가는 검사마다 결과 파일을 근거로 쓰고, 마지막 줄은 커밋·push(브랜치·해시)다.
@@ -254,11 +255,13 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `scripts/harness/wiki` | Context + Validation | 정책·결정 기록(`docs/wiki/`)을 찾고 형식을 검사한다 |
 | `scripts/harness/doctor` | Validation | 하네스가 이 프로젝트에서 돌 수 있는지 점검한다: 도구, 설정 파일, 검사 목록의 run, 지침 연결, 플러그인 버전 |
 | `scripts/harness/approve-plan` | Enforcement | 승인 창이 없는 세션(`claude -p`)에서 멈춘 계획을 사용자가 보고(`--show`) 승인한다. 에이전트는 실행하지 못한다 |
+| `scripts/harness/e2e-plan` | Validation | 계획서에 e2e 판단 줄이 있는지, 계획한 시나리오를 썼는지, 고른 e2e 검사가 그 시나리오를 돌렸는지 본다. 고르지 않아 돌리지 않은 시나리오는 `.harness/e2e-unrun`에 남긴다(ADR 0033) |
+| `scripts/harness/e2e-criteria.md` | Context | e2e 시나리오가 필요한지 정하는 기준. `stages.plan.prompt_file`에 두면 plan 단계 지시에 들어간다 |
 | `scripts/harness/pr-video` | Context | PR을 만들 때 이번 작업에서 찍은 영상(`.harness/out/*.mp4`)을 10MB 미만 H.264로 바꿔 준다. 에이전트가 브라우저로 올려 PR 본문에서 재생되게 한다 |
 | `scripts/harness/setup` | Context | 검사·생성 파일·고치면 안 되는 파일·빌드·테스트 명령을 사용자와 정하는 안내. 찾은 명령과 단서를 보여 준다. 파일은 쓰지 않는다 |
 | `scripts/harness/common-checks.json` | Context | setup이 추천하는 검사(review)와 위키 단계 지시(`stages`) |
 | `scripts/harness/lib.sh` | Execution | 공통 함수: 루트 찾기, 설정 읽기, 바뀐 파일 목록, 작업 시작 커밋, 위키 형식 |
-| `.harness/.gitignore` | State | `.harness/`에서 설정 파일(`project.json`·`conventions.json`·`checks.json`)과 설치 기록(`harness.json`)만 커밋되게 한다 |
+| `.harness/.gitignore` | State | `.harness/`에서 설정 파일(`project.json`·`conventions.json`·`checks.json`), 설치 기록(`harness.json`), 돌리지 않은 e2e 시나리오 목록(`e2e-unrun`)만 커밋되게 한다 |
 
 ### plugin/ — Claude Code 플러그인 harness
 
@@ -301,7 +304,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `run.sh` | 모든 `*.test.sh`를 실행한다 |
 | `lib.sh` | `assert_eq`, `finish` 같은 테스트 도우미 |
 | `hooks.test.sh` | 훅이 막을 것만 막고, 판단할 수 없으면 통과시키는지 |
-| `stage.test.sh` | 단계 지시 훅이 상태 파일이 바뀔 때만, 고른 검사의 지시만 넣는지. 시작 때 `task.wip`·`task.history`를 적는지. `prompt_file` 내용을 그 단계에만 넣는지 |
+| `stage.test.sh` | 단계 지시 훅이 상태 파일이 바뀔 때만, 고른 검사의 지시만 넣는지. 시작 때 `task.wip`·`task.history`를 적는지. `prompt_file` 내용을 그 단계에만 넣는지(배열이면 파일마다) |
 | `plan-gate.test.sh` | 계획 확인 훅이 주인 세션의 plan 단계에서만 계획 글을 저장하고, `stages.plan.run`이 실패하면 막는지 |
 | `run-gate.test.sh` | 검증 강제 훅이 verify를 지나 넘어갈 때 고른 검사의 run을 돌려, 실패하면 막는지 |
 | `stop-gate.test.sh` | Stop 훅이 작업 주인 세션만 막고, 도구 없는 반복과 연속 차단을 ai-bouncer처럼 풀어 주는지. 마무리에서 커밋 안 한 변경·기본 브랜치 커밋·push 안 함을 막고 무관한 WIP는 두는지. `stages.<단계>.run`이 실패하면 막는지 |
@@ -311,6 +314,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `record.test.sh` | record의 결과·로그·출력, record·passed만으로 검증 게이트가 판정하는지 |
 | `passed.test.sh` | passed가 결과 파일이 통과했고 최신인지 보는지 |
 | `approve-plan.test.sh` | approve-plan이 plan 단계의 계획만 승인하고, 승인한 뒤 Stop 훅이 구현 단계로 넘기는지 |
+| `e2e-plan.test.sh` | e2e-plan이 판단 줄 형식, 시나리오 작성, 고른 e2e 검사의 실행 명령을 보는지. 돌리지 않은 시나리오를 남겼다가 돌리면 지우는지 |
 | `pr-video.test.sh` | pr-video가 이번 작업에서 찍은 영상만 골라 올릴 크기로 바꾸고, 크면 나누는지 |
 | `wiki.test.sh` | 기록 찾기·검색 로그·형식 검사, 마무리 위키 확인(`wiki done`) |
 | `network-mcp.test.sh` | 가짜 응답 MCP: 켠 프로젝트에서만 도구, 상태·지연·본문 응답, 구체적인 match 우선, 프로젝트끼리 독립 |
