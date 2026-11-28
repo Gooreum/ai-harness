@@ -104,7 +104,33 @@ if [ -f "$checks_file" ] && jq empty "$checks_file" 2> /dev/null; then
       //* | */../*) problem "checks.json의 stages.$st.prompt_file($pf)이 프로젝트 안의 상대 경로가 아니다" "프로젝트 루트 기준 상대 경로로 적는다" ;;
       *) [ -f "$root/$pf" ] || problem "checks.json의 stages.$st.prompt_file($pf)이 없다" "파일을 만들거나 경로를 고친다" ;;
     esac
-  done < <(jq -r '.stages // {} | to_entries[] | [.key, .value.prompt_file // ""] | @tsv' "$checks_file")
+  done < <(jq -r '.stages // {} | to_entries[] | .key as $k | (.value.prompt_file // "" | if type == "array" then .[] else . end) | [$k, .] | @tsv' "$checks_file")
+fi
+
+# e2e 계획(ADR 0033): 계획에서 시나리오가 필요하다고 정하면, e2e를 고르지 않았어도 시나리오를 쓴다.
+# 켜려면 project.json의 e2e.scenarios(시나리오 폴더)와 checks.json의 "e2e": true, 단계 확인 명령이 모두 있어야 한다.
+if [ -f "$checks_file" ] && jq empty "$checks_file" 2> /dev/null; then
+  scen="$(cfg '.e2e.scenarios')"
+  e2e_names="$(jq -r '.checks // [] | .[] | select(.e2e == true) | .name' "$checks_file")"
+  if [ -z "$scen" ]; then
+    guess="$(jq -r '.checks // [] | .[] | select((.name // "") | test("e2e"; "i")) | .name' "$checks_file" | head -1)"
+    [ -z "$guess$e2e_names" ] || warn "e2e 검사(${guess:-$e2e_names})가 있는데 project.json에 e2e.scenarios가 없어, 계획에서 정한 시나리오를 쓰는지 확인하지 않는다" \
+      "scripts/harness/setup 안내대로 e2e 계획 확인을 켠다"
+  else
+    [ -d "$root/$scen" ] || problem "project.json의 e2e.scenarios($scen) 폴더가 없다" "시나리오 폴더 경로를 고친다"
+    [ -n "$e2e_names" ] || warn "project.json에 e2e.scenarios가 있는데 checks.json에 \"e2e\": true인 검사가 없다" "e2e 검사에 \"e2e\": true를 더한다"
+    jq -e '.stages.plan.run // "" | test("e2e-plan plan")' "$checks_file" > /dev/null \
+      || warn "checks.json의 stages.plan.run에 e2e 판단 확인이 없다" "scripts/harness/e2e-plan plan을 더한다(run이 있으면 && 로 잇는다)"
+    jq -e '[.stages.plan.prompt_file // [] | if type == "array" then .[] else . end] | index("scripts/harness/e2e-criteria.md")' "$checks_file" > /dev/null \
+      || warn "checks.json의 stages.plan.prompt_file에 e2e 판단 기준이 없다" "scripts/harness/e2e-criteria.md를 더한다(이미 있으면 배열로 둔다)"
+    jq -e '.stages.implement.run // "" | test("e2e-plan written")' "$checks_file" > /dev/null \
+      || warn "checks.json의 stages.implement.run에 시나리오 작성 확인이 없어, 계획한 시나리오를 쓰지 않아도 넘어간다" "scripts/harness/e2e-plan written을 더한다"
+    while IFS= read -r n; do
+      [ -n "$n" ] || continue
+      jq -e --arg n "$n" '.checks[] | select(.name == $n) | .run // "" | test("e2e-plan ran " + $n)' "$checks_file" > /dev/null \
+        || warn "checks.json의 '${n}' run에 계획한 시나리오를 돌렸는지 보는 확인이 없다" "run 끝에 && scripts/harness/e2e-plan ran ${n}을 잇는다"
+    done <<< "$e2e_names"
+  fi
 fi
 
 # 위키 단계 지시: 없으면 작업을 시작할 때 기록을 찾지 않고, 마무리할 때 정한 것을 남기지 않는다(ADR 0008).

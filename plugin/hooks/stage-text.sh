@@ -3,7 +3,7 @@
 # 인자: task.json 경로, checks.json 경로(없거나 JSON이 아니면 빈 값), 프로젝트 루트
 #
 # 글은 stage-text.jq가 만든다. 이 스크립트는 jq가 못 하는 파일 읽기만 한다.
-#   - stages.<단계>.prompt_file이 있으면 프로젝트 안의 그 파일을 읽어 지시에 붙인다(ai-bouncer의 prompt_file, ADR 0030).
+#   - stages.<단계>.prompt_file(경로 하나나 배열)이 있으면 프로젝트 안의 그 파일들을 읽어 지시에 붙인다(ai-bouncer의 prompt_file, ADR 0030).
 #     에이전트가 읽지 않고 넘어갈 수 없게 하려고 훅이 내용을 그대로 넣는다.
 #   - 파일이 없거나 프로젝트 밖 경로면 내용 대신 그 사실을 지시에 넣는다. 막지는 않는다.
 set -uo pipefail
@@ -17,10 +17,14 @@ conf='{}'
 [ -z "$checks" ] || conf="$(cat "$checks" 2> /dev/null)" || conf='{}'
 
 stage="$(jq -r '.stage // ""' "$state" 2> /dev/null)" || stage=""
-pf="$(jq -r --arg s "$stage" '.stages[$s].prompt_file // empty' <<< "$conf" 2> /dev/null)" || pf=""
-doc=""
-doc_err=""
-if [ -n "$pf" ]; then
+# prompt_file은 경로 하나나 경로 배열이다. 하네스의 기준 문서(e2e-criteria.md 등)와 프로젝트 문서를 함께 넣을 수 있다.
+files="$(jq -r --arg s "$stage" '.stages[$s].prompt_file // empty | if type == "array" then .[] else . end' <<< "$conf" 2> /dev/null)" || files=""
+docs='[]'
+proot="$(cd "$root" && pwd -P)"
+while IFS= read -r pf; do
+  [ -n "$pf" ] || continue
+  doc=""
+  doc_err=""
   case "/$pf/" in
     //* | */../*) doc_err="프로젝트 안의 상대 경로가 아니다" ;;
     *)
@@ -37,14 +41,15 @@ if [ -n "$pf" ]; then
         done
         real="$(cd "$(dirname "$real")" 2> /dev/null && pwd -P)/$(basename "$real")"
         case "$real" in
-          "$(cd "$root" && pwd -P)"/*) doc="$(cat "$real")" ;;
+          "$proot"/*) doc="$(cat "$real")" ;;
           *) doc_err="프로젝트 안의 상대 경로가 아니다" ;;
         esac
       fi
       ;;
   esac
-fi
+  docs="$(jq -c --arg p "$pf" --arg d "$doc" --arg e "$doc_err" '. + [{path: $p, doc: $d, err: $e}]' <<< "$docs")"
+done <<< "$files"
 
 jq -r --argjson flows "$flows" --slurpfile conf <(printf '%s' "$conf") \
-  --arg pf "$pf" --arg doc "$doc" --arg doc_err "$doc_err" \
+  --argjson docs "$docs" \
   -f "$here/stage-text.jq" "$state"
