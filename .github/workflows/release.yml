@@ -1,0 +1,21 @@
+# main에 머지될 때마다 .github/release.sh를 돌린다. 새 버전이면 태그와 GitHub 릴리스를 만든다.
+name: release
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: write
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: 태그와 릴리스 만들기
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: bash .github/release.sh

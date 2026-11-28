@@ -18,6 +18,7 @@
 - `scripts/`: 하네스를 설치·관리하는 도구. 대상 프로젝트 경로를 인자로 받는다.
   - `scripts/init <프로젝트 경로>`: 하네스를 처음 설치
   - `scripts/sync [--dev] <프로젝트 경로>`: 설치된 하네스를 갱신. 예전 iOS 묶음은 프로젝트 코드로 넘긴다. `--dev`는 플러그인을 이 저장소 디렉터리에서 읽게 한다
+- `.github/`: main에 머지되면 태그와 GitHub 릴리스를 만드는 워크플로(`workflows/release.yml`, `release.sh`)
 - `tests/`: 스크립트 회귀 테스트. `bash tests/run.sh`로 전부 실행한다.
 - `docs/harness-explained.md`: 처음 보는 사람을 위한 하네스 설명(그림은 `docs/images/`). 하네스 동작이 바뀌면 README와 함께 고친다
 - `docs/roadmap.md`: 작업 단위와 순서, 진행 상황
@@ -44,9 +45,9 @@
 - 작업을 마치면 커밋·push·PR·머지까지 묻지 않고 하고, 머지한 브랜치는 지운다.
   - 커밋 메시지는 한글로 쓴다.
   - prefix는 `feat:` `fix:` `docs:` `chore:` `test:` 중 하나를 쓴다.
-- 머지해서 플러그인 버전(`plugin/.claude-plugin/plugin.json`)이 바뀌었으면 GitHub 릴리스를 만든다.
-  - main의 머지 커밋에 `v<버전>` 태그를 달아 push한다.
-  - `gh release create v<버전> --title "v<버전> (<날짜>)"`로 만든다. 노트에는 지난 태그 이후 커밋 제목과 비교 링크를 적는다.
+- GitHub 릴리스는 손으로 만들지 않는다. main에 머지되면 GitHub Actions(`.github/workflows/release.yml`)가 만든다.
+  - `plugin/.claude-plugin/plugin.json`의 버전을 읽어, 아직 `v<버전>` 태그가 없을 때만 태그를 달고 릴리스를 만든다. 버전을 올리지 않은 머지는 건너뛴다.
+  - 릴리스 노트에는 지난 태그 이후 커밋 제목과 비교 링크가 들어간다. 머지한 뒤 `gh run list --workflow release.yml`로 워크플로가 성공했는지 본다.
 - 단위를 마치면 roadmap의 체크박스를 갱신한다. 설계 결정은 `docs/decisions/`에 ADR로 남긴다.
 - 완료 기준은 시험장 프로젝트에서 실제로 실행해 확인한다.
   - 시험장은 ReadSharp(`~/Code/EnglishStudy`)의 `~/Code/EnglishStudy-harness` 워크트리다. 단위 1~9의 기록은 MotoTrace에서 했다.
