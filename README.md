@@ -270,7 +270,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | 파일 | 계층 | 역할 |
 |---|---|---|
 | `.claude-plugin/plugin.json` | — | 플러그인 이름(`harness`)과 버전 |
-| `hooks/hooks.json` | Enforcement + Context | 세션 시작 때 `session-start.sh`, 모든 도구 전에 `tool-count.sh`, 편집·Bash 직전에 `protect-generated.sh`·`guard-state.sh`, ExitPlanMode 직전에 `plan-gate.sh`, ExitPlanMode 승인 직후에 `plan-approved.sh`, 편집 직후에 `stage-context.sh`, Read 직후·서브에이전트가 끝날 때 `review-record.sh`, 끝낼 때 `stop-gate.sh`를 실행하도록 등록 |
+| `hooks/hooks.json` | Enforcement + Context | 세션 시작 때 `session-start.sh`, 모든 도구 전에 `tool-count.sh`, 편집·Bash 직전에 `protect-generated.sh`·`guard-state.sh`, ExitPlanMode 직전에 `plan-gate.sh`, ExitPlanMode 승인 직후에 `plan-approved.sh`, 편집 직후에 `stage-context.sh`, Read 직후·서브에이전트가 끝날 때 `review-record.sh`, Read·Bash 직후에 `wiki-use.sh`, 끝낼 때 `stop-gate.sh`를 실행하도록 등록 |
 | `hooks/session-start.sh` | Context | 세션을 열 때 작업이 없으면 task 스킬로 시작하라고, 있으면 그 단계를 알려 주는 훅 |
 | `hooks/protect-generated.sh` | Enforcement | `project.json`의 `generated`에 적힌 생성 파일 편집을 막는 훅 |
 | `hooks/guard-state.sh` | Enforcement | 에이전트가 작업 상태 파일로 단계를 넘기지 못하게 막는 훅. 시작(첫 단계로만)·이어서 하기·취소만 허용하고 Bash 쓰기는 막는다. 막은 일은 `task.history`에 남긴다 |
@@ -282,6 +282,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `hooks/tool-count.sh` | State | 작업 주인 세션의 도구 호출 수를 세는 훅 (stop-gate.sh가 쓴다) |
 | `hooks/stage-context.sh` | Context + State | 작업 상태 파일(`.harness/state/task.json`)을 시작하거나 이어서 할 때 그 단계의 지시를 `.harness/checks.json`에서 꺼내 넣는 훅. 새 작업이면 주인 세션·시작 시각·시작 커밋(`task.base`)·이미 바뀌어 있던 파일(`task.wip`)을 적고 `task.history`를 새로 연다 |
 | `hooks/review-record.sh` | Validation | reviewer가 Read로 연 파일과 보고서의 차단 수로 `.harness/out/review.json`을 남기는 훅. `passed review`가 이 파일을 본다 |
+| `hooks/wiki-use.sh` | Validation 보조 | 에이전트가 위키를 검색하고 연 것을 세션별로 `.harness/state/wiki-use.jsonl`에 남기는 훅. `wiki stats`가 센다 |
 | `skills/task/SKILL.md` | State | 작업 시작: 계획 여부(plan/simple)와 검사를 사용자에게 묻고 상태 파일을 만든다 |
 | `.mcp.json`, `mcp/network.py` | Validation 보조 | 가짜 응답 서버 MCP `harness-network`. AI가 건 지연·400·500·빈 응답을 실제 서버 대신 앱에 돌려준다. `e2e.network.port`를 적은 프로젝트에서만 켜진다 |
 | `agents/reviewer.md` | Validation (추론적) | 읽기 전용 리뷰 서브에이전트의 지시문 |
@@ -317,6 +318,7 @@ template 안의 경로가 그대로 대상 프로젝트 루트 기준 경로가 
 | `e2e-plan.test.sh` | e2e-plan이 판단 줄 형식, 시나리오 작성, 고른 e2e 검사의 실행 명령을 보는지. 돌리지 않은 시나리오를 남겼다가 돌리면 지우는지 |
 | `pr-video.test.sh` | pr-video가 이번 작업에서 찍은 영상만 골라 올릴 크기로 바꾸고, 크면 나누는지 |
 | `wiki.test.sh` | 기록 찾기·검색 로그·형식 검사, 마무리 위키 확인(`wiki done`) |
+| `wiki-use.test.sh` | 위키 사용 기록 훅이 검색·열람만 세션별로 남기고, `wiki stats`가 결과가 있었는데 열지 않은 검색을 세는지 |
 | `network-mcp.test.sh` | 가짜 응답 MCP: 켠 프로젝트에서만 도구, 상태·지연·본문 응답, 구체적인 match 우선, 프로젝트끼리 독립 |
 | `setup.test.sh` | setup이 파일을 쓰지 않고, 찾은 명령·추천 검사·생성 파일 단서를 보여 주는지 |
 | `sync.test.sh` | init·sync의 파일 배치, AGENTS.md 관리 블록 교체, 설정 병합, 플러그인 등록, `--dev`, iOS 묶음 넘기기, 반복 실행 |

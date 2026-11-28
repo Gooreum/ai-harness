@@ -17,7 +17,7 @@ plugin/
 ├── skills/
 │   └── task/SKILL.md               작업 시작: 모드·검사를 사용자에게 묻고 상태 파일을 만든다 (harness:task)
 └── hooks/
-    ├── hooks.json                  훅 등록: 세션 시작 때 session-start.sh, 모든 도구 전 tool-count.sh, 편집·Bash 전 protect-generated.sh·guard-state.sh, ExitPlanMode 전 plan-gate.sh, ExitPlanMode 승인 후 plan-approved.sh, 편집 후 stage-context.sh, Read·SubagentHandback 후와 서브에이전트가 끝날 때 review-record.sh, 끝낼 때 stop-gate.sh
+    ├── hooks.json                  훅 등록: 세션 시작 때 session-start.sh, 모든 도구 전 tool-count.sh, 편집·Bash 전 protect-generated.sh·guard-state.sh, ExitPlanMode 전 plan-gate.sh, ExitPlanMode 승인 후 plan-approved.sh, 편집 후 stage-context.sh, Read·SubagentHandback 후와 서브에이전트가 끝날 때 review-record.sh, Read·Bash 후 wiki-use.sh, 끝낼 때 stop-gate.sh
     ├── session-start.sh            세션을 열 때 작업 시작 방법이나 진행 중인 작업을 알려 준다
     ├── protect-generated.sh        생성 파일(project.json의 generated) 편집 차단
     ├── guard-state.sh              에이전트가 작업 상태 파일로 단계를 넘기지 못하게 막는다(시작·이어서 하기·취소만 허용, Bash 쓰기 차단)
@@ -28,7 +28,8 @@ plugin/
     ├── stage-text.jq               단계 지시 글 (stage-text.sh가 쓴다)
     ├── tool-count.sh               작업 주인 세션의 도구 호출 수를 센다 (stop-gate.sh의 반복 방지용)
     ├── stage-context.sh            작업을 시작하거나 이어서 할 때 그 단계의 지시를 넣는다
-    └── review-record.sh            reviewer가 연 파일과 보고서의 차단 수로 리뷰 결과 파일을 남긴다
+    ├── review-record.sh            reviewer가 연 파일과 보고서의 차단 수로 리뷰 결과 파일을 남긴다
+    └── wiki-use.sh                 에이전트가 위키를 검색하고 연 것을 세션별로 남긴다 (scripts/harness/wiki stats가 센다)
 ```
 
 ## 훅: session-start.sh
@@ -141,6 +142,15 @@ plugin/
 - `checks.json`의 `review`에 `"run": "scripts/harness/passed review"`를 두면 검증 단계를 넘길 때 확인된다. 리뷰 뒤에 파일을 고치면 결과가 오래된 것이 되어 리뷰를 다시 맡겨야 한다.
 - 이 훅이 증명하는 것은 "불렀고, 바뀐 파일을 열었고, 차단이 0이라고 보고했다"까지다. 리뷰를 잘했는지는 증명하지 않는다.
 - 언제 쓰나: PR을 만들기 전, 또는 사용자가 리뷰를 요청할 때. 프로젝트 AGENTS.md의 관리 블록에 안내가 있다.
+
+## 훅: wiki-use.sh ([ADR 0008](decisions/0008-wiki.md))
+
+에이전트가 위키를 검색하고 연 것을 세션별로 남긴다. 발표 슬라이드 52에서 발표 팀은 검색, 열람, 반영 횟수를 쟀다. 이 훅은 그중 검색과 열람만 남긴다.
+
+- PostToolUse(Bash): 명령에 `wiki search`가 있으면 출력(`tool_response.stdout`)에서 `종류	경로	제목` 줄의 경로를 걸린 기록으로 남긴다.
+- PostToolUse(Read): `docs/wiki/` 아래 `.md`를 열면 루트 기준 경로를 남긴다. Bash의 `cat` 같은 것으로 연 것은 세지 않는다.
+- 검색이나 열람 한 번을 JSON 한 줄로 `.harness/state/wiki-use.jsonl`에 덧붙인다(`t`, `session`, `event`(search·open), `query`·`hits` 또는 `path`, 서브에이전트면 `agent`).
+- 막지 않는다. `scripts/harness/wiki stats`가 이 파일을 읽어, 결과가 있었는데 아무것도 열지 않은 검색을 센다.
 
 ## 프로젝트에서 켜기
 

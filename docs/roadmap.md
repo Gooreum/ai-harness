@@ -387,6 +387,11 @@
   - 할 일: `scripts/harness/e2e-plan`(plan·written·ran·list)과 판단 기준 `e2e-criteria.md`를 template에 둔다. 켜는 설정은 `project.json`의 `e2e.scenarios`와 검사의 `"e2e": true`, 단계 확인 명령이다. `prompt_file`이 배열을 받게 한다. doctor가 빠진 설정을 알리고, setup은 e2e 검사가 있으면 묻지 않고 켠다
   - 완료 기준: `bash tests/run.sh` 통과. 임시 프로젝트에서 계획 판단 줄이 없으면 승인 창이 막히고, 시나리오를 쓰지 않으면 implement에서 막힌다. 시나리오를 쓰면 하네스가 implement를 넘기고, 그 시나리오를 `.harness/e2e-unrun`에 남긴다
   - 결과(2026-11-28): 임시 프로젝트(`scripts/init`)에서 훅을 차례로 돌려 위 세 가지를 확인했다. PetCycle 적용은 따로 한다
+- [x] **38. 위키를 검색한 뒤 열었는지 센다** (ADR 0008 추가)
+  - 관찰(2026-11-28): PetCycle 위키에는 한 파일에 여러 사실을 담은 기록이 있었다. 그런 기록은 제목에 주제만 적혀 있었다. 검색 결과에는 제목만 나와 에이전트가 기록을 열지 않고 넘길 수 있다. 그런데 남는 것은 검색 수뿐이라 그런 일이 있었는지 알 수 없었다
+  - 할 일: 훅 `wiki-use.sh`가 검색에 걸린 기록과 Read로 연 기록을 세션별로 `.harness/state/wiki-use.jsonl`에 남긴다. `scripts/harness/wiki stats`는 결과가 있었는데 열지 않은 검색을 센다. 기록마다 검색에 걸린 횟수와 그 뒤 열린 횟수도 센다
+  - 완료 기준: `bash tests/run.sh` 통과. Claude Code 세션에서 검색과 Read가 같은 세션 id로 남고, stats가 열지 않은 검색과 기록별 횟수를 낸다
+  - 결과(2026-11-28): 임시 프로젝트에서 `claude -p --plugin-dir plugin`으로 확인했다. 시험장에 쌓이는 숫자를 보고 기록 제목 규칙을 고칠지 정한다
 - [ ] **34. 문서 검수에서 찾은 훅의 빈틈** (2026-11-09)
   - 찾은 경위: 설명 문서("하네스 쉽게 보기")를 검수하며 코드와 대조해 찾았다. 시험장에서 실제로 일어난 일은 아니다. ai-bouncer가 막는 세 가지만 여기서 다루고, 나머지는 아래 "관찰되면 할 것"에 둔다
   - [ ] 검사 결과 파일 쓰기 막기

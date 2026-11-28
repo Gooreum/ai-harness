@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # 정책·결정 기록(docs/wiki/)을 찾고 형식을 검사한다. 검색 기록은 .harness/state/wiki-search.log에 남긴다.
+# stats는 플러그인 훅(wiki-use.sh)이 세션별로 남긴 검색·열람(.harness/state/wiki-use.jsonl)을 비교한다.
 set -euo pipefail
 
 here="$(cd "$(dirname "$0")" && pwd)"
@@ -10,14 +11,17 @@ usage() {
 사용법: scripts/harness/wiki search <단어>...
        scripts/harness/wiki check [파일...]
        scripts/harness/wiki done
+       scripts/harness/wiki stats
 
   search   docs/wiki/의 기록 중 모든 단어가 들어 있는 것을 찾는다(대소문자 무시).
            한 줄에 하나씩 "종류  경로  제목"을 출력한다. 내용은 그 파일을 열어 읽는다.
   check    기록의 형식(kind, tags, 제목, 종류별 항목)을 검사한다. 파일을 주지 않으면 전부.
   done     마무리 단계의 확인(checks.json의 stages.finish.run). 이번 작업에서 docs/wiki/를 바꿨으면
            바꾼 기록의 형식을 검사한다. 바꾸지 않았으면 남기지 않은 이유(.harness/state/wiki.skip)가 있어야 한다.
+  stats    에이전트가 위키를 검색하고 연 기록(.harness/state/wiki-use.jsonl)을 센다. 결과가 있었는데
+           아무것도 열지 않은 검색과, 검색에 걸린 기록마다 걸린 뒤 열린 횟수를 보여 준다.
 
-  종료 코드: search는 찾으면 0, 없으면 1. check·done은 문제가 없으면 0, 있으면 1. 인자 오류 2
+  종료 코드: search는 찾으면 0, 없으면 1. check·done은 문제가 없으면 0, 있으면 1. stats는 0(기록이 깨졌으면 1). 인자 오류 2
 EOF2
 }
 
@@ -122,6 +126,37 @@ case "$cmd" in
   남길 것이 없으면 그 이유를 한 줄로 .harness/state/wiki.skip에 쓴다. 작업 보고의 "5. 위키"에 이 이유를 옮긴다.
 EOF2
     exit 1
+    ;;
+  stats)
+    # 발표 슬라이드 52의 "검색 → 열람"을 잰다. 반영은 재지 않는다.
+    # 검색 결과가 있었는데 같은 세션에서 그 뒤로 걸린 기록을 하나도 열지 않았으면 "열지 않은 검색"으로 센다.
+    log="$state_dir/wiki-use.jsonl"
+    if [ ! -s "$log" ]; then
+      echo "· wiki · 검색·열람 기록 없음 (.harness/state/wiki-use.jsonl, 플러그인 훅이 남긴다)"
+      exit 0
+    fi
+    jq -rs '
+      [ to_entries[] | .value + {i: .key} | select(.session and .event) ] as $ev
+      | [ $ev[] | select(.event == "search") ] as $searches
+      | [ $ev[] | select(.event == "open") ] as $opens
+      | [ $searches[] | select((.hits // []) | length > 0)
+          | . as $s
+          | . + {opened: ([ $opens[] | select(.session == $s.session and .i > $s.i and (.path as $p | $s.hits | index($p))) ] | length > 0)} ] as $hit
+      | [ $hit[] | select(.opened | not) ] as $missed
+      | ([ $ev[].session ] | unique | length) as $sessions
+      | "wiki · 세션 \($sessions)개 · 검색 \($searches | length)회(결과 있음 \($hit | length)) · 열람 \($opens | length)회",
+        (if ($missed | length) == 0 then "  결과가 있었던 검색은 모두 걸린 기록을 하나 이상 열었다"
+         else "  결과가 있었는데 아무것도 열지 않은 검색 \($missed | length)회 (최근 10개):",
+           ($missed | .[-10:] | reverse[] | "    \(.t)  \"\(.query)\"  → \(.hits[0])\(if (.hits | length) > 1 then " 외 \((.hits | length) - 1)개" else "" end)")
+         end),
+        (if ($hit | length) == 0 then empty else
+           "  검색에 걸린 기록 (걸린 횟수 / 그 뒤 열린 횟수, 많이 걸린 순 10개):",
+           ( [ $hit[] as $s | $s.hits[] as $p
+               | {p: $p, opened: ([ $opens[] | select(.session == $s.session and .i > $s.i and .path == $p) ] | length > 0)} ]
+             | group_by(.p) | map({p: .[0].p, n: length, o: (map(select(.opened)) | length)})
+             | sort_by(-.n, .p) | .[:10][] | "    \(.n) / \(.o)  \(.p)" )
+         end)
+    ' "$log" 2> /dev/null || { echo "✗ wiki · .harness/state/wiki-use.jsonl을 읽지 못했다(JSON이 깨졌을 수 있다)" >&2; exit 1; }
     ;;
   -h|--help) usage ;;
   *) echo "wiki: 알 수 없는 명령: $cmd" >&2; usage >&2; exit 2 ;;

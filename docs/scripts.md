@@ -74,6 +74,7 @@ scripts/harness/passed unit-test   # .harness/out/unit-test.json이 통과했고
 scripts/harness/wiki search <단어>...   # 정책·결정 기록 찾기
 scripts/harness/wiki check [파일...]     # 기록 형식 검사
 scripts/harness/wiki done                # 마무리 확인: 위키 기록이 있는지, 없으면 그 이유가 있는지
+scripts/harness/wiki stats               # 에이전트가 위키를 검색하고 연 횟수 비교
 ```
 
 - 기록 형식과 쓰는 때는 [wiki.md](wiki.md)에 있다.
@@ -83,7 +84,8 @@ scripts/harness/wiki done                # 마무리 확인: 위키 기록이 �
   - 바뀐 기록이 없는데 git이 무시하는 경로에 쓴 기록이 있으면, 그 경로를 알리고 작업을 닫지 않는다.
   - 그런 기록도 없으면 위키에 기록하지 않은 이유가 `.harness/state/wiki.skip`에 한 줄 이상 있어야 통과한다. 새 작업을 시작하면 훅이 이 파일을 지운다.
   - 진행 중인 작업이 없거나 시작 커밋이 없으면 확인하지 않고 통과한다.
-- 종료 코드: search는 찾으면 0, 없으면 1. check·done은 문제가 없으면 0, 있으면 1. 인자 오류 2
+- stats는 플러그인 훅 `wiki-use.sh`가 남긴 `.harness/state/wiki-use.jsonl`을 읽는다. 첫 줄에는 세션 수, 검색 수, 열람 수를 쓴다. 검색 결과가 있었는데 같은 세션에서 걸린 기록을 하나도 열지 않았으면, 그 검색을 최근 것부터 10개까지 보여 준다. 마지막으로 많이 걸린 기록 10개를 검색에 걸린 횟수, 그 뒤 열린 횟수와 함께 보여 준다. 기록이 없으면 알리고 0으로 끝난다.
+- 종료 코드: search는 찾으면 0, 없으면 1. check·done은 문제가 없으면 0, 있으면 1. stats는 0(기록이 깨졌으면 1). 인자 오류 2
 
 ## doctor
 

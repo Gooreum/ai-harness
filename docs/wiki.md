@@ -47,9 +47,12 @@ scripts/harness/wiki search 번역 500   # 모든 단어가 든 기록: "종류 
 scripts/harness/wiki check             # 모든 기록의 형식 검사
 scripts/harness/wiki check docs/wiki/translation/x.md
 scripts/harness/wiki done              # 마무리 확인(stages.finish.run): 이번 작업의 기록이나 남기지 않은 이유
+scripts/harness/wiki stats             # 결과가 있었는데 열지 않은 검색과, 기록마다 걸린 횟수·열린 횟수
 ```
 
 - search는 대소문자를 무시하고 모든 단어가 들어 있는 기록을 찾는다. 찾으면 0, 없으면 1로 끝난다.
-- 검색마다 `.harness/state/wiki-search.log`에 시각·검색어·결과 수를 남긴다. 발표처럼 "검색 → 열람 → 반영"을 재려면 이 기록부터 쓴다. 열람·반영은 아직 재지 않는다.
+- 검색마다 `.harness/state/wiki-search.log`에 시각·검색어·결과 수를 남긴다.
+- 플러그인 훅 `wiki-use.sh`는 검색에 걸린 기록과 에이전트가 Read로 연 기록을 세션별로 `.harness/state/wiki-use.jsonl`에 남긴다. 발표 팀은 검색, 열람, 반영 세 가지를 쟀지만(슬라이드 52), 여기서는 반영을 재지 않는다.
+- stats는 그 기록으로 검색과 열람을 비교한다. 검색 결과가 있었는데 같은 세션에서 그 뒤로 걸린 기록을 하나도 열지 않았으면 열지 않은 검색으로 센다. 기록마다 검색에 걸린 횟수와 걸린 뒤 열린 횟수도 보여 준다. 자주 걸리는데 거의 열리지 않는 기록이 있으면, 사람이 그 제목만 읽고도 내용을 알 수 있는지 살핀다.
 - check는 머리말, `kind`, `tags`, 제목, 종류별 항목을 본다. 문제가 있으면 파일마다 출력하고 1로 끝난다.
 - check는 git이 무시하는 기록도 문제로 본다. 기록은 저장소에 올려야 다음 작업에서 찾을 수 있다(발표 슬라이드 46). iOS `.gitignore`의 `build/` 같은 규칙에 폴더 이름이 걸리기 쉽다.
