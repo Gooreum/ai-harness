@@ -44,6 +44,9 @@
 - 작업을 마치면 커밋·push·PR·머지까지 묻지 않고 하고, 머지한 브랜치는 지운다.
   - 커밋 메시지는 한글로 쓴다.
   - prefix는 `feat:` `fix:` `docs:` `chore:` `test:` 중 하나를 쓴다.
+- 머지해서 플러그인 버전(`plugin/.claude-plugin/plugin.json`)이 바뀌었으면 GitHub 릴리스를 만든다.
+  - main의 머지 커밋에 `v<버전>` 태그를 달아 push한다.
+  - `gh release create v<버전> --title "v<버전> (<날짜>)"`로 만든다. 노트에는 지난 태그 이후 커밋 제목과 비교 링크를 적는다.
 - 단위를 마치면 roadmap의 체크박스를 갱신한다. 설계 결정은 `docs/decisions/`에 ADR로 남긴다.
 - 완료 기준은 시험장 프로젝트에서 실제로 실행해 확인한다.
   - 시험장은 ReadSharp(`~/Code/EnglishStudy`)의 `~/Code/EnglishStudy-harness` 워크트리다. 단위 1~9의 기록은 MotoTrace에서 했다.
